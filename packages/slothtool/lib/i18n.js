@@ -11,6 +11,8 @@ const messages = {
         commands: {
             install: '安装插件',
             uninstall: '卸载插件',
+            update: '更新插件',
+            updateAll: '更新所有插件',
             list: '列出已安装的插件',
             run: '运行插件',
             runShorthand: '运行插件（简写）',
@@ -38,6 +40,27 @@ const messages = {
         uninstallConfigFile: '  • 配置文件：{file}',
         uninstallRegistryEntry: '  • 注册表条目',
         uninstallNoConfig: '  • 无配置文件',
+
+        // 更新
+        updating: '正在更新插件：',
+        currentVersion: '当前版本：',
+        checkingUpdates: '正在检查更新...',
+        alreadyLatest: '✓ 插件 "{alias}" 已经是最新版本 {version}',
+        updateSuccess: '✓ 插件 "{alias}" 更新成功！{oldVersion} → {newVersion}',
+        updateFailed: '✗ 更新插件 "{alias}" 失败：',
+        specifyPluginToUpdate: '错误：请指定要更新的插件。',
+        updateUsage: '用法：slothtool update <插件别名>',
+
+        // 更新所有插件
+        updateAll: {
+            title: '\n📦 更新所有插件',
+            foundPlugins: '找到 {count} 个已安装的插件',
+            summary: '\n更新摘要：',
+            totalPlugins: '  总插件数：{count}',
+            updated: '  ✓ 已更新：{count}',
+            alreadyLatest: '  ✓ 已是最新：{count}',
+            failed: '  ✗ 更新失败：{count}'
+        },
 
         // 完全卸载
         uninstallAll: {
@@ -86,6 +109,8 @@ const messages = {
             installOfficial: '安装官方插件',
             installCustom: '安装自定义插件',
             uninstallPlugin: '卸载插件',
+            updatePlugin: '更新插件',
+            updateAllPlugins: '更新所有插件',
             listPlugins: '查看已安装的插件',
             runPlugin: '运行插件',
             configLanguage: '配置语言',
@@ -94,11 +119,13 @@ const messages = {
 
             selectPlugin: '选择插件：',
             selectOfficialPlugin: '选择要安装的官方插件：',
+            selectPluginToUpdate: '选择要更新的插件：',
             enterPackageName: '请输入插件包名（如 @scope/plugin-name）：',
             enterPluginAlias: '请输入插件别名：',
             selectLanguage: '选择语言：',
 
             noPluginsToUninstall: '没有已安装的插件可以卸载。',
+            noPluginsToUpdate: '没有已安装的插件可以更新。',
             noPluginsToRun: '没有已安装的插件可以运行。',
 
             pluginInfo: '插件信息',
@@ -108,6 +135,11 @@ const messages = {
 
             confirmInstall: '确认安装 {name}？',
             confirmUninstall: '确认卸载 {alias}？',
+            confirmUpdate: '确认更新 {alias}？',
+            confirmUpdateAll: '确认更新所有 {count} 个插件？',
+
+            runWithArgs: '是否要运行此插件？',
+            enterArgs: '请输入运行参数（留空表示无参数）：',
 
             operationCancelled: '操作已取消。',
             pressEnterToContinue: '\n按回车键继续...'
@@ -124,6 +156,8 @@ const messages = {
         commands: {
             install: 'Install a plugin',
             uninstall: 'Uninstall a plugin',
+            update: 'Update a plugin',
+            updateAll: 'Update all plugins',
             list: 'List installed plugins',
             run: 'Run a plugin',
             runShorthand: 'Run a plugin (shorthand)',
@@ -151,6 +185,27 @@ const messages = {
         uninstallConfigFile: '  • Config file: {file}',
         uninstallRegistryEntry: '  • Registry entry',
         uninstallNoConfig: '  • No config file',
+
+        // Update
+        updating: 'Updating plugin:',
+        currentVersion: 'Current version:',
+        checkingUpdates: 'Checking for updates...',
+        alreadyLatest: '✓ Plugin "{alias}" is already at the latest version {version}',
+        updateSuccess: '✓ Plugin "{alias}" updated successfully! {oldVersion} → {newVersion}',
+        updateFailed: '✗ Failed to update plugin "{alias}":',
+        specifyPluginToUpdate: 'Error: Please specify a plugin to update.',
+        updateUsage: 'Usage: slothtool update <plugin-alias>',
+
+        // Update all plugins
+        updateAll: {
+            title: '\n📦 Update All Plugins',
+            foundPlugins: 'Found {count} installed plugins',
+            summary: '\nUpdate Summary:',
+            totalPlugins: '  Total plugins: {count}',
+            updated: '  ✓ Updated: {count}',
+            alreadyLatest: '  ✓ Already latest: {count}',
+            failed: '  ✗ Failed: {count}'
+        },
 
         // Complete uninstall
         uninstallAll: {
@@ -199,6 +254,8 @@ const messages = {
             installOfficial: 'Install official plugin',
             installCustom: 'Install custom plugin',
             uninstallPlugin: 'Uninstall plugin',
+            updatePlugin: 'Update plugin',
+            updateAllPlugins: 'Update all plugins',
             listPlugins: 'List installed plugins',
             runPlugin: 'Run plugin',
             configLanguage: 'Configure language',
@@ -207,11 +264,13 @@ const messages = {
 
             selectPlugin: 'Select plugin:',
             selectOfficialPlugin: 'Select official plugin to install:',
+            selectPluginToUpdate: 'Select plugin to update:',
             enterPackageName: 'Enter plugin package name (e.g., @scope/plugin-name):',
             enterPluginAlias: 'Enter plugin alias:',
             selectLanguage: 'Select language:',
 
             noPluginsToUninstall: 'No plugins installed to uninstall.',
+            noPluginsToUpdate: 'No plugins installed to update.',
             noPluginsToRun: 'No plugins installed to run.',
 
             pluginInfo: 'Plugin Information',
@@ -221,6 +280,11 @@ const messages = {
 
             confirmInstall: 'Confirm install {name}?',
             confirmUninstall: 'Confirm uninstall {alias}?',
+            confirmUpdate: 'Confirm update {alias}?',
+            confirmUpdateAll: 'Confirm update all {count} plugins?',
+
+            runWithArgs: 'Do you want to run this plugin?',
+            enterArgs: 'Enter arguments (leave empty for no arguments):',
 
             operationCancelled: 'Operation cancelled.',
             pressEnterToContinue: '\nPress Enter to continue...'

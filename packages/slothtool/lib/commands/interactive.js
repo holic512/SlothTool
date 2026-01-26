@@ -1,9 +1,10 @@
 const prompts = require('prompts');
 const {spawn} = require('child_process');
 const path = require('path');
+const fs = require('fs');
 const registry = require('../registry');
 const settings = require('../settings');
-const {installPlugin, uninstallPlugin} = require('../plugin-manager');
+const {installPlugin, uninstallPlugin, updatePlugin, updateAllPlugins} = require('../plugin-manager');
 const uninstallAll = require('./uninstall-all');
 const {t} = require('../i18n');
 
@@ -24,6 +25,8 @@ async function interactive() {
             choices: [
                 {title: t('interactive.installPlugin'), value: 'install'},
                 {title: t('interactive.uninstallPlugin'), value: 'uninstall'},
+                {title: t('interactive.updatePlugin'), value: 'update'},
+                {title: t('interactive.updateAllPlugins'), value: 'updateAll'},
                 {title: t('interactive.listPlugins'), value: 'list'},
                 {title: t('interactive.runPlugin'), value: 'run'},
                 {title: t('interactive.configLanguage'), value: 'config'},
@@ -45,6 +48,12 @@ async function interactive() {
                     break;
                 case 'uninstall':
                     await handleUninstall();
+                    break;
+                case 'update':
+                    await handleUpdate();
+                    break;
+                case 'updateAll':
+                    await handleUpdateAll();
                     break;
                 case 'list':
                     await handleList();
@@ -215,6 +224,80 @@ async function handleUninstall() {
 }
 
 /**
+ * 处理更新插件
+ */
+async function handleUpdate() {
+    const plugins = registry.getAllPlugins();
+    const pluginList = Object.keys(plugins);
+
+    if (pluginList.length === 0) {
+        console.log(t('interactive.noPluginsToUpdate'));
+        return;
+    }
+
+    const choices = pluginList.map(alias => ({
+        title: `${alias} (${plugins[alias].name} v${plugins[alias].version})`,
+        value: alias
+    }));
+
+    const response = await prompts({
+        type: 'select',
+        name: 'alias',
+        message: t('interactive.selectPluginToUpdate'),
+        choices: choices
+    });
+
+    if (!response.alias) {
+        throw new Error('cancelled');
+    }
+
+    // 确认更新
+    const confirm = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: t('interactive.confirmUpdate', {alias: response.alias}),
+        initial: true
+    });
+
+    if (!confirm.value) {
+        console.log(t('interactive.operationCancelled'));
+        return;
+    }
+
+    console.log('');
+    updatePlugin(response.alias);
+}
+
+/**
+ * 处理更新所有插件
+ */
+async function handleUpdateAll() {
+    const plugins = registry.getAllPlugins();
+    const pluginList = Object.keys(plugins);
+
+    if (pluginList.length === 0) {
+        console.log(t('interactive.noPluginsToUpdate'));
+        return;
+    }
+
+    // 确认更新所有插件
+    const confirm = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: t('interactive.confirmUpdateAll', {count: pluginList.length}),
+        initial: true
+    });
+
+    if (!confirm.value) {
+        console.log(t('interactive.operationCancelled'));
+        return;
+    }
+
+    console.log('');
+    updateAllPlugins();
+}
+
+/**
  * 处理列出插件
  */
 async function handleList() {
@@ -267,25 +350,111 @@ async function handleRun() {
 
     const plugin = plugins[response.alias];
 
+    // 检查插件是否支持交互式模式
+    const pluginPackageJsonPath = path.join(
+        path.dirname(plugin.binPath),
+        '..',
+        'package.json'
+    );
+
+    let hasInteractiveMode = false;
+    let interactiveFlag = '-i';
+
+    if (fs.existsSync(pluginPackageJsonPath)) {
+        try {
+            const pluginPackage = JSON.parse(fs.readFileSync(pluginPackageJsonPath, 'utf8'));
+            if (pluginPackage.slothtool && pluginPackage.slothtool.interactive) {
+                hasInteractiveMode = true;
+                interactiveFlag = pluginPackage.slothtool.interactiveFlag || '-i';
+            }
+        } catch (error) {
+            // 忽略解析错误
+        }
+    }
+
     console.log('');
-    console.log(`Running: ${response.alias}...`);
-    console.log('─'.repeat(50));
 
-    // 运行插件
-    const child = spawn('node', [plugin.binPath], {
-        stdio: 'inherit'
-    });
+    // 如果插件支持交互式模式，直接启动交互式模式
+    if (hasInteractiveMode) {
+        console.log(`Running: ${response.alias} (interactive mode)...`);
+        console.log('─'.repeat(50));
 
-    await new Promise((resolve, reject) => {
-        child.on('error', (error) => {
-            console.error(t('failedToRun', {pluginAlias: response.alias}), error.message);
-            reject(error);
+        const child = spawn('node', [plugin.binPath, interactiveFlag], {
+            stdio: 'inherit'
         });
 
-        child.on('exit', (code) => {
-            resolve(code);
+        await new Promise((resolve, reject) => {
+            child.on('error', (error) => {
+                console.error(t('failedToRun', {pluginAlias: response.alias}), error.message);
+                reject(error);
+            });
+
+            child.on('exit', (code) => {
+                resolve(code);
+            });
         });
-    });
+    } else {
+        // 如果插件不支持交互式模式，先显示帮助，然后让用户输入参数
+        console.log(`Running: ${response.alias}...`);
+        console.log('─'.repeat(50));
+        console.log('');
+
+        // 先显示帮助信息
+        const helpChild = spawn('node', [plugin.binPath, '--help'], {
+            stdio: 'inherit'
+        });
+
+        await new Promise((resolve) => {
+            helpChild.on('exit', () => resolve());
+        });
+
+        console.log('');
+        console.log('─'.repeat(50));
+
+        // 询问用户是否要运行插件
+        const runResponse = await prompts({
+            type: 'confirm',
+            name: 'value',
+            message: t('interactive.runWithArgs'),
+            initial: true
+        });
+
+        if (!runResponse.value) {
+            return;
+        }
+
+        // 让用户输入参数
+        const argsResponse = await prompts({
+            type: 'text',
+            name: 'args',
+            message: t('interactive.enterArgs'),
+            initial: ''
+        });
+
+        if (argsResponse.args === undefined) {
+            return;
+        }
+
+        console.log('');
+        console.log('─'.repeat(50));
+
+        // 解析参数并运行
+        const args = argsResponse.args.trim().split(/\s+/).filter(arg => arg.length > 0);
+        const child = spawn('node', [plugin.binPath, ...args], {
+            stdio: 'inherit'
+        });
+
+        await new Promise((resolve, reject) => {
+            child.on('error', (error) => {
+                console.error(t('failedToRun', {pluginAlias: response.alias}), error.message);
+                reject(error);
+            });
+
+            child.on('exit', (code) => {
+                resolve(code);
+            });
+        });
+    }
 }
 
 /**

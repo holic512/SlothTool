@@ -39,6 +39,7 @@ const messages = {
         interactive: '交互式模式',
 
         // 示例
+        exampleHelp: '显示帮助信息',
         exampleCurrent: '统计当前目录的代码行数',
         exampleSrc: '统计 ./src 目录的代码行数',
         exampleVerbose: '显示详细的文件信息',
@@ -87,6 +88,7 @@ const messages = {
         interactive: 'Interactive mode',
 
         // Examples
+        exampleHelp: 'Show help message',
         exampleCurrent: 'Count lines in current directory',
         exampleSrc: 'Count lines in ./src directory',
         exampleVerbose: 'Show detailed file information',

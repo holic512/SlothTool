@@ -12,6 +12,8 @@ if (!command) {
     console.log(t('usage'));
     console.log('  slothtool install <plugin>       ' + t('commands.install'));
     console.log('  slothtool uninstall <plugin>     ' + t('commands.uninstall'));
+    console.log('  slothtool update <plugin>        ' + t('commands.update'));
+    console.log('  slothtool --update-all           ' + t('commands.updateAll'));
     console.log('  slothtool list                   ' + t('commands.list'));
     console.log('  slothtool run <plugin> [args]    ' + t('commands.run'));
     console.log('  slothtool <plugin> [args]        ' + t('commands.runShorthand'));
@@ -21,6 +23,8 @@ if (!command) {
     console.log(t('examples'));
     console.log('  slothtool install @holic512/plugin-loc');
     console.log('  slothtool loc ./src');
+    console.log('  slothtool update loc');
+    console.log('  slothtool --update-all');
     console.log('  slothtool list');
     console.log('  slothtool config language en');
     console.log('  slothtool -i');
@@ -32,6 +36,10 @@ if (command === 'install') {
     commands.install(args.slice(1));
 } else if (command === 'uninstall') {
     commands.uninstall(args.slice(1));
+} else if (command === 'update') {
+    commands.update(args.slice(1));
+} else if (command === '--update-all') {
+    commands.updateAll();
 } else if (command === 'list') {
     commands.list();
 } else if (command === 'run') {
@@ -47,6 +55,8 @@ if (command === 'install') {
     console.log(t('usage'));
     console.log('  slothtool install <plugin>       ' + t('commands.install'));
     console.log('  slothtool uninstall <plugin>     ' + t('commands.uninstall'));
+    console.log('  slothtool update <plugin>        ' + t('commands.update'));
+    console.log('  slothtool --update-all           ' + t('commands.updateAll'));
     console.log('  slothtool list                   ' + t('commands.list'));
     console.log('  slothtool run <plugin> [args]    ' + t('commands.run'));
     console.log('  slothtool <plugin> [args]        ' + t('commands.runShorthand'));
@@ -56,6 +66,8 @@ if (command === 'install') {
     console.log(t('examples'));
     console.log('  slothtool install @holic512/plugin-loc');
     console.log('  slothtool loc ./src');
+    console.log('  slothtool update loc');
+    console.log('  slothtool --update-all');
     console.log('  slothtool list');
     console.log('  slothtool config language en');
     console.log('  slothtool -i');

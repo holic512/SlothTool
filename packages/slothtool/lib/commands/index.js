@@ -5,6 +5,8 @@ const run = require('./run');
 const config = require('./config');
 const interactive = require('./interactive');
 const uninstallAll = require('./uninstall-all');
+const update = require('./update');
+const updateAll = require('./update-all');
 
 module.exports = {
     install,
@@ -13,5 +15,7 @@ module.exports = {
     run,
     config,
     interactive,
-    uninstallAll
+    uninstallAll,
+    update,
+    updateAll
 };

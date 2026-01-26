@@ -10,16 +10,59 @@ SlothTool 是一个插件管理系统，允许你安装、管理和运行 CLI �
 - **简单命令**：直观易用的 CLI 命令
 - **插件隔离**：每个插件都有自己的依赖
 - **简写语法**：使用 `slothtool <plugin>` 代替 `slothtool run <plugin>`
-- **Monorepo 结构**：官方插件在同一仓库中维护
-- **独立发布**：每个插件可以独立发布
 - **双语支持**：支持中文和英文界面（默认中文）
-- **交互式界面**：核心工具和插件都提供菜单驱动的交互式体验
+- **交互式界面**：提供菜单驱动的交互式体验
+- **插件更新**：支持单个或批量更新插件
 - **官方插件库**：内置官方插件配置，一键安装
 
-## 安装
+## 快速开始
+
+### 安装
 
 ```bash
 npm install -g @holic512/slothtool
+```
+
+### 基本使用
+
+```bash
+# 交互式模式（推荐新手使用）
+slothtool -i
+
+# 安装插件
+slothtool install @holic512/plugin-loc
+
+# 运行插件
+slothtool loc ./src
+
+# 查看帮助
+slothtool --help
+```
+
+## 目录
+
+- [安装](#安装-1)
+- [使用方法](#使用方法)
+  - [交互式模式](#交互式模式推荐)
+  - [命令行模式](#命令行模式)
+- [官方插件](#官方插件)
+- [配置](#配置)
+- [文档](#文档)
+- [贡献](#贡献)
+- [许可证](#许可证)
+
+## 安装
+
+### 全局安装（推荐）
+
+```bash
+npm install -g @holic512/slothtool
+```
+
+### 验证安装
+
+```bash
+slothtool --help
 ```
 
 ## 使用方法
@@ -36,43 +79,49 @@ slothtool --interactive
 
 **交互式模式功能：**
 
-- 📦 安装插件（官方插件 / 自定义插件）
-- 🗑️ 卸载插件
-- 📋 查看已安装的插件
-- ▶️ 运行插件
-- 🌐 配置语言
+- 📦 **安装插件**
+  - 安装官方插件（从预配置列表选择）
+  - 安装自定义插件（输入包名）
+- 🗑️ **卸载插件**
+- 🔄 **更新插件**
+  - 更新单个插件
+  - 一键更新所有插件
+- 📋 **查看已安装的插件**
+- ▶️ **运行插件**
+  - 自动检测插件是否支持交互式模式
+  - 智能启动插件（交互式或参数模式）
+- 🌐 **配置语言**
+- 🗑️ **完全卸载 SlothTool**
 
-### 配置语言
+### 命令行模式
 
-```bash
-# 设置为中文（默认）
-slothtool config language zh
-
-# 设置为英文
-slothtool config language en
-
-# 查看当前语言
-slothtool config
-```
-
-### 安装插件
+#### 安装插件
 
 ```bash
-# 方式1：直接安装
+# 安装官方插件
 slothtool install @holic512/plugin-loc
 
-# 方式2：交互式安装（推荐）
-slothtool -i
-# 然后选择 "安装插件" -> "安装官方插件"
+# 安装任何 npm 包作为插件
+slothtool install <package-name>
 ```
 
-### 列出已安装的插件
+#### 列出已安装的插件
 
 ```bash
 slothtool list
 ```
 
-### 运行插件
+输出示例：
+```
+已安装的插件：
+
+  loc
+    Package: @holic512/plugin-loc
+    Version: 1.0.1
+    Installed: 2024-01-26 10:30:00
+```
+
+#### 运行插件
 
 ```bash
 # 完整语法
@@ -80,18 +129,43 @@ slothtool run loc ./src
 
 # 简写语法（推荐）
 slothtool loc ./src
+
+# 传递参数给插件
+slothtool loc -v ./src
+slothtool loc --help
 ```
 
-### 卸载插件
+#### 更新插件
+
+```bash
+# 更新单个插件
+slothtool update loc
+
+# 更新所有插件
+slothtool --update-all
+```
+
+#### 卸载插件
 
 ```bash
 slothtool uninstall loc
 ```
 
-### 获取帮助
+#### 完全卸载 SlothTool
+
+```bash
+# 删除所有插件和配置数据
+slothtool --uninstall-all
+
+# 然后卸载 SlothTool 本身
+npm uninstall -g @holic512/slothtool
+```
+
+#### 获取帮助
 
 ```bash
 slothtool --help
+slothtool -h
 ```
 
 ## 官方插件
@@ -100,11 +174,22 @@ slothtool --help
 
 统计目录中的代码行数，支持交互式模式和文件类型过滤。
 
-```bash
-# 安装插件
-slothtool install @holic512/plugin-loc
+**安装：**
 
-# 基本使用
+```bash
+slothtool install @holic512/plugin-loc
+```
+
+**使用：**
+
+```bash
+# 显示帮助
+slothtool loc
+
+# 统计当前目录
+slothtool loc .
+
+# 统计指定目录
 slothtool loc ./src
 
 # 详细模式（显示每个文件的行数）
@@ -117,420 +202,117 @@ slothtool loc -i
 slothtool loc -c
 ```
 
-## 添加新的官方插件
+**功能特性：**
 
-如果你开发了新的插件，可以将其添加到官方插件列表：
+- 代码行数统计
+- 文件类型过滤（可配置）
+- 排除目录配置（node_modules 等）
+- 交互式菜单界面
+- 详细模式显示每个文件
+- 支持中英文界面
 
-1. 编辑 `packages/slothtool/lib/official-plugins.json`
-2. 添加插件信息：
+## 配置
 
-```json
-{
-  "officialPlugins": [
-    {
-      "name": "@holic512/plugin-loc",
-      "alias": "loc",
-      "description": "统计目录中的代码行数",
-      "descriptionEn": "Count lines of code in a directory",
-      "version": "latest",
-      "author": "holic512",
-      "features": [
-        "代码行数统计",
-        "文件类型过滤",
-        "交互式模式",
-        "详细模式"
-      ],
-      "featuresEn": [
-        "Line counting",
-        "File type filtering",
-        "Interactive mode",
-        "Verbose mode"
-      ]
-    },
-    {
-      "name": "@holic512/plugin-your-new-plugin",
-      "alias": "your-plugin",
-      "description": "你的插件描述",
-      "descriptionEn": "Your plugin description",
-      "version": "latest",
-      "author": "holic512",
-      "features": [
-        "功能1",
-        "功能2"
-      ],
-      "featuresEn": [
-        "Feature 1",
-        "Feature 2"
-      ]
-    }
-  ]
-}
-```
+### 语言设置
 
-3. 用户在交互式模式中就能看到并安装你的新插件了！
-
-## 本地开发指南
-
-### 前置知识
-
-与 Vue 项目的 `npm run dev` 不同，SlothTool 是一个 **CLI 工具**，不是 Web 应用。理解以下概念：
-
-1. **CLI 工具**：在终端运行的命令行程序（如 `git`、`npm`）
-2. **npm link**：将本地开发的包链接到全局，让你可以像安装的包一样使用它
-3. **Monorepo**：一个仓库包含多个包（slothtool 核心 + 多个插件）
-
-### 项目结构
-
-```
-SlothTool/
-├── packages/
-│   ├── slothtool/          # 核心 CLI 工具
-│   │   ├── bin/            # 可执行文件入口
-│   │   │   └── slothtool.js
-│   │   ├── lib/            # 核心逻辑
-│   │   │   ├── commands/   # 命令实现
-│   │   │   ├── i18n.js     # 国际化
-│   │   │   ├── settings.js # 设置管理
-│   │   │   ├── registry.js # 插件注册表
-│   │   │   └── ...
-│   │   └── package.json
-│   │
-│   └── plugin-loc/         # LOC 插件（示例）
-│       ├── bin/            # 插件入口
-│       │   └── loc.js
-│       ├── lib/            # 插件逻辑
-│       │   ├── counter.js  # 代码统计
-│       │   ├── config.js   # 插件配置
-│       │   └── i18n.js     # 插件国际化
-│       └── package.json
-│
-├── package.json            # 根 package.json（workspaces 配置）
-└── README.md
-```
-
-### 第一步：克隆并安装依赖
+SlothTool 支持中文和英文界面。
 
 ```bash
-# 克隆仓库
-git clone https://github.com/yourusername/SlothTool.git
-cd SlothTool
-
-# 安装所有依赖（会自动安装所有 workspace 的依赖）
-npm install
-```
-
-**发生了什么？**
-
-- npm 会读取根目录的 `package.json`，发现 `workspaces: ["packages/*"]`
-- 自动安装 `packages/slothtool` 和 `packages/plugin-loc` 的依赖
-- 在 `node_modules` 中创建软链接，让各个包可以互相引用
-
-### 第二步：链接 slothtool 到全局
-
-```bash
-cd packages/slothtool
-npm link
-cd ../..
-```
-
-**发生了什么？**
-
-- `npm link` 在全局 npm 目录创建一个符号链接，指向你的本地代码
-- 现在你在终端输入 `slothtool`，实际运行的是你本地的 `packages/slothtool/bin/slothtool.js`
-- **这就是"本地运行"的关键**：你修改代码后，直接运行 `slothtool` 就能看到效果
-
-### 第三步：测试 slothtool 核心功能
-
-```bash
-# 测试帮助命令
-slothtool --help
-
-# 测试语言配置
+# 设置为中文（默认）
 slothtool config language zh
+
+# 设置为英文
 slothtool config language en
 
-# 查看已安装的插件（此时应该是空的）
+# 查看当前语言
+slothtool config
+```
+
+语言设置会影响：
+- SlothTool 核心界面
+- 所有支持 i18n 的插件界面
+
+### 配置文件位置
+
+SlothTool 的配置和数据存储在用户目录：
+
+```
+~/.slothtool/
+├── settings.json           # 全局设置（语言等）
+├── registry.json           # 已安装插件的注册表
+├── plugins/                # 插件安装目录
+│   ├── loc/
+│   │   └── node_modules/
+│   └── ...
+└── plugin-configs/         # 插件配置文件
+    ├── loc.json
+    └── ...
+```
+
+## 文档
+
+### 📚 用户文档
+
+- [README.md](./README.md)（本文档）- 安装和使用指南
+
+### 🔧 开发者文档
+
+- [插件开发手册](./PLUGIN_DEVELOPMENT.md) - 学习如何创建 SlothTool 插件
+- [本地构建指南](./LOCAL_BUILD_GUIDE.md) - 为 SlothTool 项目贡献代码
+
+## 常见问题
+
+### 如何查看已安装的插件？
+
+```bash
 slothtool list
 ```
 
-**调试技巧**：
-
-- 如果修改了 `packages/slothtool/lib/` 下的任何文件，直接运行 `slothtool` 就能看到效果
-- 如果修改了 `bin/slothtool.js`，也是立即生效
-- **不需要重新 build 或 restart**，因为 Node.js 每次运行都会重新读取文件
-
-### 第四步：本地开发和测试插件
-
-#### 方式一：使用 npm link（推荐用于开发）
+### 如何更新插件？
 
 ```bash
-# 链接插件到全局
-cd packages/plugin-loc
-npm link
-cd ../..
+# 更新单个插件
+slothtool update <plugin-alias>
 
-# 现在可以直接运行插件（不通过 slothtool）
-loc --help
-loc ./src
-loc -i
-
-# 或者通过 slothtool 安装本地链接的插件
-slothtool install @holic512/plugin-loc
-slothtool loc ./src
+# 更新所有插件
+slothtool --update-all
 ```
 
-**发生了什么？**
+### 插件安装在哪里？
 
-- `npm link` 让 `loc` 命令全局可用
-- 你修改 `packages/plugin-loc/` 下的代码后，直接运行 `loc` 或 `slothtool loc` 就能看到效果
+插件安装在 `~/.slothtool/plugins/` 目录下，每个插件都有独立的目录和依赖。
 
-#### 方式二：直接运行插件文件（快速测试）
+### 如何重置所有配置？
 
 ```bash
-# 直接运行插件的 bin 文件
-node packages/plugin-loc/bin/loc.js --help
-node packages/plugin-loc/bin/loc.js ./src
-node packages/plugin-loc/bin/loc.js -i
-```
-
-**适用场景**：
-
-- 快速测试单个功能
-- 不想污染全局命令
-- 调试时添加 `console.log`
-
-### 第五步：开发工作流
-
-#### 修改 slothtool 核心代码
-
-```bash
-# 1. 编辑文件
-vim packages/slothtool/lib/i18n.js
-
-# 2. 直接测试（无需重启或 build）
-slothtool --help
-
-# 3. 如果有语法错误，会立即看到错误信息
-```
-
-#### 修改插件代码
-
-```bash
-# 1. 编辑插件文件
-vim packages/plugin-loc/lib/counter.js
-
-# 2. 直接测试
-slothtool loc ./src
-
-# 或者
-node packages/plugin-loc/bin/loc.js ./src
-```
-
-#### 添加新功能
-
-假设你要给 slothtool 添加一个新命令 `update`：
-
-```bash
-# 1. 创建命令文件
-vim packages/slothtool/lib/commands/update.js
-
-# 2. 在 commands/index.js 中导出
-vim packages/slothtool/lib/commands/index.js
-
-# 3. 在 bin/slothtool.js 中添加命令处理
-vim packages/slothtool/bin/slothtool.js
-
-# 4. 测试
-slothtool update
-```
-
-### 第六步：调试技巧
-
-#### 使用 console.log 调试
-
-```javascript
-// packages/slothtool/lib/plugin-manager.js
-function installPlugin(packageName) {
-    console.log('DEBUG: packageName =', packageName);
-    const alias = extractPluginAlias(packageName);
-    console.log('DEBUG: alias =', alias);
-    // ...
-}
-```
-
-然后运行：
-
-```bash
-slothtool install @holic512/plugin-loc
-```
-
-#### 使用 Node.js 调试器
-
-```bash
-# 使用 Node.js 内置调试器
-node inspect packages/slothtool/bin/slothtool.js install @holic512/plugin-loc
-
-# 或者使用 VS Code 调试
-# 在 .vscode/launch.json 中配置：
-{
-  "type": "node",
-  "request": "launch",
-  "name": "Debug slothtool",
-  "program": "${workspaceFolder}/packages/slothtool/bin/slothtool.js",
-  "args": ["install", "@holic512/plugin-loc"]
-}
-```
-
-### 第七步：测试完整流程
-
-```bash
-# 1. 确保 slothtool 已链接
-cd packages/slothtool
-npm link
-cd ../..
-
-# 2. 测试安装插件（从 npm）
-slothtool install @holic512/plugin-loc
-
-# 3. 测试运行插件
-slothtool loc ./packages
-
-# 4. 测试交互式模式
-slothtool loc -i
-
-# 5. 测试配置
-slothtool loc -c
-
-# 6. 测试卸载
-slothtool uninstall loc
-
-# 7. 测试语言切换
-slothtool config language en
-slothtool --help
-slothtool config language zh
-slothtool --help
-```
-
-### 常见问题
-
-#### Q: 修改代码后没有生效？
-
-A: 检查以下几点：
-
-1. 确保使用了 `npm link`
-2. 确保没有语法错误（检查终端输出）
-3. 如果修改了 `package.json`，可能需要重新 `npm link`
-4. 清除缓存：`rm -rf ~/.slothtool` 然后重新测试
-
-#### Q: 如何查看 slothtool 安装的插件？
-
-A: 插件安装在用户目录：
-
-```bash
-# 查看插件目录
-ls -la ~/.slothtool/plugins/
-
-# 查看注册表
-cat ~/.slothtool/registry.json
-
-# 查看设置
-cat ~/.slothtool/settings.json
-
-# 查看插件配置
-cat ~/.slothtool/plugin-configs/loc.json
-```
-
-#### Q: 如何重置所有配置？
-
-A: 删除 slothtool 目录：
-
-```bash
+# 删除所有 SlothTool 数据
 rm -rf ~/.slothtool
+
+# 或使用命令
+slothtool --uninstall-all
 ```
 
-#### Q: npm link 和 npm install 的区别？
+### 插件运行出错怎么办？
 
-A:
+1. 检查插件是否正确安装：`slothtool list`
+2. 尝试重新安装：`slothtool uninstall <plugin>` 然后 `slothtool install <plugin>`
+3. 查看插件帮助：`slothtool <plugin> --help`
+4. 检查 SlothTool 数据：`cat ~/.slothtool/registry.json`
 
-- `npm link`：创建符号链接，指向本地代码，修改立即生效（用于开发）
-- `npm install`：从 npm 仓库下载并安装包（用于生产）
+### 如何创建自己的插件？
 
-#### Q: 为什么不需要 build 或 compile？
-
-A: 因为这是纯 JavaScript 项目，Node.js 直接执行 `.js` 文件，不需要编译。如果你使用 TypeScript，则需要编译步骤。
-
-### 发布到 npm
-
-当你完成开发并准备发布时：
-
-```bash
-# 1. 发布 slothtool 核心
-cd packages/slothtool
-npm version patch  # 或 minor, major
-npm publish --access public
-
-# 2. 发布插件
-cd ../plugin-loc
-npm version patch
-npm publish --access public
-```
-
-## 创建自己的插件
-
-### 插件结构
-
-```
-my-plugin/
-├── package.json
-├── bin/
-│   └── my-tool.js
-└── lib/
-    └── index.js
-```
-
-### package.json
-
-```json
-{
-  "name": "@yourscope/plugin-mytool",
-  "version": "1.0.0",
-  "bin": {
-    "mytool": "bin/my-tool.js"
-  }
-}
-```
-
-### bin/my-tool.js
-
-```javascript
-#!/usr/bin/env node
-
-console.log('Hello from my plugin!');
-```
-
-### 发布插件
-
-```bash
-npm publish --access public
-```
-
-### 用户使用
-
-```bash
-slothtool install @yourscope/plugin-mytool
-slothtool mytool
-```
+请参阅 [插件开发手册](./PLUGIN_DEVELOPMENT.md)。
 
 ## 架构说明
 
 ### 核心组件
 
-- **slothtool**：核心 CLI 工具，管理插件
+- **slothtool**：核心 CLI 工具，管理插件生命周期
 - **插件**：独立的 npm 包，包含 CLI 可执行文件
-- **注册表**：本地 JSON 文件（`~/.slothtool/registry.json`）跟踪已安装的插件
-- **插件存储**：`~/.slothtool/plugins/` 目录包含插件安装
-- **设置**：`~/.slothtool/settings.json` 存储全局设置（如语言）
-- **插件配置**：`~/.slothtool/plugin-configs/` 存储插件特定配置
+- **注册表**：本地 JSON 文件跟踪已安装的插件
+- **插件存储**：隔离的目录存储每个插件及其依赖
+- **设置**：全局配置（语言等）
+- **插件配置**：插件特定的配置文件
 
 ### 工作原理
 
@@ -539,10 +321,62 @@ slothtool mytool
 3. **语言支持**：所有组件读取 `settings.json` 获取当前语言
 4. **插件配置**：插件可以在 `plugin-configs/` 存储自己的配置
 
+### 插件开发规范
+
+插件可以通过在 `package.json` 中添加 `slothtool` 字段来声明特性：
+
+```json
+{
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i"
+  }
+}
+```
+
+这样 SlothTool 就能自动检测并启动插件的交互式模式。
+
+详细信息请参阅 [插件开发手册](./PLUGIN_DEVELOPMENT.md)。
+
+## 贡献
+
+欢迎贡献！无论是报告 bug、提出新功能建议，还是提交代码。
+
+### 如何贡献
+
+1. Fork 本仓库
+2. 创建特性分支：`git checkout -b feature/my-feature`
+3. 提交更改：`git commit -m "feat: add my feature"`
+4. 推送到分支：`git push origin feature/my-feature`
+5. 创建 Pull Request
+
+### 开发指南
+
+如果你想为 SlothTool 核心或插件贡献代码，请参阅：
+
+- [本地构建指南](./LOCAL_BUILD_GUIDE.md) - 设置开发环境
+- [插件开发手册](./PLUGIN_DEVELOPMENT.md) - 创建插件
+
+### 行为准则
+
+- 尊重他人
+- 提供建设性反馈
+- 保持友好和专业
+
 ## 许可证
 
 ISC
 
-## 贡献
+## 链接
 
-欢迎贡献！请随时提交 Pull Request。
+- [GitHub 仓库](https://github.com/yourusername/SlothTool)
+- [npm 包](https://www.npmjs.com/package/@holic512/slothtool)
+- [问题反馈](https://github.com/yourusername/SlothTool/issues)
+
+## 致谢
+
+感谢所有贡献者和使用 SlothTool 的用户！
+
+---
+
+Made with 🐌 by the SlothTool team

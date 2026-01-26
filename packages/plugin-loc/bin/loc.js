@@ -9,22 +9,15 @@ const prompts = require('prompts');
 
 const args = process.argv.slice(2);
 
+// 如果没有参数，显示帮助信息
+if (args.length === 0) {
+    showHelp();
+    process.exit(0);
+}
+
 // 显示帮助信息
 if (args.includes('--help') || args.includes('-h')) {
-    console.log(t('title') + '\n');
-    console.log(t('usage'));
-    console.log('  loc [directory]\n');
-    console.log(t('options'));
-    console.log('  -h, --help        ' + t('help'));
-    console.log('  -v, --verbose     ' + t('verbose'));
-    console.log('  -c, --config      ' + t('config'));
-    console.log('  -i, --interactive ' + t('interactive') + '\n');
-    console.log(t('examples'));
-    console.log('  loc               ' + t('exampleCurrent'));
-    console.log('  loc ./src         ' + t('exampleSrc'));
-    console.log('  loc -v ./src      ' + t('exampleVerbose'));
-    console.log('  loc -c            ' + t('exampleConfig'));
-    console.log('  loc -i            ' + t('exampleInteractive'));
+    showHelp();
     process.exit(0);
 }
 
@@ -45,6 +38,27 @@ const verbose = args.includes('--verbose') || args.includes('-v');
 const filteredArgs = args.filter(arg => !arg.startsWith('-'));
 const targetDir = filteredArgs[0] || '.';
 countDirectory(targetDir, verbose);
+
+/**
+ * 显示帮助信息
+ */
+function showHelp() {
+    console.log(t('title') + '\n');
+    console.log(t('usage'));
+    console.log('  loc [directory]\n');
+    console.log(t('options'));
+    console.log('  -h, --help        ' + t('help'));
+    console.log('  -v, --verbose     ' + t('verbose'));
+    console.log('  -c, --config      ' + t('config'));
+    console.log('  -i, --interactive ' + t('interactive') + '\n');
+    console.log(t('examples'));
+    console.log('  loc               ' + t('exampleHelp'));
+    console.log('  loc .             ' + t('exampleCurrent'));
+    console.log('  loc ./src         ' + t('exampleSrc'));
+    console.log('  loc -v ./src      ' + t('exampleVerbose'));
+    console.log('  loc -c            ' + t('exampleConfig'));
+    console.log('  loc -i            ' + t('exampleInteractive'));
+}
 
 /**
  * 统计目录代码行数

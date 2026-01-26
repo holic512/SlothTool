@@ -138,7 +138,183 @@ function uninstallPlugin(alias) {
     }
 }
 
+/**
+ * 更新插件
+ * @param {string} alias - 插件别名
+ */
+function updatePlugin(alias) {
+    const plugin = registry.getPlugin(alias);
+
+    if (!plugin) {
+        console.error(t('notInstalled', {alias}));
+        process.exit(1);
+    }
+
+    console.log(t('updating'), `${alias} (${plugin.name})...`);
+    console.log(t('currentVersion'), plugin.version);
+
+    const pluginDir = getPluginDir(alias);
+    const packageName = plugin.name;
+
+    try {
+        // 使用 npm update 更新插件
+        console.log(t('checkingUpdates'));
+        execSync(`npm update ${packageName} --prefix "${pluginDir}"`, {
+            stdio: 'inherit',
+            encoding: 'utf8'
+        });
+
+        // 读取更新后的 package.json
+        const pkgPath = path.join(pluginDir, 'node_modules', packageName, 'package.json');
+
+        if (!fs.existsSync(pkgPath)) {
+            throw new Error(`Package.json not found at: ${pkgPath}`);
+        }
+
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+
+        // 检查版本是否有变化
+        if (pkg.version === plugin.version) {
+            console.log(t('alreadyLatest', {alias, version: pkg.version}));
+            return;
+        }
+
+        // 获取 bin 路径
+        let binPath;
+        if (typeof pkg.bin === 'string') {
+            binPath = path.join(pluginDir, 'node_modules', packageName, pkg.bin);
+        } else if (typeof pkg.bin === 'object') {
+            const binKey = Object.keys(pkg.bin)[0];
+            binPath = path.join(pluginDir, 'node_modules', packageName, pkg.bin[binKey]);
+        } else {
+            throw new Error(`No bin field found in package.json for ${packageName}`);
+        }
+
+        // 验证 bin 文件存在
+        if (!fs.existsSync(binPath)) {
+            throw new Error(`Bin file not found at: ${binPath}`);
+        }
+
+        // 更新注册表
+        registry.addPlugin(alias, {
+            name: packageName,
+            version: pkg.version,
+            binPath: binPath,
+            installedAt: plugin.installedAt,
+            updatedAt: new Date().toISOString()
+        });
+
+        console.log(t('updateSuccess', {alias, oldVersion: plugin.version, newVersion: pkg.version}));
+
+    } catch (error) {
+        console.error(t('updateFailed', {alias}), error.message);
+        process.exit(1);
+    }
+}
+
+/**
+ * 更新所有插件
+ */
+function updateAllPlugins() {
+    const plugins = registry.getAllPlugins();
+    const pluginList = Object.keys(plugins);
+
+    if (pluginList.length === 0) {
+        console.log(t('noPlugins'));
+        return;
+    }
+
+    console.log(t('updateAll.title'));
+    console.log(t('updateAll.foundPlugins', {count: pluginList.length}));
+    console.log('');
+
+    let updatedCount = 0;
+    let alreadyLatestCount = 0;
+    let failedCount = 0;
+    const results = [];
+
+    for (const alias of pluginList) {
+        const plugin = plugins[alias];
+        console.log('─'.repeat(50));
+        console.log(t('updating'), `${alias} (${plugin.name})...`);
+        console.log(t('currentVersion'), plugin.version);
+
+        const pluginDir = getPluginDir(alias);
+        const packageName = plugin.name;
+
+        try {
+            // 使用 npm update 更新插件
+            execSync(`npm update ${packageName} --prefix "${pluginDir}"`, {
+                stdio: 'pipe',
+                encoding: 'utf8'
+            });
+
+            // 读取更新后的 package.json
+            const pkgPath = path.join(pluginDir, 'node_modules', packageName, 'package.json');
+
+            if (!fs.existsSync(pkgPath)) {
+                throw new Error(`Package.json not found at: ${pkgPath}`);
+            }
+
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+
+            // 检查版本是否有变化
+            if (pkg.version === plugin.version) {
+                console.log(t('alreadyLatest', {alias, version: pkg.version}));
+                alreadyLatestCount++;
+                results.push({alias, status: 'latest', version: pkg.version});
+            } else {
+                // 获取 bin 路径
+                let binPath;
+                if (typeof pkg.bin === 'string') {
+                    binPath = path.join(pluginDir, 'node_modules', packageName, pkg.bin);
+                } else if (typeof pkg.bin === 'object') {
+                    const binKey = Object.keys(pkg.bin)[0];
+                    binPath = path.join(pluginDir, 'node_modules', packageName, pkg.bin[binKey]);
+                } else {
+                    throw new Error(`No bin field found in package.json for ${packageName}`);
+                }
+
+                // 验证 bin 文件存在
+                if (!fs.existsSync(binPath)) {
+                    throw new Error(`Bin file not found at: ${binPath}`);
+                }
+
+                // 更新注册表
+                registry.addPlugin(alias, {
+                    name: packageName,
+                    version: pkg.version,
+                    binPath: binPath,
+                    installedAt: plugin.installedAt,
+                    updatedAt: new Date().toISOString()
+                });
+
+                console.log(t('updateSuccess', {alias, oldVersion: plugin.version, newVersion: pkg.version}));
+                updatedCount++;
+                results.push({alias, status: 'updated', oldVersion: plugin.version, newVersion: pkg.version});
+            }
+
+        } catch (error) {
+            console.error(t('updateFailed', {alias}), error.message);
+            failedCount++;
+            results.push({alias, status: 'failed', error: error.message});
+        }
+
+        console.log('');
+    }
+
+    // 显示总结
+    console.log('═'.repeat(50));
+    console.log(t('updateAll.summary'));
+    console.log(t('updateAll.totalPlugins', {count: pluginList.length}));
+    console.log(t('updateAll.updated', {count: updatedCount}));
+    console.log(t('updateAll.alreadyLatest', {count: alreadyLatestCount}));
+    console.log(t('updateAll.failed', {count: failedCount}));
+}
+
 module.exports = {
     installPlugin,
-    uninstallPlugin
+    uninstallPlugin,
+    updatePlugin,
+    updateAllPlugins
 };
