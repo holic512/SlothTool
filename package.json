@@ -1,0 +1,18 @@
+{
+  "name": "slothtool-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A plugin manager and dispatcher for CLI tools",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
