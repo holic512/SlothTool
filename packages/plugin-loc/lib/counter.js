@@ -4,7 +4,7 @@ const path = require('path');
 /**
  * 统计目录中的代码行数
  * @param {string} dir - 目标目录
- * @param {Object} config - 配置对象，包含 fileExtensions
+ * @param {Object} config - 配置对象，包含 fileExtensions 和 excludeDirectories
  * @returns {Object} 统计结果 { fileCount, lineCount, files }
  */
 function countLines(dir, config = null) {
@@ -14,6 +14,7 @@ function countLines(dir, config = null) {
 
     // 如果没有提供配置，则统计所有文件
     const fileExtensions = config ? config.fileExtensions : null;
+    const excludeDirectories = config ? config.excludeDirectories : null;
 
     function scan(currentPath) {
         let stat;
@@ -53,10 +54,11 @@ function countLines(dir, config = null) {
             try {
                 const entries = fs.readdirSync(currentPath);
                 for (const entry of entries) {
-                    // 跳过 node_modules 和隐藏文件/目录
-                    if (entry === 'node_modules' || entry.startsWith('.')) {
-                        continue;
+                    // 检查是否应该排除此目录
+                    if (excludeDirectories && excludeDirectories[entry]) {
+                        continue; // 跳过配置中排除的目录
                     }
+
                     scan(path.join(currentPath, entry));
                 }
             } catch (error) {

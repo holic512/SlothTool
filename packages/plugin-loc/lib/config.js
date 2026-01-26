@@ -77,6 +77,43 @@ function getDefaultConfig() {
             sh: true,
             bash: true,
             sql: true
+        },
+        excludeDirectories: {
+            // Node.js
+            'node_modules': true,
+            // Python
+            '.venv': true,
+            'venv': true,
+            '__pycache__': true,
+            '.pytest_cache': true,
+            // Build outputs
+            'dist': true,
+            'build': true,
+            'out': true,
+            'target': true,
+            // Version control
+            '.git': true,
+            '.svn': true,
+            '.hg': true,
+            // IDEs
+            '.idea': true,
+            '.vscode': true,
+            '.vs': true,
+            // Package managers
+            'bower_components': true,
+            'vendor': true,
+            // Cache
+            '.cache': true,
+            '.next': true,
+            '.nuxt': true,
+            // Coverage
+            'coverage': true,
+            '.nyc_output': true,
+            // Logs
+            'logs': true,
+            // Temp
+            'tmp': true,
+            'temp': true
         }
     };
 }
@@ -98,7 +135,14 @@ function readConfig() {
 
     try {
         const content = fs.readFileSync(configPath, 'utf8');
-        return JSON.parse(content);
+        const config = JSON.parse(content);
+
+        // 合并默认配置，确保新增的配置项存在
+        const defaultConfig = getDefaultConfig();
+        return {
+            fileExtensions: {...defaultConfig.fileExtensions, ...config.fileExtensions},
+            excludeDirectories: {...defaultConfig.excludeDirectories, ...config.excludeDirectories}
+        };
     } catch (error) {
         console.error('Failed to read config:', error.message);
         return getDefaultConfig();

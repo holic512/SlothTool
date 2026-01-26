@@ -4,6 +4,7 @@ const path = require('path');
 const registry = require('../registry');
 const settings = require('../settings');
 const {installPlugin, uninstallPlugin} = require('../plugin-manager');
+const uninstallAll = require('./uninstall-all');
 const {t} = require('../i18n');
 
 // 读取官方插件配置
@@ -26,6 +27,7 @@ async function interactive() {
                 {title: t('interactive.listPlugins'), value: 'list'},
                 {title: t('interactive.runPlugin'), value: 'run'},
                 {title: t('interactive.configLanguage'), value: 'config'},
+                {title: t('interactive.uninstallAll'), value: 'uninstallAll'},
                 {title: t('interactive.exit'), value: 'exit'}
             ]
         });
@@ -52,6 +54,9 @@ async function interactive() {
                     break;
                 case 'config':
                     await handleConfig();
+                    break;
+                case 'uninstallAll':
+                    await uninstallAll();
                     break;
             }
         } catch (error) {

@@ -2,7 +2,7 @@ const {execSync} = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const registry = require('./registry');
-const {extractPluginAlias, getPluginDir, ensureDir, getPluginsDir} = require('./utils');
+const {extractPluginAlias, getPluginDir, ensureDir, getPluginsDir, getPluginConfigPath} = require('./utils');
 const {t} = require('./i18n');
 
 /**
@@ -99,11 +99,32 @@ function uninstallPlugin(alias) {
 
     console.log(t('uninstalling'), alias + '...');
 
+    // 显示将要删除的内容
+    const pluginDir = getPluginDir(alias);
+    const configPath = getPluginConfigPath(alias);
+    const hasConfig = fs.existsSync(configPath);
+
+    console.log(t('uninstallWillRemove'));
+    console.log(t('uninstallPluginDir', {dir: pluginDir}));
+
+    if (hasConfig) {
+        console.log(t('uninstallConfigFile', {file: configPath}));
+    } else {
+        console.log(t('uninstallNoConfig'));
+    }
+
+    console.log(t('uninstallRegistryEntry'));
+    console.log('');
+
     try {
         // 删除插件目录
-        const pluginDir = getPluginDir(alias);
         if (fs.existsSync(pluginDir)) {
             fs.rmSync(pluginDir, {recursive: true, force: true});
+        }
+
+        // 删除插件配置文件（如果存在）
+        if (hasConfig) {
+            fs.rmSync(configPath, {force: true});
         }
 
         // 从注册表移除

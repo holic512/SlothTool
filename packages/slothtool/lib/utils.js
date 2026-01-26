@@ -62,6 +62,14 @@ function extractPluginAlias(packageName) {
 }
 
 /**
+ * 获取插件配置目录
+ * @returns {string} ~/.slothtool/plugin-configs
+ */
+function getPluginConfigsDir() {
+    return path.join(getSlothToolHome(), 'plugin-configs');
+}
+
+/**
  * 获取指定插件的安装目录
  * @param {string} pluginAlias - 插件别名
  * @returns {string} 插件安装目录路径
@@ -70,12 +78,23 @@ function getPluginDir(pluginAlias) {
     return path.join(getPluginsDir(), pluginAlias);
 }
 
+/**
+ * 获取指定插件的配置文件路径
+ * @param {string} pluginAlias - 插件别名
+ * @returns {string} 插件配置文件路径
+ */
+function getPluginConfigPath(pluginAlias) {
+    return path.join(getPluginConfigsDir(), `${pluginAlias}.json`);
+}
+
 module.exports = {
     getSlothToolHome,
     getPluginsDir,
     getRegistryPath,
     getSettingsPath,
+    getPluginConfigsDir,
     ensureDir,
     extractPluginAlias,
-    getPluginDir
+    getPluginDir,
+    getPluginConfigPath
 };

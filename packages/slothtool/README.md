@@ -221,6 +221,80 @@ Features:
 - Run plugins
 - Configure language settings
 
+## Uninstalling
+
+### Uninstall a Plugin
+
+When you uninstall a plugin, SlothTool will automatically remove:
+
+- Plugin directory and all its dependencies (`~/.slothtool/plugins/<alias>/`)
+- Plugin-specific configuration file (`~/.slothtool/plugin-configs/<alias>.json`)
+- Registry entry from `~/.slothtool/registry.json`
+
+```bash
+# Uninstall a specific plugin
+slothtool uninstall <plugin-alias>
+
+# Example
+slothtool uninstall loc
+```
+
+The uninstall command will show you exactly what will be removed before proceeding.
+
+### Complete Uninstallation
+
+To completely remove SlothTool and all its data from your system:
+
+#### Option 1: Using the built-in command (recommended)
+
+```bash
+# Remove all plugins, configurations, and SlothTool data
+slothtool --uninstall-all
+```
+
+This will remove:
+- All installed plugins (`~/.slothtool/plugins/`)
+- All plugin configurations (`~/.slothtool/plugin-configs/`)
+- Registry file (`~/.slothtool/registry.json`)
+- Settings file (`~/.slothtool/settings.json`)
+- The entire `~/.slothtool/` directory
+
+Then uninstall the global SlothTool package:
+
+```bash
+npm uninstall -g @holic512/slothtool
+```
+
+#### Option 2: Manual removal
+
+```bash
+# 1. Remove all SlothTool data
+rm -rf ~/.slothtool/
+
+# 2. Uninstall the global package
+npm uninstall -g @holic512/slothtool
+```
+
+### What Gets Removed
+
+Here's a complete breakdown of what SlothTool stores on your system:
+
+```
+~/.slothtool/
+├── plugins/              # All installed plugins and their dependencies
+│   ├── loc/             # Example: loc plugin
+│   │   ├── node_modules/
+│   │   └── package.json
+│   └── [other-plugins]/
+├── plugin-configs/       # Plugin-specific configurations
+│   ├── loc.json         # Example: loc plugin config
+│   └── [other-configs].json
+├── registry.json         # Plugin registry (tracks installed plugins)
+└── settings.json         # User settings (language preference, etc.)
+```
+
+**Note**: SlothTool only stores data in `~/.slothtool/`. No other system files or directories are modified.
+
 ## Troubleshooting
 
 ### Plugin Not Found
@@ -244,13 +318,6 @@ ls -la ~/.slothtool/
 
 # Fix permissions if needed
 chmod -R u+w ~/.slothtool/
-```
-
-### Clear All Data
-
-```bash
-# Remove all plugins and settings
-rm -rf ~/.slothtool/
 ```
 
 ## Development

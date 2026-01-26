@@ -103,9 +103,47 @@ async function configureFileTypes() {
     }
 
     // 更新配置
-    const newConfig = config.getDefaultConfig();
+    const newConfig = config.readConfig();
     Object.keys(newConfig.fileExtensions).forEach(ext => {
         newConfig.fileExtensions[ext] = response.extensions.includes(ext);
+    });
+
+    config.writeConfig(newConfig);
+    console.log('\n' + t('configSaved'));
+}
+
+/**
+ * 配置排除目录
+ */
+async function configureExcludeDirectories() {
+    console.log(t('configExcludeDirsTitle') + '\n');
+
+    const pluginConfig = config.readConfig();
+    const directories = Object.keys(pluginConfig.excludeDirectories);
+
+    const choices = directories.map(dir => ({
+        title: dir,
+        value: dir,
+        selected: pluginConfig.excludeDirectories[dir]
+    }));
+
+    const response = await prompts({
+        type: 'multiselect',
+        name: 'directories',
+        message: t('selectExcludeDirs'),
+        choices: choices,
+        hint: t('configInstructions')
+    });
+
+    if (response.directories === undefined) {
+        // 用户取消了操作
+        return;
+    }
+
+    // 更新配置
+    const newConfig = config.readConfig();
+    Object.keys(newConfig.excludeDirectories).forEach(dir => {
+        newConfig.excludeDirectories[dir] = response.directories.includes(dir);
     });
 
     config.writeConfig(newConfig);
@@ -124,7 +162,8 @@ async function interactiveMode() {
             choices: [
                 {title: t('menuCountCurrent'), value: 'current'},
                 {title: t('menuCountCustom'), value: 'custom'},
-                {title: t('menuConfig'), value: 'config'},
+                {title: t('menuConfigFileTypes'), value: 'configFileTypes'},
+                {title: t('menuConfigExcludeDirs'), value: 'configExcludeDirs'},
                 {title: t('menuExit'), value: 'exit'}
             ]
         });
@@ -150,9 +189,13 @@ async function interactiveMode() {
                 countDirectory(dirResponse.directory, false);
                 console.log('');
             }
-        } else if (response.action === 'config') {
+        } else if (response.action === 'configFileTypes') {
             console.log('');
             await configureFileTypes();
+            console.log('');
+        } else if (response.action === 'configExcludeDirs') {
+            console.log('');
+            await configureExcludeDirectories();
             console.log('');
         }
     }

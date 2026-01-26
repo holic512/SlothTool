@@ -56,7 +56,8 @@ const messages = {
         menuTitle: '请选择操作：',
         menuCountCurrent: '统计当前目录代码行数',
         menuCountCustom: '统计指定目录代码行数',
-        menuConfig: '配置文件类型过滤',
+        menuConfigFileTypes: '配置文件类型过滤',
+        menuConfigExcludeDirs: '配置排除目录',
         menuExit: '退出',
 
         // 输入提示
@@ -65,10 +66,13 @@ const messages = {
 
         // 配置
         configTitle: '配置文件类型过滤',
+        configExcludeDirsTitle: '配置排除目录',
         configInstructions: '使用空格键选择/取消选择，回车键确认',
         configSaved: '配置已保存！',
         allExtensions: '所有文件扩展名：',
-        selectExtensions: '选择要统计的文件类型：'
+        selectExtensions: '选择要统计的文件类型：',
+        selectExcludeDirs: '选择要排除的目录：',
+        excludeDirsHint: '这些目录将在统计时被跳过'
     },
 
     en: {
@@ -100,7 +104,8 @@ const messages = {
         menuTitle: 'Please select an action:',
         menuCountCurrent: 'Count lines in current directory',
         menuCountCustom: 'Count lines in custom directory',
-        menuConfig: 'Configure file type filtering',
+        menuConfigFileTypes: 'Configure file type filtering',
+        menuConfigExcludeDirs: 'Configure exclude directories',
         menuExit: 'Exit',
 
         // Input prompts
@@ -109,10 +114,13 @@ const messages = {
 
         // Config
         configTitle: 'Configure File Type Filtering',
+        configExcludeDirsTitle: 'Configure Exclude Directories',
         configInstructions: 'Use space to select/deselect, enter to confirm',
         configSaved: 'Configuration saved!',
         allExtensions: 'All file extensions:',
-        selectExtensions: 'Select file types to count:'
+        selectExtensions: 'Select file types to count:',
+        selectExcludeDirs: 'Select directories to exclude:',
+        excludeDirsHint: 'These directories will be skipped during counting'
     }
 };
 

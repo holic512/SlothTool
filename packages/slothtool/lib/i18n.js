@@ -15,7 +15,8 @@ const messages = {
             run: '运行插件',
             runShorthand: '运行插件（简写）',
             config: '配置语言设置',
-            interactive: '交互式模式'
+            interactive: '交互式模式',
+            uninstallAll: '完全卸载 SlothTool（删除所有数据）'
         },
 
         // 安装
@@ -32,6 +33,33 @@ const messages = {
         notInstalled: '插件 "{alias}" 未安装。',
         uninstallSuccess: '✓ 插件 "{alias}" 卸载成功！',
         uninstallFailed: '✗ 卸载插件 "{alias}" 失败：',
+        uninstallWillRemove: '\n将删除以下内容：',
+        uninstallPluginDir: '  • 插件目录：{dir}',
+        uninstallConfigFile: '  • 配置文件：{file}',
+        uninstallRegistryEntry: '  • 注册表条目',
+        uninstallNoConfig: '  • 无配置文件',
+
+        // 完全卸载
+        uninstallAll: {
+            title: '\n🗑️  完全卸载 SlothTool',
+            warning: '\n⚠️  警告：此操作将删除所有 SlothTool 数据！',
+            willRemove: '\n将删除以下内容：',
+            slothtoolDir: '  • SlothTool 目录：{dir}',
+            allPlugins: '  • 所有已安装的插件 ({count} 个)',
+            allConfigs: '  • 所有插件配置文件',
+            registry: '  • 插件注册表',
+            settings: '  • 用户设置',
+            confirm: '\n确认删除所有数据？',
+            confirmPrompt: '输入 "yes" 确认：',
+            cancelled: '\n操作已取消。',
+            removing: '\n正在删除 SlothTool 数据...',
+            success: '\n✓ SlothTool 数据已完全删除！',
+            nextStep: '\n如需卸载 SlothTool 命令行工具，请运行：',
+            npmUninstall: '  npm uninstall -g @holic512/slothtool',
+            failed: '\n✗ 删除失败：',
+            noData: '\nSlothTool 数据目录不存在：{dir}',
+            alreadyClean: '系统已经是干净的状态。'
+        },
 
         // 列表
         installedPlugins: '已安装的插件：',
@@ -61,6 +89,7 @@ const messages = {
             listPlugins: '查看已安装的插件',
             runPlugin: '运行插件',
             configLanguage: '配置语言',
+            uninstallAll: '完全卸载 SlothTool（删除所有数据）',
             exit: '退出',
 
             selectPlugin: '选择插件：',
@@ -99,7 +128,8 @@ const messages = {
             run: 'Run a plugin',
             runShorthand: 'Run a plugin (shorthand)',
             config: 'Configure language settings',
-            interactive: 'Interactive mode'
+            interactive: 'Interactive mode',
+            uninstallAll: 'Complete uninstall (remove all data)'
         },
 
         // Install
@@ -116,6 +146,33 @@ const messages = {
         notInstalled: 'Plugin "{alias}" is not installed.',
         uninstallSuccess: '✓ Plugin "{alias}" uninstalled successfully!',
         uninstallFailed: '✗ Failed to uninstall plugin "{alias}":',
+        uninstallWillRemove: '\nThe following will be removed:',
+        uninstallPluginDir: '  • Plugin directory: {dir}',
+        uninstallConfigFile: '  • Config file: {file}',
+        uninstallRegistryEntry: '  • Registry entry',
+        uninstallNoConfig: '  • No config file',
+
+        // Complete uninstall
+        uninstallAll: {
+            title: '\n🗑️  Complete SlothTool Uninstallation',
+            warning: '\n⚠️  Warning: This will delete all SlothTool data!',
+            willRemove: '\nThe following will be removed:',
+            slothtoolDir: '  • SlothTool directory: {dir}',
+            allPlugins: '  • All installed plugins ({count} plugins)',
+            allConfigs: '  • All plugin configuration files',
+            registry: '  • Plugin registry',
+            settings: '  • User settings',
+            confirm: '\nConfirm deletion of all data?',
+            confirmPrompt: 'Type "yes" to confirm: ',
+            cancelled: '\nOperation cancelled.',
+            removing: '\nRemoving SlothTool data...',
+            success: '\n✓ SlothTool data completely removed!',
+            nextStep: '\nTo uninstall the SlothTool CLI tool, run:',
+            npmUninstall: '  npm uninstall -g @holic512/slothtool',
+            failed: '\n✗ Removal failed:',
+            noData: '\nSlothTool data directory does not exist: {dir}',
+            alreadyClean: 'System is already clean.'
+        },
 
         // List
         installedPlugins: 'Installed plugins:',
@@ -145,6 +202,7 @@ const messages = {
             listPlugins: 'List installed plugins',
             runPlugin: 'Run plugin',
             configLanguage: 'Configure language',
+            uninstallAll: 'Complete uninstall (remove all data)',
             exit: 'Exit',
 
             selectPlugin: 'Select plugin:',
