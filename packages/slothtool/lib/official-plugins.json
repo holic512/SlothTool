@@ -1,0 +1,24 @@
+{
+  "officialPlugins": [
+    {
+      "name": "@holic512/plugin-loc",
+      "alias": "loc",
+      "description": "统计目录中的代码行数",
+      "descriptionEn": "Count lines of code in a directory",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "代码行数统计",
+        "文件类型过滤",
+        "交互式模式",
+        "详细模式"
+      ],
+      "featuresEn": [
+        "Line counting",
+        "File type filtering",
+        "Interactive mode",
+        "Verbose mode"
+      ]
+    }
+  ]
+}

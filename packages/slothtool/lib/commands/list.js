@@ -1,22 +1,24 @@
 const registry = require('../registry');
+const {t} = require('../i18n');
 
 function list() {
-  const plugins = registry.getAllPlugins();
+    const plugins = registry.getAllPlugins();
 
-  if (Object.keys(plugins).length === 0) {
-    console.log('No plugins installed.');
-    console.log('\nInstall a plugin with: slothtool install <plugin-name>');
-    return;
-  }
+    if (Object.keys(plugins).length === 0) {
+        console.log(t('noPlugins'));
+        console.log(t('installExample'));
+        console.log('  slothtool install <plugin-name>');
+        return;
+    }
 
-  console.log('Installed plugins:\n');
-  for (const [alias, info] of Object.entries(plugins)) {
-    console.log(`  ${alias}`);
-    console.log(`    Package: ${info.name}`);
-    console.log(`    Version: ${info.version}`);
-    console.log(`    Installed: ${new Date(info.installedAt).toLocaleString()}`);
-    console.log('');
-  }
+    console.log(t('installedPlugins') + '\n');
+    for (const [alias, info] of Object.entries(plugins)) {
+        console.log(`  ${alias}`);
+        console.log(`    Package: ${info.name}`);
+        console.log(`    Version: ${info.version}`);
+        console.log(`    Installed: ${new Date(info.installedAt).toLocaleString()}`);
+        console.log('');
+    }
 }
 
 module.exports = list;

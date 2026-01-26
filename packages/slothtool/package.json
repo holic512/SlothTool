@@ -20,5 +20,8 @@
   "files": [
     "bin",
     "lib"
-  ]
+  ],
+  "dependencies": {
+    "prompts": "^2.4.2"
+  }
 }

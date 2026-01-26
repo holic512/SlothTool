@@ -17,5 +17,8 @@
     "counter"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "prompts": "^2.4.2"
+  }
 }

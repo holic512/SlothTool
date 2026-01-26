@@ -7,7 +7,7 @@ const fs = require('fs');
  * @returns {string} ~/.slothtool
  */
 function getSlothToolHome() {
-  return path.join(os.homedir(), '.slothtool');
+    return path.join(os.homedir(), '.slothtool');
 }
 
 /**
@@ -15,7 +15,7 @@ function getSlothToolHome() {
  * @returns {string} ~/.slothtool/plugins
  */
 function getPluginsDir() {
-  return path.join(getSlothToolHome(), 'plugins');
+    return path.join(getSlothToolHome(), 'plugins');
 }
 
 /**
@@ -23,7 +23,15 @@ function getPluginsDir() {
  * @returns {string} ~/.slothtool/registry.json
  */
 function getRegistryPath() {
-  return path.join(getSlothToolHome(), 'registry.json');
+    return path.join(getSlothToolHome(), 'registry.json');
+}
+
+/**
+ * 获取设置文件路径
+ * @returns {string} ~/.slothtool/settings.json
+ */
+function getSettingsPath() {
+    return path.join(getSlothToolHome(), 'settings.json');
 }
 
 /**
@@ -31,9 +39,9 @@ function getRegistryPath() {
  * @param {string} dir - 目录路径
  */
 function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, {recursive: true});
+    }
 }
 
 /**
@@ -44,13 +52,13 @@ function ensureDir(dir) {
  * @returns {string} 插件别名
  */
 function extractPluginAlias(packageName) {
-  // 移除 scope (如果有)
-  const withoutScope = packageName.replace(/^@[^/]+\//, '');
+    // 移除 scope (如果有)
+    const withoutScope = packageName.replace(/^@[^/]+\//, '');
 
-  // 移除 plugin- 前缀 (如果有)
-  const alias = withoutScope.replace(/^plugin-/, '');
+    // 移除 plugin- 前缀 (如果有)
+    const alias = withoutScope.replace(/^plugin-/, '');
 
-  return alias;
+    return alias;
 }
 
 /**
@@ -59,14 +67,15 @@ function extractPluginAlias(packageName) {
  * @returns {string} 插件安装目录路径
  */
 function getPluginDir(pluginAlias) {
-  return path.join(getPluginsDir(), pluginAlias);
+    return path.join(getPluginsDir(), pluginAlias);
 }
 
 module.exports = {
-  getSlothToolHome,
-  getPluginsDir,
-  getRegistryPath,
-  ensureDir,
-  extractPluginAlias,
-  getPluginDir
+    getSlothToolHome,
+    getPluginsDir,
+    getRegistryPath,
+    getSettingsPath,
+    ensureDir,
+    extractPluginAlias,
+    getPluginDir
 };
