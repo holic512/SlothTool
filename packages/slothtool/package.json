@@ -1,6 +1,6 @@
 {
   "name": "@holic512/slothtool",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A plugin manager and dispatcher for CLI tools",
   "main": "lib/index.js",
   "bin": {
@@ -9,7 +9,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["cli", "plugin", "tool", "manager"],
+  "keywords": [
+    "cli",
+    "plugin",
+    "tool",
+    "manager"
+  ],
   "author": "",
   "license": "ISC",
   "files": [
