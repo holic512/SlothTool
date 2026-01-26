@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-loc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Count lines of code in a directory",
   "main": "lib/counter.js",
   "bin": {
@@ -9,7 +9,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["slothtool", "plugin", "loc", "lines-of-code", "counter"],
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "loc",
+    "lines-of-code",
+    "counter"
+  ],
   "author": "",
   "license": "ISC"
 }
