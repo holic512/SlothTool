@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-loc",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Count lines of code in a directory",
   "main": "lib/counter.js",
   "bin": {
