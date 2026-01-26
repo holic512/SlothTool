@@ -1,4 +1,4 @@
-name: Publish slothtool
+name: Publish Slothtool
 
 on:
   workflow_dispatch:
