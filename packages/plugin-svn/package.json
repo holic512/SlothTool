@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-svn",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Interactive SVN management tool with IDE-like experience",
   "main": "lib/svn-manager.js",
   "bin": {
