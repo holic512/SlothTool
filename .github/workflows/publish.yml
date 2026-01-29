@@ -1,0 +1,120 @@
+name: Publish Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Select package to publish'
+        required: true
+        type: choice
+        options:
+          - 'slothtool'
+          - 'plugin-loc'
+          - 'plugin-svn'
+      version:
+        description: 'Version to publish (leave empty to auto-increment patch version)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Determine package path
+        id: package-info
+        run: |
+          PACKAGE="${{ github.event.inputs.package }}"
+          if [ "$PACKAGE" = "slothtool" ]; then
+            PACKAGE_PATH="packages/slothtool"
+            PACKAGE_NAME="@holic512/slothtool"
+          else
+            PACKAGE_PATH="packages/$PACKAGE"
+            PACKAGE_NAME="@holic512/$PACKAGE"
+          fi
+          echo "package_path=$PACKAGE_PATH" >> $GITHUB_OUTPUT
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Get current version and determine new version
+        id: version
+        run: |
+          cd ${{ steps.package-info.outputs.package_path }}
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          if [ -z "${{ github.event.inputs.version }}" ]; then
+            # Auto-increment patch version
+            IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+            NEW_VERSION="$major.$minor.$((patch + 1))"
+            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "auto_incremented=true" >> $GITHUB_OUTPUT
+          else
+            echo "new_version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "auto_incremented=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display version info
+        run: |
+          echo "📦 Package: ${{ steps.package-info.outputs.package_name }}"
+          echo "📍 Current version: ${{ steps.version.outputs.current_version }}"
+          echo "🚀 New version: ${{ steps.version.outputs.new_version }}"
+          if [ "${{ steps.version.outputs.auto_incremented }}" = "true" ]; then
+            echo "✨ Version auto-incremented (patch)"
+          fi
+
+      - name: Install dependencies
+        run: |
+          cd ${{ steps.package-info.outputs.package_path }}
+          npm install
+
+      - name: Update version
+        run: |
+          cd ${{ steps.package-info.outputs.package_path }}
+          npm version ${{ steps.version.outputs.new_version }} --no-git-tag-version
+
+      - name: Publish to npm
+        run: |
+          cd ${{ steps.package-info.outputs.package_path }}
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create Git tag and commit
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add ${{ steps.package-info.outputs.package_path }}/package.json
+          git commit -m "chore: release ${{ github.event.inputs.package }} v${{ steps.version.outputs.new_version }}"
+          git tag "${{ github.event.inputs.package }}-v${{ steps.version.outputs.new_version }}"
+          git push origin main --tags
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.package }}-v${{ steps.version.outputs.new_version }}
+          release_name: ${{ github.event.inputs.package }} v${{ steps.version.outputs.new_version }}
+          body: |
+            ## 📦 ${{ steps.package-info.outputs.package_name }} v${{ steps.version.outputs.new_version }}
+
+            ### Installation
+            ```bash
+            npm install -g ${{ steps.package-info.outputs.package_name }}
+            ```
+
+            ### Changes
+            Released from ${{ steps.version.outputs.current_version }} to ${{ steps.version.outputs.new_version }}
+          draft: false
+          prerelease: false

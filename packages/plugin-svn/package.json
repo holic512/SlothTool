@@ -1,0 +1,29 @@
+{
+  "name": "@holic512/plugin-svn",
+  "version": "1.0.0",
+  "description": "Interactive SVN management tool with IDE-like experience",
+  "main": "lib/svn-manager.js",
+  "bin": {
+    "svn": "bin/svn.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "svn",
+    "version-control",
+    "interactive"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "prompts": "^2.4.2",
+    "chalk": "^4.1.2"
+  }
+}

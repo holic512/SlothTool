@@ -19,6 +19,30 @@
         "Interactive mode",
         "Verbose mode"
       ]
+    },
+    {
+      "name": "@holic512/plugin-svn",
+      "alias": "svn",
+      "description": "交互式 SVN 管理工具 - 提供接近 IDE 的使用体验",
+      "descriptionEn": "Interactive SVN management tool with IDE-like experience",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "交互式界面",
+        "可视化状态",
+        "文件选择提交",
+        "差异预览",
+        "冲突检测",
+        "双语支持"
+      ],
+      "featuresEn": [
+        "Interactive interface",
+        "Visual status display",
+        "Selective file commit",
+        "Diff preview",
+        "Conflict detection",
+        "Bilingual support"
+      ]
     }
   ]
 }
