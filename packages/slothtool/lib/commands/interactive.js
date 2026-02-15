@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const registry = require('../registry');
 const settings = require('../settings');
-const {installPlugin, uninstallPlugin, updatePlugin, updateAllPlugins} = require('../plugin-manager');
+const {installPlugin, uninstallPlugin, updatePlugin, updateAllPlugins, updateSelf} = require('../plugin-manager');
 const uninstallAll = require('./uninstall-all');
 const {t} = require('../i18n');
 
@@ -25,8 +25,7 @@ async function interactive() {
             choices: [
                 {title: t('interactive.installPlugin'), value: 'install'},
                 {title: t('interactive.uninstallPlugin'), value: 'uninstall'},
-                {title: t('interactive.updatePlugin'), value: 'update'},
-                {title: t('interactive.updateAllPlugins'), value: 'updateAll'},
+                {title: t('interactive.updateMenu'), value: 'updateMenu'},
                 {title: t('interactive.listPlugins'), value: 'list'},
                 {title: t('interactive.runPlugin'), value: 'run'},
                 {title: t('interactive.configLanguage'), value: 'config'},
@@ -49,11 +48,8 @@ async function interactive() {
                 case 'uninstall':
                     await handleUninstall();
                     break;
-                case 'update':
-                    await handleUpdate();
-                    break;
-                case 'updateAll':
-                    await handleUpdateAll();
+                case 'updateMenu':
+                    await handleUpdateMenu();
                     break;
                 case 'list':
                     await handleList();
@@ -224,6 +220,40 @@ async function handleUninstall() {
 }
 
 /**
+ * 处理更新菜单
+ */
+async function handleUpdateMenu() {
+    const response = await prompts({
+        type: 'select',
+        name: 'action',
+        message: t('interactive.updateMenu'),
+        choices: [
+            {title: t('interactive.updateSelf'), value: 'self'},
+            {title: t('interactive.updatePlugin'), value: 'single'},
+            {title: t('interactive.updateAllPlugins'), value: 'all'}
+        ]
+    });
+
+    if (!response.action) {
+        throw new Error('cancelled');
+    }
+
+    console.log('');
+
+    if (response.action === 'self') {
+        await handleUpdateSelf();
+        return;
+    }
+
+    if (response.action === 'single') {
+        await handleUpdate();
+        return;
+    }
+
+    await handleUpdateAll();
+}
+
+/**
  * 处理更新插件
  */
 async function handleUpdate() {
@@ -295,6 +325,26 @@ async function handleUpdateAll() {
 
     console.log('');
     updateAllPlugins();
+}
+
+/**
+ * 处理更新 SlothTool
+ */
+async function handleUpdateSelf() {
+    const confirm = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: t('interactive.confirmUpdateSelf'),
+        initial: true
+    });
+
+    if (!confirm.value) {
+        console.log(t('interactive.operationCancelled'));
+        return;
+    }
+
+    console.log('');
+    updateSelf();
 }
 
 /**

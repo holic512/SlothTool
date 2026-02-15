@@ -19,7 +19,8 @@ if (!command) {
     console.log('  slothtool <plugin> [args]        ' + t('commands.runShorthand'));
     console.log('  slothtool config language <lang> ' + t('commands.config'));
     console.log('  slothtool -i, --interactive      ' + t('commands.interactive'));
-    console.log('  slothtool --uninstall-all        ' + t('commands.uninstallAll') + '\n');
+    console.log('  slothtool --uninstall-all        ' + t('commands.uninstallAll'));
+    console.log('  slothtool self-update            ' + t('commands.selfUpdate') + '\n');
     console.log(t('examples'));
     console.log('  slothtool install @holic512/plugin-loc');
     console.log('  slothtool loc ./src');
@@ -50,6 +51,8 @@ if (command === 'install') {
     commands.interactive();
 } else if (command === '--uninstall-all') {
     commands.uninstallAll();
+} else if (command === 'self-update') {
+    commands.selfUpdate();
 } else if (command === '--help' || command === '-h') {
     console.log(t('pluginManager') + '\n');
     console.log(t('usage'));
@@ -62,7 +65,8 @@ if (command === 'install') {
     console.log('  slothtool <plugin> [args]        ' + t('commands.runShorthand'));
     console.log('  slothtool config language <lang> ' + t('commands.config'));
     console.log('  slothtool -i, --interactive      ' + t('commands.interactive'));
-    console.log('  slothtool --uninstall-all        ' + t('commands.uninstallAll') + '\n');
+    console.log('  slothtool --uninstall-all        ' + t('commands.uninstallAll'));
+    console.log('  slothtool self-update            ' + t('commands.selfUpdate') + '\n');
     console.log(t('examples'));
     console.log('  slothtool install @holic512/plugin-loc');
     console.log('  slothtool loc ./src');

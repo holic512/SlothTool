@@ -26,6 +26,14 @@ their own dependencies.
 npm install -g @holic512/slothtool
 ```
 
+### Debian one-click install (Node.js 20 LTS + SlothTool)
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+npm install -g @holic512/slothtool
+```
+
 ## Quick Start
 
 ```bash

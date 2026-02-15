@@ -7,6 +7,7 @@ const interactive = require('./interactive');
 const uninstallAll = require('./uninstall-all');
 const update = require('./update');
 const updateAll = require('./update-all');
+const selfUpdate = require('./self-update');
 
 module.exports = {
     install,
@@ -17,5 +18,6 @@ module.exports = {
     interactive,
     uninstallAll,
     update,
-    updateAll
+    updateAll,
+    selfUpdate
 };

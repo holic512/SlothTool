@@ -65,6 +65,14 @@ npm install -g @holic512/slothtool
 slothtool --help
 ```
 
+### Debian 一键安装（Node.js 20 LTS + SlothTool）
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+npm install -g @holic512/slothtool
+```
+
 ## 使用方法
 
 ### 🎯 交互式模式（推荐）

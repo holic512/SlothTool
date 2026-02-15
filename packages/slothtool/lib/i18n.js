@@ -18,7 +18,8 @@ const messages = {
             runShorthand: '运行插件（简写）',
             config: '配置语言设置',
             interactive: '交互式模式',
-            uninstallAll: '完全卸载 SlothTool（删除所有数据）'
+            uninstallAll: '完全卸载 SlothTool（删除所有数据）',
+            selfUpdate: '更新 SlothTool（本体）'
         },
 
         // 安装
@@ -50,6 +51,13 @@ const messages = {
         updateFailed: '✗ 更新插件 "{alias}" 失败：',
         specifyPluginToUpdate: '错误：请指定要更新的插件。',
         updateUsage: '用法：slothtool update <插件别名>',
+
+        // 自更新
+        selfUpdate: {
+            starting: '正在更新 SlothTool...',
+            success: '✓ SlothTool 更新完成！',
+            failed: '✗ 更新 SlothTool 失败：'
+        },
 
         // 更新所有插件
         updateAll: {
@@ -109,7 +117,9 @@ const messages = {
             installOfficial: '安装官方插件',
             installCustom: '安装自定义插件',
             uninstallPlugin: '卸载插件',
-            updatePlugin: '更新插件',
+            updateMenu: '更新',
+            updateSelf: '更新 SlothTool',
+            updatePlugin: '更新单个插件',
             updateAllPlugins: '更新所有插件',
             listPlugins: '查看已安装的插件',
             runPlugin: '运行插件',
@@ -137,6 +147,7 @@ const messages = {
             confirmUninstall: '确认卸载 {alias}？',
             confirmUpdate: '确认更新 {alias}？',
             confirmUpdateAll: '确认更新所有 {count} 个插件？',
+            confirmUpdateSelf: '确认更新 SlothTool？',
 
             runWithArgs: '是否要运行此插件？',
             enterArgs: '请输入运行参数（留空表示无参数）：',
@@ -163,7 +174,8 @@ const messages = {
             runShorthand: 'Run a plugin (shorthand)',
             config: 'Configure language settings',
             interactive: 'Interactive mode',
-            uninstallAll: 'Complete uninstall (remove all data)'
+            uninstallAll: 'Complete uninstall (remove all data)',
+            selfUpdate: 'Update SlothTool (self-update)'
         },
 
         // Install
@@ -195,6 +207,13 @@ const messages = {
         updateFailed: '✗ Failed to update plugin "{alias}":',
         specifyPluginToUpdate: 'Error: Please specify a plugin to update.',
         updateUsage: 'Usage: slothtool update <plugin-alias>',
+
+        // Self update
+        selfUpdate: {
+            starting: 'Updating SlothTool...',
+            success: '✓ SlothTool updated successfully!',
+            failed: '✗ Failed to update SlothTool:'
+        },
 
         // Update all plugins
         updateAll: {
@@ -254,7 +273,9 @@ const messages = {
             installOfficial: 'Install official plugin',
             installCustom: 'Install custom plugin',
             uninstallPlugin: 'Uninstall plugin',
-            updatePlugin: 'Update plugin',
+            updateMenu: 'Update',
+            updateSelf: 'Update SlothTool',
+            updatePlugin: 'Update single plugin',
             updateAllPlugins: 'Update all plugins',
             listPlugins: 'List installed plugins',
             runPlugin: 'Run plugin',
@@ -282,6 +303,7 @@ const messages = {
             confirmUninstall: 'Confirm uninstall {alias}?',
             confirmUpdate: 'Confirm update {alias}?',
             confirmUpdateAll: 'Confirm update all {count} plugins?',
+            confirmUpdateSelf: 'Confirm update SlothTool?',
 
             runWithArgs: 'Do you want to run this plugin?',
             enterArgs: 'Enter arguments (leave empty for no arguments):',

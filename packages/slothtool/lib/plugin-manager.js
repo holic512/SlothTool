@@ -215,6 +215,22 @@ function updatePlugin(alias) {
 /**
  * 更新所有插件
  */
+function updateSelf() {
+    console.log(t('selfUpdate.starting'));
+
+    try {
+        execSync('npm install -g @holic512/slothtool', {
+            stdio: 'inherit',
+            encoding: 'utf8'
+        });
+
+        console.log(t('selfUpdate.success'));
+    } catch (error) {
+        console.error(t('selfUpdate.failed'), error.message);
+        process.exit(1);
+    }
+}
+
 function updateAllPlugins() {
     const plugins = registry.getAllPlugins();
     const pluginList = Object.keys(plugins);
@@ -316,5 +332,6 @@ module.exports = {
     installPlugin,
     uninstallPlugin,
     updatePlugin,
-    updateAllPlugins
+    updateAllPlugins,
+    updateSelf
 };
