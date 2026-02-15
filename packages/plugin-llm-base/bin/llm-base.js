@@ -54,6 +54,7 @@ function showHelp() {
     console.log(t('usage'));
     console.log('  llm-base config <subcommand> [args]');
     console.log('  llm-base chat <message> [--mode low|high] [--profile name]');
+    console.log('    # chat 返回 data 字段为严格 JSON 对象');
     console.log('  llm-base raw <json-payload> [--profile name]\n');
     console.log(t('options'));
     console.log('  -h, --help        ' + t('help'));
@@ -63,6 +64,7 @@ function showHelp() {
     console.log('  llm-base config create local');
     console.log('  llm-base config list');
     console.log('  llm-base config export');
+    console.log('  llm-base chat "请输出任务结果" --mode low');
 }
 
 /**

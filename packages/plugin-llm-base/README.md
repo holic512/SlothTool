@@ -100,7 +100,7 @@ llm-base config -i
 
 ## 3.2 调用接口
 
-### chat 调用（自动 low/high 模型）
+### chat 调用（自动 low/high 模型，严格 JSON 输出）
 
 ```bash
 # 默认 low 模式
@@ -112,6 +112,12 @@ llm-base chat "请总结以下文本" --mode high
 # 指定 profile
 llm-base chat "hello" --mode low --profile local
 ```
+
+说明：
+- `chat` 已内置“严格 JSON 模式”系统提示词。
+- 返回结构中的 `data` 字段始终为 JSON 对象。
+- 若模型未按要求返回合法 JSON，会自动落入兜底对象：
+  - `{"result":"原始文本","_fallback":true,"_reason":"model_output_was_not_valid_json"}`
 
 ### raw 透传调用
 
@@ -155,7 +161,9 @@ llmBase.get_call(call_id);
 {
   "success": true,
   "model": "实际使用模型名",
-  "data": "...",
+  "data": {
+    "result": "结构化结果"
+  },
   "usage": {
     "input_tokens": 0,
     "output_tokens": 0

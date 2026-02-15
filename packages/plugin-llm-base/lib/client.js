@@ -3,6 +3,15 @@ const {mapError} = require('./error-mapper');
 const {addCall} = require('./call-log');
 const {generateCallId, resolveEndpoint} = require('./utils');
 
+// 严格 JSON 模式系统提示词：强制模型仅输出 JSON 对象
+const JSON_MODE_SYSTEM_PROMPT = [
+    'You are in strict JSON mode.',
+    'You must return exactly one valid JSON object and nothing else.',
+    'Do not output markdown, code fences, or explanations.',
+    'If the user asks for plain text, wrap it as JSON fields.',
+    'If you cannot fulfill the request, still return a JSON object with an error field.'
+].join('\n');
+
 /**
  * 规范化 usage 字段，统一为 input_tokens/output_tokens
  */
@@ -11,6 +20,166 @@ function normalizeUsage(rawUsage) {
     return {
         input_tokens: usage.prompt_tokens || usage.input_tokens || 0,
         output_tokens: usage.completion_tokens || usage.output_tokens || 0
+    };
+}
+
+/**
+ * 清洗并规范 messages
+ */
+function normalizeMessages(messages) {
+    if (!Array.isArray(messages)) {
+        return [];
+    }
+
+    return messages
+        .filter(item => item && typeof item === 'object' && typeof item.role === 'string')
+        .map(item => ({
+            role: item.role,
+            content: item.content === undefined || item.content === null ? '' : item.content
+        }));
+}
+
+/**
+ * 给对话追加严格 JSON 模式约束
+ */
+function withStrictJsonMode(messages) {
+    const normalized = normalizeMessages(messages);
+    return [{
+        role: 'system',
+        content: JSON_MODE_SYSTEM_PROMPT
+    }, ...normalized];
+}
+
+/**
+ * 从 message.content 提取文本
+ */
+function contentToText(content) {
+    if (typeof content === 'string') {
+        return content;
+    }
+
+    if (Array.isArray(content)) {
+        return content.map(part => {
+            if (typeof part === 'string') {
+                return part;
+            }
+            if (part && typeof part === 'object') {
+                if (typeof part.text === 'string') {
+                    return part.text;
+                }
+                if (part.type === 'text' && typeof part.text === 'string') {
+                    return part.text;
+                }
+            }
+            return '';
+        }).join('').trim();
+    }
+
+    if (content && typeof content === 'object') {
+        return JSON.stringify(content);
+    }
+
+    return '';
+}
+
+/**
+ * 从 provider 响应中提取 assistant 文本
+ */
+function extractAssistantText(response) {
+    const message = response
+        && Array.isArray(response.choices)
+        && response.choices[0]
+        && response.choices[0].message
+        ? response.choices[0].message
+        : null;
+
+    if (!message) {
+        return '';
+    }
+
+    return contentToText(message.content);
+}
+
+/**
+ * 去掉可能的 ```json 代码块包裹
+ */
+function stripCodeFence(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+
+    const trimmed = text.trim();
+    const matched = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    return matched ? matched[1].trim() : trimmed;
+}
+
+/**
+ * 尝试将字符串解析为 JSON 对象
+ */
+function tryParseJsonObject(text) {
+    if (typeof text !== 'string') {
+        return null;
+    }
+
+    const cleaned = stripCodeFence(text);
+
+    try {
+        const parsed = JSON.parse(cleaned);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return parsed;
+        }
+        return {result: parsed};
+    } catch (error) {
+        // ignore
+    }
+
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+        const maybeJson = cleaned.slice(firstBrace, lastBrace + 1);
+        try {
+            const parsed = JSON.parse(maybeJson);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return parsed;
+            }
+            return {result: parsed};
+        } catch (error) {
+            // ignore
+        }
+    }
+
+    return null;
+}
+
+/**
+ * 确保最终 data 一定是 JSON 对象
+ */
+function ensureJsonObject(content) {
+    if (content && typeof content === 'object' && !Array.isArray(content)) {
+        return content;
+    }
+
+    if (typeof content === 'string') {
+        const parsed = tryParseJsonObject(content);
+        if (parsed) {
+            return parsed;
+        }
+
+        return {
+            result: content.trim(),
+            _fallback: true,
+            _reason: 'model_output_was_not_valid_json'
+        };
+    }
+
+    if (content === undefined || content === null) {
+        return {
+            result: null
+        };
+    }
+
+    return {
+        result: content
     };
 }
 
@@ -103,7 +272,7 @@ function buildFailure(callId, error) {
 }
 
 /**
- * 聊天接口：根据 mode 自动切 low/high 模型
+ * 聊天接口：根据 mode 自动切 low/high 模型，且始终返回 JSON data
  */
 async function llm_chat(messages, mode = 'low', profile = null) {
     const callId = generateCallId();
@@ -116,7 +285,7 @@ async function llm_chat(messages, mode = 'low', profile = null) {
 
         const payload = {
             model: selectedModel,
-            messages: Array.isArray(messages) ? messages : []
+            messages: withStrictJsonMode(messages)
         };
 
         const response = await requestJson(
@@ -125,14 +294,9 @@ async function llm_chat(messages, mode = 'low', profile = null) {
             profileConfig
         );
 
-        const content = response
-            && Array.isArray(response.choices)
-            && response.choices[0]
-            && response.choices[0].message
-            ? response.choices[0].message.content
-            : '';
-
-        const result = buildSuccess(callId, selectedModel, content, response.usage);
+        const text = extractAssistantText(response);
+        const jsonData = ensureJsonObject(text);
+        const result = buildSuccess(callId, selectedModel, jsonData, response.usage);
 
         // 日志只记录元信息，不记录用户输入正文
         addCall({
