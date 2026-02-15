@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-systemd",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Interactive systemd service management tool",
   "main": "lib/systemd.js",
   "bin": {
