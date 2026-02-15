@@ -20,7 +20,19 @@
     "service",
     "journalctl"
   ],
-  "author": "",
+  "author": "holic512",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/holic512/SlothTool.git",
+    "directory": "packages/plugin-systemd"
+  },
+  "homepage": "https://github.com/holic512/SlothTool#readme",
+  "bugs": {
+    "url": "https://github.com/holic512/SlothTool/issues"
+  },
+  "os": [
+    "linux"
+  ],
   "license": "ISC",
   "dependencies": {
     "prompts": "^2.4.2"
