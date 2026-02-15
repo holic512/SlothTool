@@ -1,0 +1,28 @@
+{
+  "name": "@holic512/plugin-llm-base",
+  "version": "1.0.0",
+  "description": "Base OpenAI-compatible LLM capability layer for SlothTool plugins",
+  "main": "lib/index.js",
+  "bin": {
+    "llm-base": "bin/llm-base.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "llm",
+    "openai",
+    "base"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "prompts": "^2.4.2"
+  }
+}

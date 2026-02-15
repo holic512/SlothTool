@@ -65,6 +65,30 @@
         "History cache",
         "Bilingual support"
       ]
+    },
+    {
+      "name": "@holic512/plugin-llm-base",
+      "alias": "llm-base",
+      "description": "LLM 基础能力层 - 配置管理、OpenAI 协议兼容调用与调用日志",
+      "descriptionEn": "LLM base layer for profile management, OpenAI-compatible calls, and call logs",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "多 profile 配置管理",
+        "low/high 双模型切换",
+        "OpenAI Chat Completions 兼容",
+        "统一返回结构与错误码",
+        "调用日志（最近 500 条）",
+        "默认安全脱敏"
+      ],
+      "featuresEn": [
+        "Multi-profile configuration",
+        "Low/high model switching",
+        "OpenAI Chat Completions compatible",
+        "Unified response schema and error codes",
+        "Call logs (latest 500 entries)",
+        "Secure masking by default"
+      ]
     }
   ]
 }

@@ -219,6 +219,45 @@ slothtool loc -c
 - 详细模式显示每个文件
 - 支持中英文界面
 
+### @holic512/plugin-llm-base
+
+LLM 基础能力层，提供 profile 配置管理、OpenAI 协议兼容调用、调用日志能力。
+
+**安装：**
+
+```bash
+slothtool install @holic512/plugin-llm-base
+```
+
+**使用：**
+
+```bash
+# 查看帮助
+slothtool llm-base --help
+
+# 交互式配置
+slothtool llm-base -i
+
+# 创建 profile
+slothtool llm-base config create local
+
+# 查看配置（脱敏）
+slothtool llm-base config export
+
+# low/high 模式调用
+slothtool llm-base chat "你好" --mode low
+slothtool llm-base chat "请详细分析" --mode high
+```
+
+**功能特性：**
+
+- 多 profile 配置管理
+- low/high 双模型切换
+- OpenAI Chat Completions 兼容
+- 统一返回结构与错误码
+- 调用日志（最近 500 条）
+- 默认安全脱敏
+
 ## 配置
 
 ### 语言设置
