@@ -23,7 +23,33 @@ A SlothTool plugin is simply an npm package with a `bin` field in its `package.j
 2. A `bin` field pointing to an executable JavaScript file
 3. The bin file must start with `#!/usr/bin/env node`
 
+### Create from scratch (step-by-step)
+
+1. Create a folder with `package.json`, `bin/`, and `lib/`
+2. Add `slothtool.interactive` and `slothtool.interactiveFlag` to `package.json` if you support interactive mode
+3. Implement a CLI entry in `bin/` with `-h/--help` and `-i/--interactive`
+4. Add `lib/i18n.js` and read language from `~/.slothtool/settings.json`
+5. Add `lib/config.js` if you need plugin configuration under `~/.slothtool/plugin-configs/`
+6. Test with `npm link` then `slothtool install @yourscope/plugin-mytool`
+
 ## Plugin Structure
+
+### Quick Start (Template)
+
+You can start from the official template in this repository:
+
+```
+cp -R templates/plugin-basic my-plugin
+```
+
+Then update:
+- `package.json` name, bin, description, keywords
+- `bin/mytool.js` command name and help text
+- `lib/i18n.js` messages
+- `lib/config.js` defaults
+- `lib/interactive.js` menu flow (optional)
+
+`plugin-systemd` was built based on this structure for consistency.
 
 ### Basic Structure
 
@@ -171,6 +197,10 @@ When users run your plugin through `slothtool -i` → "Run plugin":
 
 1. **If `slothtool.interactive` is `true`**: SlothTool automatically launches your plugin with the interactive flag
 2. **If not declared**: SlothTool shows your help message first, then prompts the user to enter arguments
+
+### Template Reference
+
+See `templates/plugin-basic` for a minimal scaffold, and `packages/plugin-systemd` for a full reference plugin that follows the same structure.
 
 ## Internationalization (i18n)
 

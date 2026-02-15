@@ -1,0 +1,26 @@
+{
+  "name": "@yourscope/plugin-mytool",
+  "version": "1.0.0",
+  "description": "Your plugin description",
+  "main": "lib/index.js",
+  "bin": {
+    "mytool": "bin/mytool.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "mytool"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "prompts": "^2.4.2"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@holic512/plugin-systemd",
+  "version": "1.0.0",
+  "description": "Interactive systemd service management tool",
+  "main": "lib/systemd.js",
+  "bin": {
+    "systemd": "bin/systemd.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "systemd",
+    "service",
+    "journalctl"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "prompts": "^2.4.2"
+  }
+}

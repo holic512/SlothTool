@@ -43,6 +43,28 @@
         "Conflict detection",
         "Bilingual support"
       ]
+    },
+    {
+      "name": "@holic512/plugin-systemd",
+      "alias": "systemd",
+      "description": "systemd 服务管理工具 - 启停/启用/日志与历史记录",
+      "descriptionEn": "systemd service manager with actions, logs, and history",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "交互式界面",
+        "服务启停/启用/禁用/重启",
+        "日志查看",
+        "历史记录缓存",
+        "双语支持"
+      ],
+      "featuresEn": [
+        "Interactive interface",
+        "Service start/stop/enable/disable/restart",
+        "Log viewing",
+        "History cache",
+        "Bilingual support"
+      ]
     }
   ]
 }
