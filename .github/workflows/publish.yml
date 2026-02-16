@@ -12,6 +12,7 @@ on:
           - 'plugin-loc'
           - 'plugin-svn'
           - 'plugin-systemd'
+          - 'plugin-llm-base'
       version:
         description: 'Version to publish (leave empty to auto-increment patch version)'
         required: false
