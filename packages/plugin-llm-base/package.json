@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-llm-base",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Base OpenAI-compatible LLM capability layer for SlothTool plugins",
   "main": "lib/index.js",
   "bin": {
