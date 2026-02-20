@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {normalizeModels, toEndpointList} = require('../lib/modes-client');
+const {normalizeModels, toEndpointList, normalizeRequestHeaders} = require('../lib/modes-client');
 
 test('toEndpointList supports string and deduplicates arrays', () => {
     assert.deepEqual(toEndpointList('/models', ['/v1/models']), ['/models']);
@@ -40,4 +40,19 @@ test('normalizeModels supports grouped payload', () => {
     const chat = output.find(item => item.id === 'gpt-4.1');
     assert.equal(codex.modeId, 'code');
     assert.equal(chat.modeId, 'chat');
+});
+
+test('normalizeRequestHeaders strips symbol keys and stringifies values', () => {
+    const symbolKey = Symbol('type');
+    const headers = {
+        Authorization: 'Bearer token',
+        'X-Retry': 3,
+        [symbolKey]: 'bad-key'
+    };
+
+    const output = normalizeRequestHeaders(headers);
+    assert.deepEqual(output, {
+        Authorization: 'Bearer token',
+        'X-Retry': '3'
+    });
 });

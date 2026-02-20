@@ -146,6 +146,22 @@ function toEndpointList(value, fallbackList) {
     return output;
 }
 
+function normalizeRequestHeaders(headers) {
+    const output = {};
+    const source = headers && typeof headers === 'object' ? headers : {};
+
+    // fetch 会遍历对象 own keys；这里显式只保留可枚举字符串键，避免 Symbol 键导致 ByteString 异常
+    for (const key of Object.keys(source)) {
+        const value = source[key];
+        if (value === undefined || value === null) {
+            continue;
+        }
+        output[String(key)] = String(value);
+    }
+
+    return output;
+}
+
 async function requestJson(url, headers) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
@@ -207,12 +223,10 @@ async function getModesAndModels(options) {
         throw new Error(`Provider missing or no base_url: ${providerId}`);
     }
 
-    const headers = provider.http_headers && typeof provider.http_headers === 'object'
-        ? provider.http_headers
-        : {};
+    const headers = normalizeRequestHeaders(provider.http_headers);
 
     const modeEndpoints = toEndpointList(endpoints && endpoints.modes, ['/modes', '/v1/modes']);
-    const modelEndpoints = toEndpointList(endpoints && endpoints.models, ['/models', '/v1/models', '/api/models']);
+    const modelEndpoints = ['/v1/models'];
 
     if (!forceRefresh) {
         const hit = getProviderCache(providerId, ttlMs);
@@ -239,15 +253,7 @@ async function getModesAndModels(options) {
         }
 
         let modelsPayload = null;
-        if (modeId) {
-            try {
-                modelsPayload = await requestByCandidates(provider.base_url, modelEndpoints, headers, {mode: modeId});
-            } catch (error) {
-                modelsPayload = await requestByCandidates(provider.base_url, modelEndpoints, headers, null);
-            }
-        } else {
-            modelsPayload = await requestByCandidates(provider.base_url, modelEndpoints, headers, null);
-        }
+        modelsPayload = await requestByCandidates(provider.base_url, modelEndpoints, headers, null);
 
         const modelItems = normalizeModels(modelsPayload.payload, providerId, modeId);
 
@@ -287,5 +293,6 @@ module.exports = {
     normalizeModes,
     normalizeModels,
     buildUrl,
-    toEndpointList
+    toEndpointList,
+    normalizeRequestHeaders
 };
