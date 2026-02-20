@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {normalizeModels, toEndpointList, normalizeRequestHeaders} = require('../lib/modes-client');
+const {normalizeModels, toEndpointList, normalizeRequestHeaders, buildUrl} = require('../lib/modes-client');
 
 test('toEndpointList supports string and deduplicates arrays', () => {
     assert.deepEqual(toEndpointList('/models', ['/v1/models']), ['/models']);
@@ -55,4 +55,14 @@ test('normalizeRequestHeaders strips symbol keys and stringifies values', () => 
         Authorization: 'Bearer token',
         'X-Retry': '3'
     });
+});
+
+test('buildUrl deduplicates repeated version path', () => {
+    const url = buildUrl('https://docs.newapi.ai/v1', '/v1/models', null);
+    assert.equal(url, 'https://docs.newapi.ai/v1/models');
+});
+
+test('buildUrl keeps endpoint version when base has no version', () => {
+    const url = buildUrl('https://docs.newapi.ai', '/v1/models', null);
+    assert.equal(url, 'https://docs.newapi.ai/v1/models');
 });

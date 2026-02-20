@@ -6,7 +6,18 @@ function trimSlash(url) {
 
 function buildUrl(baseUrl, endpoint, query) {
     const root = trimSlash(baseUrl);
-    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    let normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+    // base_url 已含版本段时，避免和 endpoint 的同版本段重复（/v1 + /v1/models => /v1/models）
+    const baseVersionMatch = root.match(/\/(v\d+)$/i);
+    const endpointVersionMatch = normalizedEndpoint.match(/^\/(v\d+)(\/|$)/i);
+    if (baseVersionMatch && endpointVersionMatch && baseVersionMatch[1].toLowerCase() === endpointVersionMatch[1].toLowerCase()) {
+        normalizedEndpoint = normalizedEndpoint.slice(endpointVersionMatch[1].length + 1);
+        if (!normalizedEndpoint.startsWith('/')) {
+            normalizedEndpoint = `/${normalizedEndpoint}`;
+        }
+    }
+
     const url = new URL(`${root}${normalizedEndpoint}`);
 
     if (query && typeof query === 'object') {
