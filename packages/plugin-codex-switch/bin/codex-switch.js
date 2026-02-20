@@ -7,7 +7,7 @@ const {
     commandBackupList,
     commandRollback,
     commandCleanCache,
-    commandDoctor
+    commandEditConfig
 } = require('../lib/index');
 const {interactiveMain} = require('../lib/interactive');
 const {t} = require('../lib/i18n');
@@ -37,7 +37,7 @@ function showHelp() {
     console.log('  codex-switch backup list [--json]');
     console.log('  codex-switch rollback [--id <backupId>] [--yes] [--json]');
     console.log('  codex-switch clean cache [--dry-run] [--sessions-days <n>] [--yes] [--json]');
-    console.log('  codex-switch doctor [--json]\n');
+    console.log('  codex-switch edit-config [--url <baseUrl>] [--key <apiKey>] [--yes] [--json]\n');
     console.log(t('options'));
     console.log('  -h, --help         ' + t('help'));
     console.log('  -i, --interactive  ' + t('interactive') + '\n');
@@ -47,7 +47,7 @@ function showHelp() {
     console.log('  codex-switch use --mode code --model gpt-5.3-codex --yes');
     console.log('  codex-switch rollback --id 2026-02-20T10-00-00-000Z-deadbeef --yes');
     console.log('  codex-switch clean cache --dry-run');
-    console.log('  codex-switch doctor --json');
+    console.log('  codex-switch edit-config --url http://49.232.155.38:3001/v1 --key sk-xxx --yes --json');
 }
 
 function parseCommonOptions() {
@@ -130,8 +130,12 @@ async function main() {
             return;
         }
 
-        if (command === 'doctor') {
-            console.log(await commandDoctor(common));
+        if (command === 'edit-config') {
+            console.log(await commandEditConfig({
+                ...common,
+                url: getFlagValue('--url'),
+                key: getFlagValue('--key')
+            }));
             return;
         }
 

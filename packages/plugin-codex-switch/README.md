@@ -24,7 +24,7 @@ codex-switch use --mode <mode> --model <model> [--provider <id>] [--yes] [--json
 codex-switch backup list [--json]
 codex-switch rollback [--id <backupId>] [--yes] [--json]
 codex-switch clean cache [--dry-run] [--sessions-days <n>] [--yes] [--json]
-codex-switch doctor [--json]
+codex-switch edit-config [--url <baseUrl>] [--key <apiKey>] [--yes] [--json]
 ```
 
 ## 配置发现顺序

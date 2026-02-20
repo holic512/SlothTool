@@ -6,9 +6,13 @@ const {
     commandBackupList,
     commandRollback,
     commandCleanCache,
-    commandDoctor
+    commandEditConfig
 } = require('./index');
 const {t} = require('./i18n');
+const ANSI = {
+    reset: '\x1b[0m',
+    cyan: '\x1b[36m'
+};
 
 function clearScreen() {
     if (process.stdout.isTTY) {
@@ -35,6 +39,17 @@ function printKv(label, value) {
     console.log(`${label}: ${text}`);
 }
 
+function highlightCurrentModel(model) {
+    const text = String(model || '');
+    if (!text) {
+        return text;
+    }
+    if (!process.stdout.isTTY) {
+        return `${text} [当前模型]`;
+    }
+    return `${ANSI.cyan}${text}${ANSI.reset} ${ANSI.cyan}[当前模型]${ANSI.reset}`;
+}
+
 function tryJson(text) {
     try {
         return JSON.parse(text);
@@ -59,7 +74,7 @@ function renderCurrentSummary(data) {
     const current = data.current;
     printKv(t('selectedPath'), data.selectedPath);
     printKv('provider', current.model_provider);
-    printKv('model', current.model);
+    printKv('model', highlightCurrentModel(current.model));
     printKv('base_url', current.provider && current.provider.base_url);
 }
 
@@ -68,8 +83,23 @@ function renderUseSummary(result) {
         return;
     }
     printKv('success', !!result.success);
+    if (Object.prototype.hasOwnProperty.call(result, 'changed')) {
+        printKv('changed', !!result.changed);
+    }
     if (result.cancelled) {
         printKv('cancelled', true);
+    }
+    if (result.message) {
+        printKv('message', result.message);
+    }
+    if (result.configPath) {
+        printKv('configPath', result.configPath);
+    }
+    if (result.authPath) {
+        printKv('authPath', result.authPath);
+    }
+    if (result.keyMasked) {
+        printKv('apiKey', result.keyMasked);
     }
     if (result.backup && result.backup.id) {
         printKv('backup', result.backup.id);
@@ -92,26 +122,6 @@ function renderUseSummary(result) {
         printKv('provider', result.current.model_provider);
         printKv('model', result.current.model);
         printKv('base_url', result.current.provider && result.current.provider.base_url);
-    }
-}
-
-function renderDoctorSummary(data) {
-    if (!data) {
-        return;
-    }
-    printKv('selectedPath', data.selectedPath);
-    if (data.checks) {
-        printKv('parse', data.checks.parse);
-        printKv('model_provider', data.checks.model_provider);
-        printKv('model', data.checks.model);
-        printKv('base_url', data.checks.base_url);
-        printKv('modesSource', data.checks.modesSource);
-        printKv('modesCount', data.checks.modesCount);
-        printKv('modelsCount', data.checks.modelsCount);
-    }
-    if (Array.isArray(data.warnings) && data.warnings.length > 0) {
-        console.log('\n[warnings]');
-        data.warnings.forEach(item => console.log('  - ' + item));
     }
 }
 
@@ -169,7 +179,7 @@ async function interactiveMain() {
             choices: [
                 {title: t('menuCurrent'), value: 'current'},
                 {title: t('menuUse'), value: 'use'},
-                {title: t('menuDoctor'), value: 'doctor'},
+                {title: t('menuEditConfig'), value: 'editConfig'},
                 {title: t('menuBackupList'), value: 'backupList'},
                 {title: t('menuRollback'), value: 'rollback'},
                 {title: t('menuClean'), value: 'clean'},
@@ -207,12 +217,12 @@ async function interactiveMain() {
             continue;
         }
 
-        if (response.action === 'doctor') {
-            renderHeader(t('title'), t('menuDoctor'));
-            const out = await commandDoctor({json: true});
+        if (response.action === 'editConfig') {
+            renderHeader(t('title'), t('menuEditConfig'));
+            const out = await commandEditConfig({interactive: true, json: true});
             const data = tryJson(out);
             if (data) {
-                renderDoctorSummary(data);
+                renderUseSummary(data);
             } else {
                 console.log(out);
             }

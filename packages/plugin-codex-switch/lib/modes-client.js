@@ -1,61 +1,118 @@
 const {upsertProviderCache, getProviderCache} = require('./cache-store');
+const {getProviderNode} = require('./codex-config');
+const {discoverCodexConfig} = require('./config-paths');
+const fs = require('fs');
+const path = require('path');
 
 function trimSlash(url) {
     return String(url || '').replace(/\/+$/, '');
 }
 
-function buildUrl(baseUrl, endpoint, query) {
-    const root = trimSlash(baseUrl);
-    let normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-
-    // base_url 已含版本段时，避免和 endpoint 的同版本段重复（/v1 + /v1/models => /v1/models）
-    const baseVersionMatch = root.match(/\/(v\d+)$/i);
-    const endpointVersionMatch = normalizedEndpoint.match(/^\/(v\d+)(\/|$)/i);
-    if (baseVersionMatch && endpointVersionMatch && baseVersionMatch[1].toLowerCase() === endpointVersionMatch[1].toLowerCase()) {
-        normalizedEndpoint = normalizedEndpoint.slice(endpointVersionMatch[1].length + 1);
-        if (!normalizedEndpoint.startsWith('/')) {
-            normalizedEndpoint = `/${normalizedEndpoint}`;
-        }
+function withBearerPrefix(token) {
+    const text = String(token || '').trim();
+    if (!text) {
+        return '';
     }
-
-    const url = new URL(`${root}${normalizedEndpoint}`);
-
-    if (query && typeof query === 'object') {
-        for (const key of Object.keys(query)) {
-            if (query[key] !== undefined && query[key] !== null && query[key] !== '') {
-                url.searchParams.set(key, query[key]);
-            }
-        }
-    }
-
-    return url.toString();
+    return /^Bearer\s+/i.test(text) ? text : `Bearer ${text}`;
 }
 
-function normalizeModes(payload, providerId) {
+function readAuthKeyFromCodex() {
+    const discovery = discoverCodexConfig();
+    const codexHome = discovery && discovery.codexHome ? discovery.codexHome : null;
+    if (!codexHome) {
+        throw new Error('Codex home not found');
+    }
+
+    const authPath = path.join(codexHome, 'auth.json');
+    if (!fs.existsSync(authPath)) {
+        throw new Error(`auth.json not found: ${authPath}`);
+    }
+
+    let parsed = null;
+    try {
+        parsed = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+    } catch (error) {
+        throw new Error(`auth.json parse failed: ${authPath}`);
+    }
+
+    const key = parsed && typeof parsed === 'object'
+        ? String(parsed.OPENAI_API_KEY || '').trim()
+        : '';
+    if (!key) {
+        throw new Error(`OPENAI_API_KEY missing in auth.json: ${authPath}`);
+    }
+
+    return key;
+}
+
+function resolveTransportConfig(provider, authKey) {
+    const target = provider || {};
+    return {
+        url: String(target.base_url || target.url || '').trim(),
+        key: String(authKey || '').trim(),
+        headers: target.http_headers && typeof target.http_headers === 'object' ? target.http_headers : {}
+    };
+}
+
+function buildModelsUrl(transport) {
+    const baseUrl = String(transport && transport.url || '').trim();
+    if (!baseUrl) {
+        return '';
+    }
+    return `${trimSlash(baseUrl)}/models`;
+}
+
+function buildRequestHeaders(transport) {
+    const keyAuthorization = withBearerPrefix(transport && transport.key);
+    const authorization = String(keyAuthorization || '').trim();
+    if (!authorization) {
+        return {};
+    }
+
+    return {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        Authorization: authorization,
+        Connection: 'close'
+    };
+}
+
+function toHeaderObject(headers) {
+    const output = {};
+    if (!headers || typeof headers.entries !== 'function') {
+        return output;
+    }
+    for (const [key, value] of headers.entries()) {
+        output[key] = value;
+    }
+    return output;
+}
+
+function stringifySafe(value) {
+    try {
+        return JSON.stringify(value, null, 2);
+    } catch (error) {
+        return String(value);
+    }
+}
+
+function buildRequestLogMessage(url, reason, debugLog) {
+    return `request ${url} failed: ${reason}\n[request-log]\n${stringifySafe(debugLog)}`;
+}
+
+function normalizeModels(payload, providerId) {
     const list = Array.isArray(payload)
         ? payload
         : Array.isArray(payload && payload.data)
             ? payload.data
-            : Array.isArray(payload && payload.modes)
-                ? payload.modes
-                : [];
+            : [];
 
     return list
         .map(item => {
-            if (typeof item === 'string') {
-                return {
-                    id: item,
-                    label: item,
-                    providerId,
-                    raw: item
-                };
-            }
-
             if (!item || typeof item !== 'object') {
                 return null;
             }
 
-            const id = item.id || item.mode || item.name;
+            const id = item.id || item.model || item.name;
             if (!id) {
                 return null;
             }
@@ -63,119 +120,31 @@ function normalizeModes(payload, providerId) {
             return {
                 id,
                 label: item.label || item.name || id,
-                providerId: item.providerId || item.provider || providerId,
+                modeId: null,
+                providerId,
                 raw: item
             };
         })
         .filter(Boolean);
 }
 
-function normalizeModels(payload, providerId, fallbackModeId) {
-    const output = [];
-    const seen = new Set();
-
-    function pushModel(item, modeHint) {
-        if (typeof item === 'string') {
-            if (!seen.has(item)) {
-                output.push({
-                    id: item,
-                    label: item,
-                    modeId: modeHint || fallbackModeId || null,
-                    providerId,
-                    raw: item
-                });
-                seen.add(item);
-            }
-            return;
-        }
-
-        if (!item || typeof item !== 'object') {
-            return;
-        }
-
-        const id = item.id || item.model || item.name;
-        if (!id || seen.has(id)) {
-            return;
-        }
-
-        output.push({
-            id,
-            label: item.label || item.name || id,
-            modeId: item.modeId || item.mode || modeHint || fallbackModeId || null,
-            providerId: item.providerId || item.provider || providerId,
-            raw: item
-        });
-        seen.add(id);
+async function requestModels(transport, headers) {
+    const url = buildModelsUrl(transport);
+    if (!url) {
+        throw new Error('Provider missing url/base_url');
     }
 
-    const list = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload && payload.data)
-            ? payload.data
-            : Array.isArray(payload && payload.models)
-                ? payload.models
-                : null;
-
-    if (Array.isArray(list)) {
-        list.forEach(item => pushModel(item, null));
-        return output;
-    }
-
-    const grouped = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
-        ? payload.data
-        : payload && typeof payload === 'object' && payload.models && typeof payload.models === 'object'
-            ? payload.models
-            : null;
-
-    if (grouped && typeof grouped === 'object') {
-        for (const key of Object.keys(grouped)) {
-            const items = grouped[key];
-            if (Array.isArray(items)) {
-                items.forEach(item => pushModel(item, key));
-            } else {
-                pushModel(items, key);
-            }
-        }
-    }
-
-    return output;
-}
-
-function toEndpointList(value, fallbackList) {
-    const list = Array.isArray(value)
-        ? value
-        : (typeof value === 'string' && value.trim() ? [value] : fallbackList);
-
-    const output = [];
-    for (const item of list) {
-        const text = String(item || '').trim();
-        if (!text || output.includes(text)) {
-            continue;
-        }
-        output.push(text);
-    }
-    return output;
-}
-
-function normalizeRequestHeaders(headers) {
-    const output = {};
-    const source = headers && typeof headers === 'object' ? headers : {};
-
-    // fetch 会遍历对象 own keys；这里显式只保留可枚举字符串键，避免 Symbol 键导致 ByteString 异常
-    for (const key of Object.keys(source)) {
-        const value = source[key];
-        if (value === undefined || value === null) {
-            continue;
-        }
-        output[String(key)] = String(value);
-    }
-
-    return output;
-}
-
-async function requestJson(url, headers) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
+
+    const debugLog = {
+        request: {
+            method: 'GET',
+            url,
+            headers: {...headers}
+        },
+        response: null
+    };
 
     try {
         const response = await fetch(url, {
@@ -185,6 +154,13 @@ async function requestJson(url, headers) {
         });
 
         const text = await response.text();
+        debugLog.response = {
+            status: response.status,
+            statusText: response.statusText,
+            headers: toHeaderObject(response.headers),
+            body: text
+        };
+
         let body = {};
         try {
             body = text ? JSON.parse(text) : {};
@@ -193,55 +169,42 @@ async function requestJson(url, headers) {
         }
 
         if (!response.ok) {
-            const msg = body && body.error && body.error.message
+            const message = body && body.error && body.error.message
                 ? body.error.message
                 : `HTTP ${response.status}`;
-            throw new Error(msg);
+            throw new Error(buildRequestLogMessage(url, message, debugLog));
         }
 
         return body;
+    } catch (error) {
+        const reason = error && error.message ? error.message : 'fetch failed';
+        if (reason.includes('[request-log]')) {
+            throw error;
+        }
+        throw new Error(buildRequestLogMessage(url, reason, debugLog));
     } finally {
         clearTimeout(timer);
     }
-}
-
-async function requestByCandidates(baseUrl, endpoints, headers, query) {
-    let lastError = null;
-    for (const endpoint of endpoints) {
-        try {
-            const payload = await requestJson(buildUrl(baseUrl, endpoint, query), headers);
-            return {endpoint, payload};
-        } catch (error) {
-            lastError = error;
-        }
-    }
-    throw lastError || new Error('request failed');
 }
 
 async function getModesAndModels(options) {
     const {
         codexConfig,
         providerId,
-        selectedMode,
-        endpoints,
         ttlMs,
         forceRefresh
     } = options;
 
-    const {getProviderNode} = require('./codex-config');
     const provider = getProviderNode(codexConfig, providerId);
-    if (!provider || !provider.base_url) {
-        throw new Error(`Provider missing or no base_url: ${providerId}`);
+    if (!provider) {
+        throw new Error(`Provider missing: ${providerId}`);
     }
-
-    const headers = normalizeRequestHeaders(provider.http_headers);
-
-    const modeEndpoints = toEndpointList(endpoints && endpoints.modes, ['/modes', '/v1/modes']);
-    const modelEndpoints = ['/v1/models'];
+    const authKey = readAuthKeyFromCodex();
+    const transport = resolveTransportConfig(provider, authKey);
 
     if (!forceRefresh) {
         const hit = getProviderCache(providerId, ttlMs);
-        if (hit) {
+        if (hit && Array.isArray(hit.models) && hit.models.length > 0) {
             return {
                 source: 'cache',
                 modes: hit.modes || [],
@@ -252,32 +215,20 @@ async function getModesAndModels(options) {
     }
 
     try {
-        let modeItems = [];
-        const modeId = selectedMode || null;
-        let modeWarning = null;
-
-        try {
-            const modesPayload = await requestByCandidates(provider.base_url, modeEndpoints, headers, null);
-            modeItems = normalizeModes(modesPayload.payload, providerId);
-        } catch (error) {
-            modeWarning = error.message || 'modes fetch failed';
-        }
-
-        let modelsPayload = null;
-        modelsPayload = await requestByCandidates(provider.base_url, modelEndpoints, headers, null);
-
-        const modelItems = normalizeModels(modelsPayload.payload, providerId, modeId);
+        const headers = buildRequestHeaders(transport);
+        const payload = await requestModels(transport, headers);
+        const models = normalizeModels(payload, providerId);
 
         upsertProviderCache(providerId, {
-            modes: modeItems,
-            models: modelItems
+            modes: [],
+            models
         });
 
         return {
             source: 'remote',
-            modes: modeItems,
-            models: modelItems,
-            warning: modeWarning
+            modes: [],
+            models,
+            warning: null
         };
     } catch (error) {
         const hit = getProviderCache(providerId, 0);
@@ -301,9 +252,7 @@ async function getModesAndModels(options) {
 
 module.exports = {
     getModesAndModels,
-    normalizeModes,
-    normalizeModels,
-    buildUrl,
-    toEndpointList,
-    normalizeRequestHeaders
+    buildRequestHeaders,
+    buildModelsUrl,
+    normalizeModels
 };
