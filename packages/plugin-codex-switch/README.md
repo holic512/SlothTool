@@ -2,7 +2,7 @@
 
 Codex 配置切换插件，提供：
 - Codex 配置自动发现
-- models 拉取（优先远端 + 缓存回退 + 手动输入）
+- models 拉取（优先远端 + 缓存回退）
 - model/mode/provider 切换（自动备份 + 原子写入）
 - Codex 缓存清理（仅缓存目录）
 - 交互菜单（prompts）+ 清屏式 CLI 仪表盘输出

@@ -80,6 +80,9 @@ function renderUseSummary(result) {
     if (result.warning) {
         printKv('warning', result.warning);
     }
+    if (result.modelChange) {
+        printKv('model', result.modelChange);
+    }
     if (Array.isArray(result.diff) && result.diff.length > 0) {
         console.log('\n[diff]');
         result.diff.forEach(line => console.log('  - ' + line));

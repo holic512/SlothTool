@@ -91,7 +91,7 @@ async function resolveSwitchInput(ctx, options = {}) {
     const currentProviderId = ctx.summary.model_provider;
     const requestedProvider = options.provider || currentProviderId;
 
-    let selectedMode = options.mode || null;
+    const selectedMode = options.interactive ? null : (options.mode || null);
     let selectedModel = options.model || null;
     let providerId = requestedProvider;
 
@@ -101,7 +101,7 @@ async function resolveSwitchInput(ctx, options = {}) {
         selectedMode,
         endpoints: ctx.runtime.api.endpoints,
         ttlMs: ctx.runtime.cache.ttlMs,
-        forceRefresh: false
+        forceRefresh: !!options.interactive
     });
 
     if (!selectedModel && !options.interactive) {
@@ -110,56 +110,43 @@ async function resolveSwitchInput(ctx, options = {}) {
 
     if (options.interactive) {
         if (remote.source !== 'manual' && remote.models.length > 0) {
-            const filtered = selectedMode
-                ? remote.models.filter(item => !item.modeId || item.modeId === selectedMode)
-                : remote.models;
-
             const currentModel = ctx.summary.model || '';
-            const manualValue = '__manual__';
-            const modelChoices = filtered.map(item => ({
+            const models = remote.models.slice();
+            const currentIndex = models.findIndex(item => item.id === currentModel);
+            if (currentIndex > 0) {
+                const [currentItem] = models.splice(currentIndex, 1);
+                models.unshift(currentItem);
+            }
+
+            const modelChoices = models.map(item => ({
                 title: item.id === currentModel
-                    ? `${item.label} (${item.id}) [current]`
+                    ? `${item.label} (${item.id}) (当前)`
                     : `${item.label} (${item.id})`,
                 value: item.id
             }));
 
-            modelChoices.push({
-                title: 'Manual input...',
-                value: manualValue
-            });
-
             const modelResp = await prompts({
-                type: 'select',
+                type: 'autocompleteMultiselect',
                 name: 'value',
                 message: currentModel
-                    ? `Select model (current: ${currentModel})`
-                    : 'Select model',
-                choices: modelChoices
+                    ? `选择模型（当前: ${currentModel}，空格选择，回车确认）`
+                    : '选择模型（空格选择，回车确认）',
+                choices: modelChoices,
+                min: 1,
+                max: 1,
+                instructions: false,
+                hint: '输入关键字筛选'
             });
 
-            if (modelResp.value === manualValue) {
-                const inputResp = await prompts({
-                    type: 'text',
-                    name: 'value',
-                    message: 'Enter model manually',
-                    initial: currentModel
-                });
-                selectedModel = inputResp.value || selectedModel;
-            } else {
-                selectedModel = modelResp.value || selectedModel;
-                const picked = filtered.find(item => item.id === selectedModel);
-                if (picked && picked.providerId) {
-                    providerId = picked.providerId;
-                }
+            const selected = Array.isArray(modelResp.value) ? modelResp.value[0] : null;
+            selectedModel = selected || selectedModel;
+
+            const picked = models.find(item => item.id === selectedModel);
+            if (picked && picked.providerId) {
+                providerId = picked.providerId;
             }
         } else {
-            const inputResp = await prompts({
-                type: 'text',
-                name: 'value',
-                message: 'Enter model manually',
-                initial: ctx.summary.model || ''
-            });
-            selectedModel = inputResp.value || selectedModel;
+            throw new Error(remote.warning || '无法从远端获取模型列表');
         }
     }
 
@@ -204,13 +191,14 @@ async function commandUse(options = {}) {
 
     const after = summarizeConfig(ctx.configPath, next);
     const diffLines = buildDiff(before, after);
+    const modelChange = `${before.model} -> ${after.model}`;
 
     if (!options.yes) {
         const confirm = await prompts({
             type: 'confirm',
             name: 'ok',
-            message: 'Apply these changes?',
-            initial: false
+            message: `确认更新模型为 ${selection.model} 吗？`,
+            initial: true
         });
         if (!confirm.ok) {
             return output({
@@ -230,6 +218,7 @@ async function commandUse(options = {}) {
             backup,
             source: selection.source,
             warning: selection.warning,
+            modelChange,
             diff: diffLines,
             current: after
         }, options.json);

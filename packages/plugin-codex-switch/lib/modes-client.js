@@ -228,15 +228,12 @@ async function getModesAndModels(options) {
 
     try {
         let modeItems = [];
-        let modeId = selectedMode || null;
+        const modeId = selectedMode || null;
         let modeWarning = null;
 
         try {
             const modesPayload = await requestByCandidates(provider.base_url, modeEndpoints, headers, null);
             modeItems = normalizeModes(modesPayload.payload, providerId);
-            if (!modeId && modeItems[0]) {
-                modeId = modeItems[0].id;
-            }
         } catch (error) {
             modeWarning = error.message || 'modes fetch failed';
         }
