@@ -89,6 +89,30 @@
         "Call logs (latest 500 entries)",
         "Secure masking by default"
       ]
+    },
+    {
+      "name": "@holic512/plugin-codex-switch",
+      "alias": "codex-switch",
+      "description": "Codex 配置切换工具 - 自动发现配置、模型切换、缓存清理与回滚",
+      "descriptionEn": "Codex config switcher with auto discovery, model switching, cache cleanup, and rollback",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "自动发现 Codex 配置",
+        "modes/models 拉取与缓存回退",
+        "model/provider 切换与原子写入",
+        "自动备份与回滚",
+        "缓存清理 dry-run",
+        "交互菜单 + Ink 详情视图"
+      ],
+      "featuresEn": [
+        "Auto-discover Codex config",
+        "Modes/models fetch with cache fallback",
+        "Model/provider switching with atomic write",
+        "Auto backup and rollback",
+        "Cache cleanup with dry-run",
+        "Interactive menu + Ink detail view"
+      ]
     }
   ]
 }

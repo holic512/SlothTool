@@ -145,6 +145,7 @@ Package names are automatically converted to simple aliases:
 ## Official Plugins
 
 - [@holic512/plugin-loc](../plugin-loc) - Lines of code counter with interactive features
+- [@holic512/plugin-codex-switch](../plugin-codex-switch) - Codex config switcher with interactive menu, Ink views, backup/rollback, and cache cleanup
 
 ## Creating Plugins
 

@@ -258,6 +258,35 @@ slothtool llm-base chat "请详细分析" --mode high
 - 调用日志（最近 500 条）
 - 默认安全脱敏
 
+### @holic512/plugin-codex-switch
+
+Codex 配置切换工具，支持自动发现配置、modes/models 拉取与缓存回退、model/provider 切换、备份回滚与缓存清理。
+
+**安装：**
+
+```bash
+slothtool install @holic512/plugin-codex-switch
+```
+
+**使用：**
+
+```bash
+# 交互式菜单
+slothtool codex-switch -i
+
+# 查看当前 Codex 配置
+slothtool codex-switch current
+
+# 拉取 modes/models
+slothtool codex-switch modes --refresh
+
+# 切换 model
+slothtool codex-switch use --mode code --model gpt-5.3-codex --yes
+
+# 清理缓存（演练）
+slothtool codex-switch clean cache --dry-run
+```
+
 ## 配置
 
 ### 语言设置
