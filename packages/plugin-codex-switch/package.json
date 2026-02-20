@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-codex-switch",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Codex config switcher with interactive menu and Ink views",
   "main": "lib/index.js",
   "bin": {
