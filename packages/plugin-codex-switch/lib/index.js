@@ -109,37 +109,55 @@ async function resolveSwitchInput(ctx, options = {}) {
     }
 
     if (options.interactive) {
-        if (remote.source !== 'manual' && remote.modes.length > 0) {
-            const modeResp = await prompts({
-                type: 'select',
-                name: 'value',
-                message: 'Select mode',
-                choices: remote.modes.map(item => ({title: `${item.label} (${item.id})`, value: item.id}))
-            });
-            selectedMode = modeResp.value || selectedMode;
-        }
-
         if (remote.source !== 'manual' && remote.models.length > 0) {
             const filtered = selectedMode
                 ? remote.models.filter(item => !item.modeId || item.modeId === selectedMode)
                 : remote.models;
+
+            const currentModel = ctx.summary.model || '';
+            const manualValue = '__manual__';
+            const modelChoices = filtered.map(item => ({
+                title: item.id === currentModel
+                    ? `${item.label} (${item.id}) [current]`
+                    : `${item.label} (${item.id})`,
+                value: item.id
+            }));
+
+            modelChoices.push({
+                title: 'Manual input...',
+                value: manualValue
+            });
+
             const modelResp = await prompts({
                 type: 'select',
                 name: 'value',
-                message: 'Select model',
-                choices: filtered.map(item => ({title: `${item.label} (${item.id})`, value: item.id}))
+                message: currentModel
+                    ? `Select model (current: ${currentModel})`
+                    : 'Select model',
+                choices: modelChoices
             });
-            selectedModel = modelResp.value || selectedModel;
 
-            const picked = filtered.find(item => item.id === selectedModel);
-            if (picked && picked.providerId) {
-                providerId = picked.providerId;
+            if (modelResp.value === manualValue) {
+                const inputResp = await prompts({
+                    type: 'text',
+                    name: 'value',
+                    message: 'Enter model manually',
+                    initial: currentModel
+                });
+                selectedModel = inputResp.value || selectedModel;
+            } else {
+                selectedModel = modelResp.value || selectedModel;
+                const picked = filtered.find(item => item.id === selectedModel);
+                if (picked && picked.providerId) {
+                    providerId = picked.providerId;
+                }
             }
         } else {
             const inputResp = await prompts({
                 type: 'text',
                 name: 'value',
-                message: 'Enter model manually'
+                message: 'Enter model manually',
+                initial: ctx.summary.model || ''
             });
             selectedModel = inputResp.value || selectedModel;
         }

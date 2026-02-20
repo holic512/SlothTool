@@ -6,8 +6,8 @@ function getDefaultConfig() {
         language: 'zh',
         api: {
             endpoints: {
-                modes: '/modes',
-                models: '/models'
+                modes: ['/modes', '/v1/modes'],
+                models: ['/models', '/v1/models', '/api/models']
             }
         },
         cache: {
@@ -30,12 +30,28 @@ function readConfig() {
     try {
         const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         const defaults = getDefaultConfig();
+        const parsedModes = parsed.api && parsed.api.endpoints && parsed.api.endpoints.modes;
+        const parsedModels = parsed.api && parsed.api.endpoints && parsed.api.endpoints.models;
+
+        const normalizeEndpoint = (value, fallback) => {
+            if (Array.isArray(value)) {
+                const list = value
+                    .map(item => String(item || '').trim())
+                    .filter(Boolean);
+                return list.length > 0 ? list : fallback;
+            }
+            if (typeof value === 'string' && value.trim()) {
+                return value.trim();
+            }
+            return fallback;
+        };
+
         return {
             language: parsed.language || defaults.language,
             api: {
                 endpoints: {
-                    modes: parsed.api && parsed.api.endpoints && parsed.api.endpoints.modes || defaults.api.endpoints.modes,
-                    models: parsed.api && parsed.api.endpoints && parsed.api.endpoints.models || defaults.api.endpoints.models
+                    modes: normalizeEndpoint(parsedModes, defaults.api.endpoints.modes),
+                    models: normalizeEndpoint(parsedModels, defaults.api.endpoints.models)
                 }
             },
             cache: {

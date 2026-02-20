@@ -1,5 +1,4 @@
 const {upsertProviderCache, getProviderCache} = require('./cache-store');
-const {getProviderNode} = require('./codex-config');
 
 function trimSlash(url) {
     return String(url || '').replace(/\/+$/, '');
@@ -61,44 +60,90 @@ function normalizeModes(payload, providerId) {
 }
 
 function normalizeModels(payload, providerId, fallbackModeId) {
+    const output = [];
+    const seen = new Set();
+
+    function pushModel(item, modeHint) {
+        if (typeof item === 'string') {
+            if (!seen.has(item)) {
+                output.push({
+                    id: item,
+                    label: item,
+                    modeId: modeHint || fallbackModeId || null,
+                    providerId,
+                    raw: item
+                });
+                seen.add(item);
+            }
+            return;
+        }
+
+        if (!item || typeof item !== 'object') {
+            return;
+        }
+
+        const id = item.id || item.model || item.name;
+        if (!id || seen.has(id)) {
+            return;
+        }
+
+        output.push({
+            id,
+            label: item.label || item.name || id,
+            modeId: item.modeId || item.mode || modeHint || fallbackModeId || null,
+            providerId: item.providerId || item.provider || providerId,
+            raw: item
+        });
+        seen.add(id);
+    }
+
     const list = Array.isArray(payload)
         ? payload
         : Array.isArray(payload && payload.data)
             ? payload.data
             : Array.isArray(payload && payload.models)
                 ? payload.models
-                : [];
+                : null;
 
-    return list
-        .map(item => {
-            if (typeof item === 'string') {
-                return {
-                    id: item,
-                    label: item,
-                    modeId: fallbackModeId || null,
-                    providerId,
-                    raw: item
-                };
+    if (Array.isArray(list)) {
+        list.forEach(item => pushModel(item, null));
+        return output;
+    }
+
+    const grouped = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
+        ? payload.data
+        : payload && typeof payload === 'object' && payload.models && typeof payload.models === 'object'
+            ? payload.models
+            : null;
+
+    if (grouped && typeof grouped === 'object') {
+        for (const key of Object.keys(grouped)) {
+            const items = grouped[key];
+            if (Array.isArray(items)) {
+                items.forEach(item => pushModel(item, key));
+            } else {
+                pushModel(items, key);
             }
+        }
+    }
 
-            if (!item || typeof item !== 'object') {
-                return null;
-            }
+    return output;
+}
 
-            const id = item.id || item.model || item.name;
-            if (!id) {
-                return null;
-            }
+function toEndpointList(value, fallbackList) {
+    const list = Array.isArray(value)
+        ? value
+        : (typeof value === 'string' && value.trim() ? [value] : fallbackList);
 
-            return {
-                id,
-                label: item.label || item.name || id,
-                modeId: item.modeId || item.mode || fallbackModeId || null,
-                providerId: item.providerId || item.provider || providerId,
-                raw: item
-            };
-        })
-        .filter(Boolean);
+    const output = [];
+    for (const item of list) {
+        const text = String(item || '').trim();
+        if (!text || output.includes(text)) {
+            continue;
+        }
+        output.push(text);
+    }
+    return output;
 }
 
 async function requestJson(url, headers) {
@@ -133,6 +178,19 @@ async function requestJson(url, headers) {
     }
 }
 
+async function requestByCandidates(baseUrl, endpoints, headers, query) {
+    let lastError = null;
+    for (const endpoint of endpoints) {
+        try {
+            const payload = await requestJson(buildUrl(baseUrl, endpoint, query), headers);
+            return {endpoint, payload};
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError || new Error('request failed');
+}
+
 async function getModesAndModels(options) {
     const {
         codexConfig,
@@ -143,6 +201,7 @@ async function getModesAndModels(options) {
         forceRefresh
     } = options;
 
+    const {getProviderNode} = require('./codex-config');
     const provider = getProviderNode(codexConfig, providerId);
     if (!provider || !provider.base_url) {
         throw new Error(`Provider missing or no base_url: ${providerId}`);
@@ -151,6 +210,9 @@ async function getModesAndModels(options) {
     const headers = provider.http_headers && typeof provider.http_headers === 'object'
         ? provider.http_headers
         : {};
+
+    const modeEndpoints = toEndpointList(endpoints && endpoints.modes, ['/modes', '/v1/modes']);
+    const modelEndpoints = toEndpointList(endpoints && endpoints.models, ['/models', '/v1/models', '/api/models']);
 
     if (!forceRefresh) {
         const hit = getProviderCache(providerId, ttlMs);
@@ -165,20 +227,32 @@ async function getModesAndModels(options) {
     }
 
     try {
-        const modesPayload = await requestJson(
-            buildUrl(provider.base_url, endpoints.modes),
-            headers
-        );
+        let modeItems = [];
+        let modeId = selectedMode || null;
+        let modeWarning = null;
 
-        const modeItems = normalizeModes(modesPayload, providerId);
-        const modeId = selectedMode || (modeItems[0] ? modeItems[0].id : undefined);
+        try {
+            const modesPayload = await requestByCandidates(provider.base_url, modeEndpoints, headers, null);
+            modeItems = normalizeModes(modesPayload.payload, providerId);
+            if (!modeId && modeItems[0]) {
+                modeId = modeItems[0].id;
+            }
+        } catch (error) {
+            modeWarning = error.message || 'modes fetch failed';
+        }
 
-        const modelsPayload = await requestJson(
-            buildUrl(provider.base_url, endpoints.models, {mode: modeId}),
-            headers
-        );
+        let modelsPayload = null;
+        if (modeId) {
+            try {
+                modelsPayload = await requestByCandidates(provider.base_url, modelEndpoints, headers, {mode: modeId});
+            } catch (error) {
+                modelsPayload = await requestByCandidates(provider.base_url, modelEndpoints, headers, null);
+            }
+        } else {
+            modelsPayload = await requestByCandidates(provider.base_url, modelEndpoints, headers, null);
+        }
 
-        const modelItems = normalizeModels(modelsPayload, providerId, modeId);
+        const modelItems = normalizeModels(modelsPayload.payload, providerId, modeId);
 
         upsertProviderCache(providerId, {
             modes: modeItems,
@@ -189,7 +263,7 @@ async function getModesAndModels(options) {
             source: 'remote',
             modes: modeItems,
             models: modelItems,
-            warning: null
+            warning: modeWarning
         };
     } catch (error) {
         const hit = getProviderCache(providerId, 0);
@@ -215,5 +289,6 @@ module.exports = {
     getModesAndModels,
     normalizeModes,
     normalizeModels,
-    buildUrl
+    buildUrl,
+    toEndpointList
 };
