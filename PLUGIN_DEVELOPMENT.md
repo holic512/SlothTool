@@ -405,7 +405,21 @@ npm login
 npm publish --access public
 ```
 
-### 3. Verify Publication
+### 3. If This Is an Official SlothTool Plugin (Required)
+
+When your plugin is maintained in this monorepo and intended to be published via GitHub Actions:
+
+1. Add your plugin to `packages/slothtool/lib/official-plugins.json`
+2. Add your plugin option to `.github/workflows/publish.yml`:
+   - `on.workflow_dispatch.inputs.package.options`
+3. Ensure package folder naming is consistent with workflow input:
+   - input: `plugin-xxx`
+   - path: `packages/plugin-xxx`
+   - npm name: `@holic512/plugin-xxx`
+
+If step 2 is missed, the package will not appear in the manual publish workflow dropdown.
+
+### 4. Verify Publication
 
 ```bash
 # Unlink local version
