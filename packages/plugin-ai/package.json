@@ -1,0 +1,28 @@
+{
+  "name": "@holic512/plugin-ai",
+  "version": "0.0.0",
+  "description": "Claude Code-style AI chat assistant for SlothTool (JSON protocol + command execution)",
+  "main": "lib/index.js",
+  "bin": {
+    "ai": "bin/ai.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "ai",
+    "chat",
+    "json"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "prompts": "^2.4.2"
+  }
+}
