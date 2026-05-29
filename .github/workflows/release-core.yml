@@ -1,0 +1,105 @@
+# @file release-core.yml
+# @project SlothTool
+# @module GitHub Actions / Core Release
+# @description 当根目录下的 SlothTool 核心包发生变更时，自动校验、发布 npm 包并创建 GitHub Release。
+# @logic 1. 监听 main 分支的根包关键路径；2. 基于根 package.json 版本判断是否发布；3. 推送 tag 并创建 release。
+# @dependencies GitHub Actions, npm, package.json, bin/**, lib/**
+# @index_tags workflow, core-release, root-package, npm发布
+# @author holic512
+
+name: Release SlothTool Core
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bin/**'
+      - 'lib/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'README.md'
+
+permissions:
+  contents: write
+
+jobs:
+  release-core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Resolve release metadata
+        id: meta
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=slothtool-v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing release tag
+        id: tag-check
+        run: |
+          git fetch --tags origin
+          if git rev-parse -q --verify "refs/tags/${{ steps.meta.outputs.tag }}" >/dev/null; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate core package
+        run: |
+          node --check bin/slothtool.js
+          node --check lib/plugin-manager.js
+          npm pack --dry-run
+
+      - name: Publish package to npm
+        if: steps.tag-check.outputs.publish == 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Push release tag
+        if: steps.tag-check.outputs.publish == 'true'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag "${{ steps.meta.outputs.tag }}"
+          git push origin "${{ steps.meta.outputs.tag }}"
+
+      - name: Create GitHub release
+        if: steps.tag-check.outputs.publish == 'true'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          release_name: SlothTool v${{ steps.meta.outputs.version }}
+          draft: false
+          prerelease: false
+          body: |
+            ## SlothTool Core v${{ steps.meta.outputs.version }}
+
+            ### Install
+            ```bash
+            npm install -g @holic512/slothtool
+            ```
+
+            ### Notes
+            - Released automatically from the repository root package
+            - The official plugin catalog currently contains only `loc`
+
+      - name: Skip publish for existing version
+        if: steps.tag-check.outputs.publish != 'true'
+        run: echo "Release tag ${{ steps.meta.outputs.tag }} already exists, skipping publish."

@@ -1,126 +1,50 @@
 # Plugin Development Guide
 
-This guide will help you create plugins for SlothTool.
+This repository keeps one official plugin package, `plugins/loc`, plus one scaffold directory, `plugins/template-basic`.
 
-## Table of Contents
+## Quick Start
 
-- [Plugin Basics](#plugin-basics)
-- [Plugin Structure](#plugin-structure)
-- [Interactive Mode Support](#interactive-mode-support)
-- [Internationalization (i18n)](#internationalization-i18n)
-- [Plugin Configuration](#plugin-configuration)
-- [Best Practices](#best-practices)
-- [Publishing Your Plugin](#publishing-your-plugin)
-- [Adding to Official Plugin List](#adding-to-official-plugin-list)
+Create a new plugin from the scaffold:
 
-## Plugin Basics
-
-A SlothTool plugin is simply an npm package with a `bin` field in its `package.json`. When users install your plugin through SlothTool, they can run it using the plugin alias.
-
-### Minimum Requirements
-
-1. A valid npm package with `package.json`
-2. A `bin` field pointing to an executable JavaScript file
-3. The bin file must start with `#!/usr/bin/env node`
-
-### Create from scratch (step-by-step)
-
-1. Create a folder with `package.json`, `bin/`, and `lib/`
-2. Add `slothtool.interactive` and `slothtool.interactiveFlag` to `package.json` if you support interactive mode
-3. Implement a CLI entry in `bin/` with `-h/--help` and `-i/--interactive`
-4. Add `lib/i18n.js` and read language from `~/.slothtool/settings.json`
-5. Add `lib/config.js` if you need plugin configuration under `~/.slothtool/plugin-configs/`
-6. Test with `npm link` then `slothtool install @yourscope/plugin-mytool`
-
-## Plugin Structure
-
-### Quick Start (Template)
-
-You can start from the official template in this repository:
-
-```
-cp -R templates/plugin-basic my-plugin
+```bash
+cp -R plugins/template-basic my-plugin
+cd my-plugin
 ```
 
 Then update:
-- `package.json` name, bin, description, keywords
-- `bin/mytool.js` command name and help text
-- `lib/i18n.js` messages
-- `lib/config.js` defaults
-- `lib/interactive.js` menu flow (optional)
 
-`plugin-systemd` was built based on this structure for consistency.
+- `package.json` name, description, and `bin`
+- `bin/mytool.js`
+- `lib/i18n.js`
+- `lib/config.js`
+- `lib/interactive.js`
 
-### Basic Structure
+## Current Reference Package
 
-```
-my-plugin/
-├── package.json
-├── bin/
-│   └── my-tool.js       # Entry point
-└── lib/
-    └── index.js         # Core logic
-```
+Use `plugins/loc` as the production reference for:
 
-### package.json
+- CLI argument parsing
+- interactive mode
+- plugin config storage
+- bilingual output
 
-```json
-{
-  "name": "@yourscope/plugin-mytool",
-  "version": "1.0.0",
-  "description": "Your plugin description",
-  "main": "lib/index.js",
-  "bin": {
-    "mytool": "bin/my-tool.js"
-  },
-  "keywords": [
-    "slothtool",
-    "plugin"
-  ],
-  "author": "Your Name",
-  "license": "ISC"
-}
-```
+## Minimum Requirements
 
-### bin/my-tool.js
+Your plugin should have:
 
-```javascript
-#!/usr/bin/env node
+1. `package.json`
+2. a `bin` field
+3. a Node.js executable entry file starting with `#!/usr/bin/env node`
+4. optional `slothtool.interactive` metadata if interactive mode is supported
 
-const args = process.argv.slice(2);
-
-// Show help if no arguments or --help flag
-if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
-    console.log('My Tool - Description\n');
-    console.log('Usage:');
-    console.log('  mytool [options] [arguments]\n');
-    console.log('Options:');
-    console.log('  -h, --help     Show this help message');
-    console.log('  -v, --version  Show version\n');
-    console.log('Examples:');
-    console.log('  mytool --help');
-    process.exit(0);
-}
-
-// Your plugin logic here
-console.log('Hello from my plugin!');
-console.log('Arguments:', args);
-```
-
-## Interactive Mode Support
-
-SlothTool can automatically detect if your plugin supports interactive mode and launch it accordingly.
-
-### Declaring Interactive Support
-
-Add a `slothtool` field to your `package.json`:
+Example:
 
 ```json
 {
   "name": "@yourscope/plugin-mytool",
   "version": "1.0.0",
   "bin": {
-    "mytool": "bin/my-tool.js"
+    "mytool": "bin/mytool.js"
   },
   "slothtool": {
     "interactive": true,
@@ -129,375 +53,79 @@ Add a `slothtool` field to your `package.json`:
 }
 ```
 
-**Fields:**
-- `interactive` (boolean): Set to `true` if your plugin supports interactive mode
-- `interactiveFlag` (string): The flag to launch interactive mode (default: `-i`)
+## Directory Conventions
 
-### Implementing Interactive Mode
+Recommended layout:
 
-```javascript
-#!/usr/bin/env node
-
-const prompts = require('prompts');
-
-const args = process.argv.slice(2);
-
-// Interactive mode
-if (args.includes('--interactive') || args.includes('-i')) {
-    interactiveMode();
-    return;
-}
-
-// Show help by default
-if (args.length === 0) {
-    showHelp();
-    process.exit(0);
-}
-
-// Regular command mode
-// ... your logic here
-
-async function interactiveMode() {
-    while (true) {
-        const response = await prompts({
-            type: 'select',
-            name: 'action',
-            message: 'Please select an action:',
-            choices: [
-                { title: 'Option 1', value: 'option1' },
-                { title: 'Option 2', value: 'option2' },
-                { title: 'Exit', value: 'exit' }
-            ]
-        });
-
-        if (!response.action || response.action === 'exit') {
-            break;
-        }
-
-        // Handle actions
-        if (response.action === 'option1') {
-            console.log('Executing option 1...');
-        }
-    }
-}
-
-function showHelp() {
-    console.log('My Tool - Description\n');
-    console.log('Usage:');
-    console.log('  mytool [options]\n');
-    console.log('Options:');
-    console.log('  -h, --help        Show this help message');
-    console.log('  -i, --interactive Interactive mode\n');
-}
+```text
+my-plugin/
+├── bin/
+│   └── mytool.js
+├── lib/
+│   ├── config.js
+│   ├── i18n.js
+│   └── interactive.js
+├── README.md
+└── package.json
 ```
 
-### How It Works in SlothTool
+## Local Development
 
-When users run your plugin through `slothtool -i` → "Run plugin":
+For fast iteration, run your plugin directly:
 
-1. **If `slothtool.interactive` is `true`**: SlothTool automatically launches your plugin with the interactive flag
-2. **If not declared**: SlothTool shows your help message first, then prompts the user to enter arguments
-
-### Template Reference
-
-See `templates/plugin-basic` for a minimal scaffold, and `packages/plugin-systemd` for a full reference plugin that follows the same structure.
-
-## Internationalization (i18n)
-
-Your plugin can read the user's language preference from SlothTool's settings.
-
-### Reading Language Settings
-
-```javascript
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-
-function getLanguage() {
-    try {
-        const settingsPath = path.join(os.homedir(), '.slothtool', 'settings.json');
-        if (fs.existsSync(settingsPath)) {
-            const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-            return settings.language || 'zh';
-        }
-    } catch (error) {
-        // Ignore errors, use default
-    }
-    return 'zh'; // Default to Chinese
-}
+```bash
+node bin/mytool.js --help
 ```
 
-### Implementing i18n
+For `loc`, use:
 
-```javascript
-const messages = {
-    zh: {
-        welcome: '欢迎使用我的工具',
-        help: '帮助信息',
-        // ... more messages
-    },
-    en: {
-        welcome: 'Welcome to my tool',
-        help: 'Help message',
-        // ... more messages
-    }
-};
-
-function t(key) {
-    const lang = getLanguage();
-    const langMessages = messages[lang] || messages.zh;
-    return langMessages[key] || key;
-}
-
-// Usage
-console.log(t('welcome'));
+```bash
+node plugins/loc/bin/loc.js --help
+node plugins/loc/bin/loc.js .
 ```
+
+## SlothTool Integration
+
+SlothTool currently installs only built-in official plugins from GitHub Release assets. That means:
+
+- `slothtool install loc` works because `loc` is in `lib/official-plugins.json`
+- arbitrary third-party plugin install is not part of the current product scope
+
+If the repository adds another official plugin in the future, the implementer must update:
+
+- `lib/official-plugins.json`
+- `.github/workflows/release-plugins.yml`
+- user documentation
+
+## i18n
+
+Plugins can read the language setting from:
+
+```text
+~/.slothtool/settings.json
+```
+
+The simplest pattern is to follow `plugins/loc/lib/i18n.js`.
 
 ## Plugin Configuration
 
-Plugins can store their own configuration in `~/.slothtool/plugin-configs/`.
+Plugin-specific settings should live under:
 
-### Example Configuration Module
-
-```javascript
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-
-function getConfigPath(pluginName) {
-    const configDir = path.join(os.homedir(), '.slothtool', 'plugin-configs');
-    if (!fs.existsSync(configDir)) {
-        fs.mkdirSync(configDir, { recursive: true });
-    }
-    return path.join(configDir, `${pluginName}.json`);
-}
-
-function readConfig(pluginName, defaults = {}) {
-    const configPath = getConfigPath(pluginName);
-
-    if (!fs.existsSync(configPath)) {
-        writeConfig(pluginName, defaults);
-        return defaults;
-    }
-
-    try {
-        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch (error) {
-        return defaults;
-    }
-}
-
-function writeConfig(pluginName, config) {
-    const configPath = getConfigPath(pluginName);
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-}
-
-module.exports = {
-    readConfig,
-    writeConfig
-};
+```text
+~/.slothtool/plugin-configs/<alias>.json
 ```
 
-### Usage
+The simplest pattern is to follow `plugins/loc/lib/config.js`.
 
-```javascript
-const config = require('./lib/config');
+## Publishing Model In This Repo
 
-// Read config with defaults
-const myConfig = config.readConfig('mytool', {
-    option1: true,
-    option2: 'default value'
-});
+- Root package `@holic512/slothtool` is published from the repository root.
+- Official plugin `@holic512/plugin-loc` is released from `plugins/loc` as a GitHub Release asset using `npm pack`.
+- `plugins/template-basic` is not published.
 
-// Modify and save
-myConfig.option1 = false;
-config.writeConfig('mytool', myConfig);
-```
+## References
 
-## Best Practices
-
-### 1. Default Behavior
-
-**Always show help when no arguments are provided:**
-
-```javascript
-if (args.length === 0) {
-    showHelp();
-    process.exit(0);
-}
-```
-
-This matches the behavior of standard CLI tools and SlothTool itself.
-
-### 2. Help Flag
-
-**Always support `--help` and `-h`:**
-
-```javascript
-if (args.includes('--help') || args.includes('-h')) {
-    showHelp();
-    process.exit(0);
-}
-```
-
-### 3. Error Handling
-
-**Provide clear error messages:**
-
-```javascript
-try {
-    // Your logic
-} catch (error) {
-    console.error('Error:', error.message);
-    console.log('\nRun "mytool --help" for usage information.');
-    process.exit(1);
-}
-```
-
-### 4. Exit Codes
-
-**Use appropriate exit codes:**
-
-- `0`: Success
-- `1`: General error
-- `2`: Misuse of command
-
-### 5. User Input Validation
-
-**Validate user input:**
-
-```javascript
-const response = await prompts({
-    type: 'text',
-    name: 'value',
-    message: 'Enter a value:',
-    validate: value => value.length > 0 ? true : 'Value is required'
-});
-```
-
-### 6. Dependencies
-
-**Keep dependencies minimal:**
-
-Only include necessary dependencies. For interactive prompts, `prompts` is recommended as it's lightweight and user-friendly.
-
-## Publishing Your Plugin
-
-### 1. Prepare for Publishing
-
-```bash
-# Update version
-npm version patch  # or minor, major
-
-# Test locally first
-npm link
-slothtool install @yourscope/plugin-mytool
-slothtool mytool --help
-```
-
-### 2. Publish to npm
-
-```bash
-# Login to npm (first time only)
-npm login
-
-# Publish
-npm publish --access public
-```
-
-### 3. If This Is an Official SlothTool Plugin (Required)
-
-When your plugin is maintained in this monorepo and intended to be published via GitHub Actions:
-
-1. Add your plugin to `packages/slothtool/lib/official-plugins.json`
-2. Add your plugin option to `.github/workflows/publish.yml`:
-   - `on.workflow_dispatch.inputs.package.options`
-3. Ensure package folder naming is consistent with workflow input:
-   - input: `plugin-xxx`
-   - path: `packages/plugin-xxx`
-   - npm name: `@holic512/plugin-xxx`
-
-If step 2 is missed, the package will not appear in the manual publish workflow dropdown.
-
-### 4. Verify Publication
-
-```bash
-# Unlink local version
-npm unlink -g @yourscope/plugin-mytool
-
-# Install from npm
-slothtool install @yourscope/plugin-mytool
-slothtool mytool --help
-```
-
-## Adding to Official Plugin List
-
-If you want your plugin to appear in SlothTool's official plugin list (accessible via `slothtool -i` → "Install official plugin"):
-
-### 1. Fork the Repository
-
-Fork the [SlothTool repository](https://github.com/yourusername/SlothTool) on GitHub.
-
-### 2. Edit official-plugins.json
-
-Edit `packages/slothtool/lib/official-plugins.json`:
-
-```json
-{
-  "officialPlugins": [
-    {
-      "name": "@yourscope/plugin-mytool",
-      "alias": "mytool",
-      "description": "你的插件描述（中文）",
-      "descriptionEn": "Your plugin description (English)",
-      "version": "latest",
-      "author": "Your Name",
-      "features": [
-        "功能1",
-        "功能2",
-        "功能3"
-      ],
-      "featuresEn": [
-        "Feature 1",
-        "Feature 2",
-        "Feature 3"
-      ]
-    }
-  ]
-}
-```
-
-### 3. Submit Pull Request
-
-1. Commit your changes
-2. Push to your fork
-3. Create a Pull Request to the main repository
-4. Describe your plugin and its features
-
-### 4. Requirements for Official Plugins
-
-- Must be published to npm
-- Must follow the plugin development guidelines
-- Must have clear documentation
-- Must support both Chinese and English (i18n)
-- Must have a meaningful description and feature list
-
-## Example: Complete Plugin
-
-See `packages/plugin-loc` in the SlothTool repository for a complete example that includes:
-
-- Interactive mode support
-- Internationalization
-- Configuration management
-- Help system
-- Multiple operation modes
-
-## Need Help?
-
-- Check the [SlothTool repository](https://github.com/yourusername/SlothTool)
-- Review existing plugins in `packages/`
-- Open an issue for questions or suggestions
-
----
-
-Happy plugin development! 🐌
+- `plugins/loc`
+- `plugins/template-basic`
+- `README.md`
+- `LOCAL_BUILD_GUIDE.md`
