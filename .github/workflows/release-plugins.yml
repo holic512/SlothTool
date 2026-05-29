@@ -15,6 +15,7 @@ on:
       - main
     paths:
       - 'plugins/loc/**'
+      - '.github/workflows/release-plugins.yml'
 
 permissions:
   contents: write

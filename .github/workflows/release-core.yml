@@ -19,6 +19,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'README.md'
+      - '.github/workflows/release-core.yml'
 
 permissions:
   contents: write
