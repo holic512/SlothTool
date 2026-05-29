@@ -17,6 +17,14 @@
   ],
   "author": "",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/holic512/SlothTool"
+  },
+  "homepage": "https://github.com/holic512/SlothTool",
+  "bugs": {
+    "url": "https://github.com/holic512/SlothTool/issues"
+  },
   "files": [
     "bin",
     "lib"
