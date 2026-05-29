@@ -4,38 +4,41 @@
  * @file SlothToolCliEntry
  * @project SlothTool
  * @module Core CLI / Entry
- * @description SlothTool 命令行入口，负责分发同步与异步命令并输出最新帮助信息。
- * @logic 1. 解析命令行参数；2. 分发到命令模块；3. 统一处理异步命令错误与退出码。
- * @dependencies Commands: ../lib/commands, I18N: ../lib/i18n
- * @index_tags CLI入口, 命令分发, 异步命令, 帮助信息
+ * @description SlothTool 命令行入口，默认进入全屏 TUI，并为显式 CLI 子命令提供稳定分发。
+ * @logic 1. 无参数时优先进入 TUI；2. 保留显式 CLI 子命令与插件简写；3. 统一处理命令异常和退出码。
+ * @dependencies Commands: ../lib/commands/index.js, I18N: ../lib/i18n.js, Utils: ../lib/utils.js
+ * @index_tags CLI入口, 默认TUI, 命令分发, 插件简写
  * @author holic512
  */
 
-const commands = require('../lib/commands');
-const {t} = require('../lib/i18n');
+import * as commands from '../lib/commands/index.js';
+import {t} from '../lib/i18n.js';
+import {isInteractiveTerminal} from '../lib/utils.js';
 
 function printHelp() {
-    console.log(t('pluginManager') + '\n');
+    console.log(`${t('pluginManager')}\n`);
+    console.log(t('cli.defaultTui'));
+    console.log('');
     console.log(t('usage'));
-    console.log('  slothtool install <alias>        ' + t('commands.install'));
-    console.log('  slothtool uninstall <alias>      ' + t('commands.uninstall'));
-    console.log('  slothtool update <alias>         ' + t('commands.update'));
-    console.log('  slothtool --update-all           ' + t('commands.updateAll'));
-    console.log('  slothtool list                   ' + t('commands.list'));
-    console.log('  slothtool run <plugin> [args]    ' + t('commands.run'));
-    console.log('  slothtool <plugin> [args]        ' + t('commands.runShorthand'));
-    console.log('  slothtool config language <lang> ' + t('commands.config'));
-    console.log('  slothtool -i, --interactive      ' + t('commands.interactive'));
-    console.log('  slothtool --uninstall-all        ' + t('commands.uninstallAll'));
-    console.log('  slothtool self-update            ' + t('commands.selfUpdate') + '\n');
+    console.log(`  slothtool                       ${t('commands.interactive')}`);
+    console.log(`  slothtool tui                   ${t('commands.interactive')}`);
+    console.log(`  slothtool install <alias>       ${t('commands.install')}`);
+    console.log(`  slothtool uninstall <alias>     ${t('commands.uninstall')}`);
+    console.log(`  slothtool update <alias>        ${t('commands.update')}`);
+    console.log(`  slothtool --update-all          ${t('commands.updateAll')}`);
+    console.log(`  slothtool list                  ${t('commands.list')}`);
+    console.log(`  slothtool run <plugin> [args]   ${t('commands.run')}`);
+    console.log(`  slothtool <plugin> [args]       ${t('commands.runShorthand')}`);
+    console.log(`  slothtool config language <x>   ${t('commands.config')}`);
+    console.log(`  slothtool --uninstall-all       ${t('commands.uninstallAll')}`);
+    console.log(`  slothtool self-update           ${t('commands.selfUpdate')}`);
+    console.log('');
     console.log(t('examples'));
+    console.log('  slothtool');
     console.log('  slothtool install loc');
+    console.log('  slothtool loc');
     console.log('  slothtool loc ./src');
-    console.log('  slothtool update loc');
-    console.log('  slothtool --update-all');
-    console.log('  slothtool list');
     console.log('  slothtool config language en');
-    console.log('  slothtool -i');
 }
 
 async function main() {
@@ -43,8 +46,23 @@ async function main() {
     const command = args[0];
 
     if (!command) {
+        if (isInteractiveTerminal() || process.env.SLOTHTOOL_TUI_TEST_ACTION) {
+            await commands.interactive();
+            return;
+        }
+
         printHelp();
-        process.exit(0);
+        return;
+    }
+
+    if (command === '--help' || command === '-h') {
+        printHelp();
+        return;
+    }
+
+    if (command === 'tui' || command === '-i' || command === '--interactive') {
+        await commands.interactive();
+        return;
     }
 
     if (command === 'install') {
@@ -73,7 +91,8 @@ async function main() {
     }
 
     if (command === 'run') {
-        commands.run(args.slice(1));
+        const result = await commands.run(args.slice(1));
+        process.exitCode = result?.code || 0;
         return;
     }
 
@@ -82,13 +101,8 @@ async function main() {
         return;
     }
 
-    if (command === '-i' || command === '--interactive') {
-        await commands.interactive();
-        return;
-    }
-
     if (command === '--uninstall-all') {
-        commands.uninstallAll();
+        await commands.uninstallAll();
         return;
     }
 
@@ -97,18 +111,11 @@ async function main() {
         return;
     }
 
-    if (command === '--help' || command === '-h') {
-        printHelp();
-        process.exit(0);
-    }
-
-    commands.run(args);
+    const result = await commands.run(args, {shorthand: true});
+    process.exitCode = result?.code || 0;
 }
 
 main().catch(error => {
-    if (!error.handled) {
-        console.error(error.message);
-    }
-
+    console.error(error.message);
     process.exit(1);
 });

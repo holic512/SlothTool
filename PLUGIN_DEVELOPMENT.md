@@ -1,61 +1,64 @@
 # Plugin Development Guide
 
-This repository keeps one official plugin package, `plugins/loc`, plus one scaffold directory, `plugins/template-basic`.
+本仓库保留一个官方插件工作区 `plugins/loc` 和一个脚手架目录 `plugins/template-basic`。
+
+## Design Rule
+
+SlothTool 现在采用：
+
+- 默认入口是插件自己的全屏 TUI
+- 显式 CLI 子命令或参数负责脚本化与自动化
+- 业务能力先落在无 UI 的底层逻辑，再由 TUI 复用
 
 ## Quick Start
-
-Create a new plugin from the scaffold:
 
 ```bash
 cp -R plugins/template-basic my-plugin
 cd my-plugin
 ```
 
-Then update:
+然后更新：
 
-- `package.json` name, description, and `bin`
+- `package.json`
 - `bin/mytool.js`
 - `lib/i18n.js`
 - `lib/config.js`
 - `lib/interactive.js`
 
-## Current Reference Package
+## Minimum Contract
 
-Use `plugins/loc` as the production reference for:
-
-- CLI argument parsing
-- interactive mode
-- plugin config storage
-- bilingual output
-
-## Minimum Requirements
-
-Your plugin should have:
+每个插件至少应包含：
 
 1. `package.json`
-2. a `bin` field
-3. a Node.js executable entry file starting with `#!/usr/bin/env node`
-4. optional `slothtool.interactive` metadata if interactive mode is supported
+2. `bin` 字段
+3. 以 `#!/usr/bin/env node` 开头的入口文件
+4. `slothtool.ui` 元数据
 
-Example:
+示例：
 
 ```json
 {
   "name": "@yourscope/plugin-mytool",
   "version": "1.0.0",
+  "type": "module",
   "bin": {
     "mytool": "bin/mytool.js"
   },
   "slothtool": {
     "interactive": true,
-    "interactiveFlag": "-i"
+    "interactiveFlag": "-i",
+    "ui": {
+      "cli": true,
+      "tui": true,
+      "defaultMode": "tui",
+      "tuiFlag": "--tui",
+      "compatFlags": ["-i", "--interactive"]
+    }
   }
 }
 ```
 
-## Directory Conventions
-
-Recommended layout:
+## Recommended Layout
 
 ```text
 my-plugin/
@@ -69,63 +72,51 @@ my-plugin/
 └── package.json
 ```
 
-## Local Development
+## Current Reference Package
 
-For fast iteration, run your plugin directly:
+优先参考 `plugins/loc` 来实现：
+
+- 默认 TUI 入口
+- 显式 CLI 统计/配置命令
+- 插件配置落盘
+- 双语输出
+
+## Local Development
 
 ```bash
 node bin/mytool.js --help
+node bin/mytool.js
+node bin/mytool.js --tui
 ```
 
-For `loc`, use:
+`loc` 参考命令：
 
 ```bash
-node plugins/loc/bin/loc.js --help
-node plugins/loc/bin/loc.js .
+node plugins/loc/bin/loc.js
+node plugins/loc/bin/loc.js ./src
+node plugins/loc/bin/loc.js config show
 ```
 
-## SlothTool Integration
+## Integration Notes
 
-SlothTool currently installs only built-in official plugins from GitHub Release assets. That means:
+SlothTool 当前只安装内置官方插件：
 
-- `slothtool install loc` works because `loc` is in `lib/official-plugins.json`
-- arbitrary third-party plugin install is not part of the current product scope
+- `slothtool install loc` 可用，因为 `loc` 定义在 `lib/official-plugins.json`
+- 任意第三方插件安装暂不属于当前产品范围
 
-If the repository adds another official plugin in the future, the implementer must update:
+如果未来新增官方插件，需要同步更新：
 
 - `lib/official-plugins.json`
 - `.github/workflows/release-plugins.yml`
-- user documentation
+- 用户文档
 
-## i18n
+## Config & I18N
 
-Plugins can read the language setting from:
+- 全局语言配置：`~/.slothtool/settings.json`
+- 插件配置目录：`~/.slothtool/plugin-configs/<alias>.json`
 
-```text
-~/.slothtool/settings.json
-```
+## Publishing Model
 
-The simplest pattern is to follow `plugins/loc/lib/i18n.js`.
-
-## Plugin Configuration
-
-Plugin-specific settings should live under:
-
-```text
-~/.slothtool/plugin-configs/<alias>.json
-```
-
-The simplest pattern is to follow `plugins/loc/lib/config.js`.
-
-## Publishing Model In This Repo
-
-- Root package `@holic512/slothtool` is published from the repository root.
-- Official plugin `@holic512/plugin-loc` is released from `plugins/loc` as a GitHub Release asset using `npm pack`.
-- `plugins/template-basic` is not published.
-
-## References
-
-- `plugins/loc`
-- `plugins/template-basic`
-- `README.md`
-- `LOCAL_BUILD_GUIDE.md`
+- 根包 `@holic512/slothtool` 从仓库根目录发布
+- 官方插件 `@holic512/plugin-loc` 通过 `npm pack` 生成 GitHub Release 资产
+- `plugins/template-basic` 不发布

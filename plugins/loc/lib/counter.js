@@ -1,75 +1,84 @@
-const fs = require('fs');
-const path = require('path');
-
 /**
- * 统计目录中的代码行数
- * @param {string} dir - 目标目录
- * @param {Object} config - 配置对象，包含 fileExtensions 和 excludeDirectories
- * @returns {Object} 统计结果 { fileCount, lineCount, files }
+ * @file LocCounter
+ * @project SlothTool
+ * @module LOC Plugin / Core
+ * @description 负责递归统计目录代码行数，并以结构化结果返回文件清单与告警信息。
+ * @logic 1. 按扩展名和排除目录过滤文件；2. 递归扫描目录并累计文件数/行数；3. 将读写异常收集到 warnings 而不直接打印。
+ * @dependencies Node: fs/path
+ * @index_tags 行数统计, 递归扫描, 文件过滤, 结构化结果
+ * @author holic512
  */
-function countLines(dir, config = null) {
-    let fileCount = 0;
-    let lineCount = 0;
-    const files = [];
 
-    // 如果没有提供配置，则统计所有文件
-    const fileExtensions = config ? config.fileExtensions : null;
-    const excludeDirectories = config ? config.excludeDirectories : null;
+import fs from 'node:fs';
+import path from 'node:path';
+
+export function countLines(dir, config = null) {
+    const summary = {
+        fileCount: 0,
+        lineCount: 0,
+        files: [],
+        warnings: []
+    };
+
+    const fileExtensions = config?.fileExtensions || null;
+    const excludeDirectories = config?.excludeDirectories || null;
 
     function scan(currentPath) {
-        let stat;
+        let stats;
 
         try {
-            stat = fs.statSync(currentPath);
+            stats = fs.statSync(currentPath);
         } catch (error) {
-            console.error(`Error accessing ${currentPath}:`, error.message);
+            summary.warnings.push(`Skip inaccessible path ${currentPath}: ${error.message}`);
             return;
         }
 
-        if (stat.isFile()) {
-            // 检查文件扩展名是否在配置中启用
+        if (stats.isFile()) {
             if (fileExtensions) {
-                const ext = path.extname(currentPath).slice(1); // 移除前导点
-                if (!fileExtensions[ext]) {
-                    return; // 跳过未启用的文件类型
+                const extension = path.extname(currentPath).slice(1);
+                if (!fileExtensions[extension]) {
+                    return;
                 }
             }
 
-            // 统计文件行数
             try {
                 const content = fs.readFileSync(currentPath, 'utf8');
                 const lines = content.split('\n').length;
-                fileCount++;
-                lineCount += lines;
-                files.push({
+                summary.fileCount += 1;
+                summary.lineCount += lines;
+                summary.files.push({
                     path: currentPath,
-                    lines: lines
+                    lines
                 });
             } catch (error) {
-                // 跳过无法读取的文件（如二进制文件）
-                console.warn(`Skipping ${currentPath}: ${error.message}`);
+                summary.warnings.push(`Skip unreadable file ${currentPath}: ${error.message}`);
             }
-        } else if (stat.isDirectory()) {
-            // 递归扫描目录
-            try {
-                const entries = fs.readdirSync(currentPath);
-                for (const entry of entries) {
-                    // 检查是否应该排除此目录
-                    if (excludeDirectories && excludeDirectories[entry]) {
-                        continue; // 跳过配置中排除的目录
-                    }
 
-                    scan(path.join(currentPath, entry));
+            return;
+        }
+
+        if (!stats.isDirectory()) {
+            return;
+        }
+
+        try {
+            const entries = fs.readdirSync(currentPath);
+            for (const entry of entries) {
+                if (excludeDirectories?.[entry]) {
+                    continue;
                 }
-            } catch (error) {
-                console.error(`Error reading directory ${currentPath}:`, error.message);
+
+                scan(path.join(currentPath, entry));
             }
+        } catch (error) {
+            summary.warnings.push(`Skip unreadable directory ${currentPath}: ${error.message}`);
         }
     }
 
     scan(dir);
-
-    return {fileCount, lineCount, files};
+    return summary;
 }
 
-module.exports = {countLines};
+export default {
+    countLines
+};

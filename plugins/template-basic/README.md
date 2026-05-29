@@ -1,21 +1,22 @@
 # template-basic
 
-This directory is a SlothTool plugin scaffold kept inside the repository.
+这是 SlothTool 的默认插件脚手架目录。
 
-## Purpose
+## Goals
 
-- copy it when starting a new plugin
-- align new plugins with current SlothTool conventions
-- do not publish this directory directly
+- 演示“默认 TUI + 显式 CLI”插件结构
+- 提供最小可运行的 Ink 全屏页面
+- 给新插件提供 `slothtool.ui` 元数据样板
 
 ## Usage
 
 ```bash
 cp -R plugins/template-basic my-plugin
 cd my-plugin
+node bin/mytool.js
 ```
 
-Then update:
+## What To Update
 
 - `package.json`
 - `bin/mytool.js`
@@ -25,6 +26,7 @@ Then update:
 
 ## Notes
 
-- The scaffold is JavaScript-based.
-- It supports `slothtool.interactive`.
-- It is not part of workspace publishing or GitHub Release automation.
+- 脚手架采用 ESM。
+- 无参数默认进入 TUI。
+- `hello` 和 `config` 作为最小 CLI 子命令示例保留。
+- 该目录不是 workspace 发布包，也不参与官方 Release 自动化。

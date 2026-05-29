@@ -1,49 +1,39 @@
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-
 /**
- * 获取 slothtool 的主目录
- * @returns {string} ~/.slothtool
+ * @file LocConfigStore
+ * @project SlothTool
+ * @module LOC Plugin / Storage
+ * @description 管理 loc 插件配置，包括文件扩展名过滤与排除目录规则。
+ * @logic 1. 统一定位 ~/.slothtool/plugin-configs/loc.json；2. 读取时合并默认配置；3. 提供切换与重置辅助方法。
+ * @dependencies Node: fs/os/path
+ * @index_tags loc配置, 文件扩展名, 排除目录, plugin-configs
+ * @author holic512
  */
+
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 function getSlothToolHome() {
     return path.join(os.homedir(), '.slothtool');
 }
 
-/**
- * 获取插件配置目录
- * @returns {string} ~/.slothtool/plugin-configs
- */
 function getPluginConfigsDir() {
     return path.join(getSlothToolHome(), 'plugin-configs');
 }
 
-/**
- * 获取 loc 插件配置文件路径
- * @returns {string} ~/.slothtool/plugin-configs/loc.json
- */
 function getLocConfigPath() {
     return path.join(getPluginConfigsDir(), 'loc.json');
 }
 
-/**
- * 确保目录存在，如果不存在则创建
- * @param {string} dir - 目录路径
- */
-function ensureDir(dir) {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, {recursive: true});
+function ensureDir(dirPath) {
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, {recursive: true});
     }
 }
 
-/**
- * 获取默认配置
- * @returns {Object} 默认配置对象
- */
-function getDefaultConfig() {
+export function getDefaultConfig() {
     return {
         fileExtensions: {
-            // 常见代码文件扩展名
             js: true,
             ts: true,
             jsx: true,
@@ -79,96 +69,89 @@ function getDefaultConfig() {
             sql: true
         },
         excludeDirectories: {
-            // Node.js
-            'node_modules': true,
-            // Python
+            node_modules: true,
             '.venv': true,
-            'venv': true,
-            '__pycache__': true,
+            venv: true,
+            __pycache__: true,
             '.pytest_cache': true,
-            // Build outputs
-            'dist': true,
-            'build': true,
-            'out': true,
-            'target': true,
-            // Version control
+            dist: true,
+            build: true,
+            out: true,
+            target: true,
             '.git': true,
             '.svn': true,
             '.hg': true,
-            // IDEs
             '.idea': true,
             '.vscode': true,
             '.vs': true,
-            // Package managers
-            'bower_components': true,
-            'vendor': true,
-            // Cache
+            bower_components: true,
+            vendor: true,
             '.cache': true,
             '.next': true,
             '.nuxt': true,
-            // Coverage
-            'coverage': true,
+            coverage: true,
             '.nyc_output': true,
-            // Logs
-            'logs': true,
-            // Temp
-            'tmp': true,
-            'temp': true
+            logs: true,
+            tmp: true,
+            temp: true
         }
     };
 }
 
-/**
- * 读取配置
- * @returns {Object} 配置对象
- */
-function readConfig() {
+export function readConfig() {
+    ensureDir(getPluginConfigsDir());
     const configPath = getLocConfigPath();
 
-    // 确保配置目录存在
-    ensureDir(getPluginConfigsDir());
-
-    // 如果配置文件不存在，返回默认配置
     if (!fs.existsSync(configPath)) {
         return getDefaultConfig();
     }
 
-    try {
-        const content = fs.readFileSync(configPath, 'utf8');
-        const config = JSON.parse(content);
+    const content = fs.readFileSync(configPath, 'utf8');
+    const parsed = JSON.parse(content);
+    const defaults = getDefaultConfig();
 
-        // 合并默认配置，确保新增的配置项存在
-        const defaultConfig = getDefaultConfig();
-        return {
-            fileExtensions: {...defaultConfig.fileExtensions, ...config.fileExtensions},
-            excludeDirectories: {...defaultConfig.excludeDirectories, ...config.excludeDirectories}
-        };
-    } catch (error) {
-        console.error('Failed to read config:', error.message);
-        return getDefaultConfig();
-    }
+    return {
+        fileExtensions: {
+            ...defaults.fileExtensions,
+            ...(parsed.fileExtensions || {})
+        },
+        excludeDirectories: {
+            ...defaults.excludeDirectories,
+            ...(parsed.excludeDirectories || {})
+        }
+    };
 }
 
-/**
- * 写入配置
- * @param {Object} config - 配置对象
- */
-function writeConfig(config) {
-    const configPath = getLocConfigPath();
-
-    // 确保配置目录存在
+export function writeConfig(config) {
     ensureDir(getPluginConfigsDir());
-
-    try {
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-    } catch (error) {
-        console.error('Failed to write config:', error.message);
-        throw error;
-    }
+    fs.writeFileSync(getLocConfigPath(), JSON.stringify(config, null, 2), 'utf8');
 }
 
-module.exports = {
+export function resetConfig() {
+    const nextConfig = getDefaultConfig();
+    writeConfig(nextConfig);
+    return nextConfig;
+}
+
+export function setExtensionEnabled(extension, enabled) {
+    const nextConfig = readConfig();
+    nextConfig.fileExtensions[extension] = enabled;
+    writeConfig(nextConfig);
+    return nextConfig;
+}
+
+export function setExcludedDirectoryEnabled(directoryName, enabled) {
+    const nextConfig = readConfig();
+    nextConfig.excludeDirectories[directoryName] = enabled;
+    writeConfig(nextConfig);
+    return nextConfig;
+}
+
+export default {
     getDefaultConfig,
     readConfig,
+    resetConfig,
+    setExcludedDirectoryEnabled,
+    setExtensionEnabled,
     writeConfig
 };

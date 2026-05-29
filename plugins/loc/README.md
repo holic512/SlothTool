@@ -1,6 +1,6 @@
 # @holic512/plugin-loc
 
-Count lines of code in a directory.
+`loc` 用于统计目录中的代码行数，默认以全屏 TUI 运行，也支持显式 CLI 统计与配置命令。
 
 ## Installation
 
@@ -11,58 +11,27 @@ slothtool install loc
 ## Usage
 
 ```bash
-# Count lines in current directory
+# 默认进入 loc TUI
 slothtool loc
+loc
 
-# Count lines in a specific directory
-slothtool loc ./src
+# CLI 统计
+slothtool loc .
+loc ./src
+loc -v ./src
 
-# Show detailed file information
-slothtool loc --verbose ./src
-slothtool loc -v ./src
-
-# Get help
-slothtool loc --help
+# CLI 配置
+loc --config
+loc config show
+loc config ext md off
+loc config exclude dist on
+loc config reset
 ```
 
 ## Features
 
-- Recursively scans directories
-- Automatically skips `node_modules` and hidden files/directories
-- Handles errors gracefully (skips unreadable files)
-- Supports verbose mode to show per-file statistics
-
-## Output
-
-```
-Counting lines of code in: /path/to/directory
-
-Total files: 42
-Total lines: 1337
-```
-
-With `--verbose`:
-
-```
-Counting lines of code in: /path/to/directory
-
-Files:
-
-  /path/to/file1.js: 120 lines
-  /path/to/file2.js: 85 lines
-  ...
-
-Total files: 42
-Total lines: 1337
-```
-
-## What Gets Counted
-
-- All files in the target directory and subdirectories
-- Excludes `node_modules/`
-- Excludes hidden files and directories (starting with `.`)
-- Skips binary files that can't be read as text
-
-## License
-
-ISC
+- 默认全屏 TUI 入口
+- 显式 CLI 统计目录和详细文件清单
+- 文件扩展名过滤
+- 排除目录配置
+- 读写错误以 warning 形式汇总，不中断整体扫描

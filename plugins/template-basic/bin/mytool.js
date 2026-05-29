@@ -4,47 +4,67 @@
  * @file TemplatePluginEntry
  * @project SlothTool
  * @module Plugin Scaffold / Entry
- * @description 提供 SlothTool 插件模板的命令行入口，包含帮助信息和交互式模式分发。
- * @logic 1. 解析 help 与 interactive 参数；2. 默认进入交互式主流程；3. 以模板方式暴露最小可运行结构。
- * @dependencies Module: ../lib/i18n, Module: ../lib/interactive
- * @index_tags 插件模板, CLI入口, 交互模式, scaffold
+ * @description 模板插件入口，无参数默认进入 TUI，同时保留最小可运行 CLI 子命令。
+ * @logic 1. 无参数时优先进入 TUI；2. 支持 hello/config/help 显式 CLI；3. 以模板方式演示默认 TUI 插件结构。
+ * @dependencies Modules: ../lib/i18n.js, ../lib/config.js, ../lib/interactive.js
+ * @index_tags 模板入口, 默认TUI, CLI子命令, scaffold
  * @author holic512
  */
 
-const {t} = require('../lib/i18n');
-const {interactiveMain} = require('../lib/interactive');
+import {readConfig} from '../lib/config.js';
+import {interactiveMain} from '../lib/interactive.js';
+import {t} from '../lib/i18n.js';
 
-const args = process.argv.slice(2);
+function isInteractiveTerminal() {
+    return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
 
 function showHelp() {
-    console.log(t('title') + '\n');
+    console.log(`${t('title')}\n`);
     console.log(t('usage'));
-    console.log('  mytool [options]\n');
+    console.log('  mytool');
+    console.log('  mytool --tui');
+    console.log('  mytool hello');
+    console.log('  mytool config');
+    console.log('');
     console.log(t('options'));
-    console.log('  -h, --help        ' + t('help'));
-    console.log('  -i, --interactive ' + t('interactive'));
+    console.log(`  -h, --help       ${t('help')}`);
+    console.log(`  --tui            ${t('tui')}`);
 }
 
 async function main() {
-    if (args.length === 0 || args.includes('-i') || args.includes('--interactive')) {
+    const args = process.argv.slice(2);
+
+    if (args.includes('--help') || args.includes('-h')) {
+        showHelp();
+        return;
+    }
+
+    if (args.length === 0 || args.includes('--tui') || args.includes('-i') || args.includes('--interactive')) {
+        if (!isInteractiveTerminal() && !process.env.SLOTHTOOL_TEMPLATE_TUI_TEST_ACTION) {
+            throw new Error(t('tuiRequiresTerminal'));
+        }
+
         await interactiveMain();
         return;
     }
 
-    if (args.includes('--help') || args.includes('-h')) {
-        showHelp();
-        process.exit(0);
+    if (args[0] === 'hello') {
+        console.log(t('helloOutput'));
+        return;
+    }
+
+    if (args[0] === 'config') {
+        console.log(t('configTitle'));
+        console.log(JSON.stringify(readConfig('mytool'), null, 2));
+        return;
     }
 
     showHelp();
-    process.exit(2);
+    process.exitCode = 2;
 }
 
-process.on('SIGINT', () => {
-    process.exit(0);
-});
-
 main().catch(error => {
-    console.error(t('error') + ': ' + error.message);
+    console.error(`${t('error')}: ${error.message}`);
     process.exit(1);
 });

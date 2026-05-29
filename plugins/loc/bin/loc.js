@@ -1,216 +1,179 @@
 #!/usr/bin/env node
 
-const counter = require('../lib/counter');
-const config = require('../lib/config');
-const {t} = require('../lib/i18n');
-const path = require('path');
-const fs = require('fs');
-const prompts = require('prompts');
-
-const args = process.argv.slice(2);
-
-// 如果没有参数，显示帮助信息
-if (args.length === 0) {
-    showHelp();
-    process.exit(0);
-}
-
-// 显示帮助信息
-if (args.includes('--help') || args.includes('-h')) {
-    showHelp();
-    process.exit(0);
-}
-
-// 配置模式
-if (args.includes('--config') || args.includes('-c')) {
-    configureFileTypes();
-    return;
-}
-
-// 交互式模式
-if (args.includes('--interactive') || args.includes('-i')) {
-    interactiveMode();
-    return;
-}
-
-// 直接统计模式
-const verbose = args.includes('--verbose') || args.includes('-v');
-const filteredArgs = args.filter(arg => !arg.startsWith('-'));
-const targetDir = filteredArgs[0] || '.';
-countDirectory(targetDir, verbose);
-
 /**
- * 显示帮助信息
+ * @file LocPluginEntry
+ * @project SlothTool
+ * @module LOC Plugin / Entry
+ * @description loc 插件命令入口，无参数默认进入 TUI，显式参数走纯 CLI 统计或配置命令。
+ * @logic 1. 解析 help、tui、config 与统计参数；2. 无参数时默认进入 Ink TUI；3. 复用 service 层处理统计与配置。
+ * @dependencies Services: ../lib/service.js, TUI: ../lib/tui.js, I18N: ../lib/i18n.js, Storage: ../lib/config.js
+ * @index_tags loc入口, 默认TUI, CLI统计, 配置命令
+ * @author holic512
  */
-function showHelp() {
-    console.log(t('title') + '\n');
+
+import {t} from '../lib/i18n.js';
+import {
+    countTargetDirectory,
+    getConfigSummary,
+    resetPluginConfig,
+    toggleExcludedDirectory,
+    toggleExtension
+} from '../lib/service.js';
+import {startLocTui} from '../lib/tui.js';
+
+function isInteractiveTerminal() {
+    return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+function printHelp() {
+    console.log(`${t('title')}\n`);
     console.log(t('usage'));
-    console.log('  loc [directory]\n');
+    console.log('  loc');
+    console.log('  loc [directory]');
+    console.log('  loc --tui');
+    console.log('  loc --config');
+    console.log('  loc config show');
+    console.log('  loc config reset');
+    console.log('  loc config ext <name> <on|off>');
+    console.log('  loc config exclude <name> <on|off>');
+    console.log('');
     console.log(t('options'));
-    console.log('  -h, --help        ' + t('help'));
-    console.log('  -v, --verbose     ' + t('verbose'));
-    console.log('  -c, --config      ' + t('config'));
-    console.log('  -i, --interactive ' + t('interactive') + '\n');
+    console.log(`  -h, --help       ${t('help')}`);
+    console.log(`  -v, --verbose    ${t('verbose')}`);
+    console.log(`  -c, --config     ${t('config')}`);
+    console.log(`  --tui            ${t('tuiOption')}`);
+    console.log(`  -i, --interactive ${t('tuiOption')}`);
+    console.log('');
     console.log(t('examples'));
-    console.log('  loc               ' + t('exampleHelp'));
-    console.log('  loc .             ' + t('exampleCurrent'));
-    console.log('  loc ./src         ' + t('exampleSrc'));
-    console.log('  loc -v ./src      ' + t('exampleVerbose'));
-    console.log('  loc -c            ' + t('exampleConfig'));
-    console.log('  loc -i            ' + t('exampleInteractive'));
+    console.log(`  loc              ${t('exampleTui')}`);
+    console.log(`  loc .            ${t('exampleCurrent')}`);
+    console.log(`  loc ./src        ${t('exampleSrc')}`);
+    console.log(`  loc -v ./src     ${t('exampleVerbose')}`);
+    console.log(`  loc -c           ${t('exampleConfig')}`);
+    console.log(`  loc config ext md off  ${t('exampleConfigSet')}`);
 }
 
-/**
- * 统计目录代码行数
- */
-function countDirectory(targetDir, verbose = false) {
-    const resolvedDir = path.resolve(targetDir);
+function printConfigSummary() {
+    const config = getConfigSummary();
+    console.log(t('configShowTitle'));
+    console.log(JSON.stringify(config, null, 2));
+}
 
-    if (!fs.existsSync(resolvedDir)) {
-        console.error(t('invalidDirectory') + ': ' + resolvedDir);
-        process.exit(1);
+function normalizeState(value) {
+    if (value === 'on') {
+        return true;
     }
 
-    console.log(t('counting'), resolvedDir + '\n');
+    if (value === 'off') {
+        return false;
+    }
 
-    const pluginConfig = config.readConfig();
-    const result = counter.countLines(resolvedDir, pluginConfig);
+    throw new Error(t('configUnknownState'));
+}
 
-    if (verbose && result.files.length > 0) {
-        console.log(t('files') + '\n');
-        result.files.forEach(file => {
+function runConfigCommand(args) {
+    const subCommand = args[0] || 'show';
+
+    if (subCommand === 'show') {
+        printConfigSummary();
+        return;
+    }
+
+    if (subCommand === 'reset') {
+        resetPluginConfig();
+        console.log(t('configReset'));
+        return;
+    }
+
+    if (subCommand === 'ext') {
+        const extension = args[1];
+        const enabled = normalizeState(args[2]);
+        toggleExtension(extension, enabled);
+        console.log(t('configSaved'));
+        return;
+    }
+
+    if (subCommand === 'exclude') {
+        const directoryName = args[1];
+        const enabled = normalizeState(args[2]);
+        toggleExcludedDirectory(directoryName, enabled);
+        console.log(t('configSaved'));
+        return;
+    }
+
+    throw new Error(t('configUnknownTarget'));
+}
+
+function printCountResult(result) {
+    console.log(t('counting', {dir: result.resolvedDir}));
+    console.log(t('totalFiles', {count: result.fileCount}));
+    console.log(t('totalLines', {count: result.lineCount}));
+
+    if (result.verbose && result.files.length > 0) {
+        console.log(`\n${t('files')}`);
+        for (const file of result.files) {
             console.log(`  ${file.path}: ${file.lines} ${t('lines')}`);
-        });
-        console.log('');
-    }
-
-    console.log(t('totalFiles'), result.fileCount);
-    console.log(t('totalLines'), result.lineCount);
-}
-
-/**
- * 配置文件类型
- */
-async function configureFileTypes() {
-    console.log(t('configTitle') + '\n');
-
-    const pluginConfig = config.readConfig();
-    const extensions = Object.keys(pluginConfig.fileExtensions);
-
-    const choices = extensions.map(ext => ({
-        title: ext,
-        value: ext,
-        selected: pluginConfig.fileExtensions[ext]
-    }));
-
-    const response = await prompts({
-        type: 'multiselect',
-        name: 'extensions',
-        message: t('selectExtensions'),
-        choices: choices,
-        hint: t('configInstructions')
-    });
-
-    if (response.extensions === undefined) {
-        // 用户取消了操作
-        return;
-    }
-
-    // 更新配置
-    const newConfig = config.readConfig();
-    Object.keys(newConfig.fileExtensions).forEach(ext => {
-        newConfig.fileExtensions[ext] = response.extensions.includes(ext);
-    });
-
-    config.writeConfig(newConfig);
-    console.log('\n' + t('configSaved'));
-}
-
-/**
- * 配置排除目录
- */
-async function configureExcludeDirectories() {
-    console.log(t('configExcludeDirsTitle') + '\n');
-
-    const pluginConfig = config.readConfig();
-    const directories = Object.keys(pluginConfig.excludeDirectories);
-
-    const choices = directories.map(dir => ({
-        title: dir,
-        value: dir,
-        selected: pluginConfig.excludeDirectories[dir]
-    }));
-
-    const response = await prompts({
-        type: 'multiselect',
-        name: 'directories',
-        message: t('selectExcludeDirs'),
-        choices: choices,
-        hint: t('configInstructions')
-    });
-
-    if (response.directories === undefined) {
-        // 用户取消了操作
-        return;
-    }
-
-    // 更新配置
-    const newConfig = config.readConfig();
-    Object.keys(newConfig.excludeDirectories).forEach(dir => {
-        newConfig.excludeDirectories[dir] = response.directories.includes(dir);
-    });
-
-    config.writeConfig(newConfig);
-    console.log('\n' + t('configSaved'));
-}
-
-/**
- * 交互式模式
- */
-async function interactiveMode() {
-    while (true) {
-        const response = await prompts({
-            type: 'select',
-            name: 'action',
-            message: t('menuTitle'),
-            choices: [
-                {title: t('menuCountCurrent'), value: 'current'},
-                {title: t('menuCountCustom'), value: 'custom'},
-                {title: t('menuConfigFileTypes'), value: 'configFileTypes'},
-                {title: t('menuConfigExcludeDirs'), value: 'configExcludeDirs'},
-                {title: t('menuExit'), value: 'exit'}
-            ]
-        });
-
-        if (!response.action || response.action === 'exit') {
-            break;
         }
+    }
 
-        if (response.action === 'current') {
-            console.log('');
-            countDirectory('.', false);
-            console.log('');
-        } else if (response.action === 'custom') {
-            const dirResponse = await prompts({
-                type: 'text',
-                name: 'directory',
-                message: t('enterDirectory'),
-                initial: '.'
-            });
-
-            if (dirResponse.directory) {
-                console.log('');
-                countDirectory(dirResponse.directory, false);
-                console.log('');
-            }
-        } else if (response.action === 'configFileTypes') {
-            console.log('');
-            await configureFileTypes();
-            console.log('');
-        } else if (response.action === 'configExcludeDirs') {
-            console.log('');
-            await configureExcludeDirectories();
-            console.log('');
+    if (result.warnings.length > 0) {
+        console.log(`\n${t('warningsTitle')}`);
+        for (const warning of result.warnings) {
+            console.log(`  ${warning}`);
         }
     }
 }
+
+async function main() {
+    const args = process.argv.slice(2);
+
+    if (args.includes('--help') || args.includes('-h')) {
+        printHelp();
+        return;
+    }
+
+    if (args.length === 0) {
+        if (isInteractiveTerminal() || process.env.SLOTHTOOL_LOC_TUI_TEST_ACTION) {
+            await startLocTui();
+            return;
+        }
+
+        printHelp();
+        return;
+    }
+
+    if (args.includes('--tui') || args.includes('--interactive') || args.includes('-i')) {
+        if (!isInteractiveTerminal() && !process.env.SLOTHTOOL_LOC_TUI_TEST_ACTION) {
+            throw new Error(t('tuiRequiresTerminal'));
+        }
+
+        await startLocTui();
+        return;
+    }
+
+    if (args.includes('--config') || args.includes('-c')) {
+        printConfigSummary();
+        return;
+    }
+
+    if (args[0] === 'config') {
+        runConfigCommand(args.slice(1));
+        return;
+    }
+
+    const verbose = args.includes('--verbose') || args.includes('-v');
+    const filteredArgs = args.filter(arg => !arg.startsWith('-'));
+    const targetDir = filteredArgs[0] || '.';
+
+    try {
+        const result = countTargetDirectory(targetDir, {verbose});
+        printCountResult(result);
+    } catch (error) {
+        throw new Error(t('invalidDirectory', {dir: error.message}));
+    }
+}
+
+main().catch(error => {
+    console.error(error.message);
+    process.exit(1);
+});

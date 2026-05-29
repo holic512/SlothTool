@@ -2,74 +2,93 @@
  * @file TemplatePluginI18n
  * @project SlothTool
  * @module Plugin Scaffold / I18N
- * @description 为插件模板提供最小化的中英文文案与语言读取能力。
- * @logic 1. 从 SlothTool 设置文件读取语言；2. 提供键值翻译；3. 支持简单模板参数替换。
+ * @description 为模板插件提供默认 TUI 和显式 CLI 子命令所需的中英文文案。
+ * @logic 1. 读取 SlothTool 全局语言设置；2. 输出模板帮助与 TUI 文案；3. 支持简单模板变量替换。
  * @dependencies Node: fs/os/path
- * @index_tags 插件模板, i18n, 语言读取, scaffold
+ * @index_tags 模板插件, i18n, 默认TUI, scaffold
  * @author holic512
  */
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 function getSettingsPath() {
     return path.join(os.homedir(), '.slothtool', 'settings.json');
 }
 
-function getLanguage() {
+export function getLanguage() {
     try {
         if (fs.existsSync(getSettingsPath())) {
             const settings = JSON.parse(fs.readFileSync(getSettingsPath(), 'utf8'));
             return settings.language || 'zh';
         }
-    } catch (error) {
-        // ignore errors
+    } catch {
+        return 'zh';
     }
+
     return 'zh';
 }
 
 const messages = {
     zh: {
-        title: 'mytool - 插件标题',
+        title: 'mytool - 模板插件',
         usage: '用法：',
         options: '选项：',
         help: '显示帮助信息',
-        interactive: '交互式模式',
-        interactiveMenu: '请选择操作：',
-        showTitle: '显示标题',
+        tui: '启动默认全屏 TUI',
+        hello: '输出模板问候语',
+        config: '显示模板配置',
         error: '错误',
-        exit: '退出'
+        configTitle: '当前模板配置：',
+        helloOutput: 'Hello from template-basic',
+        tuiRequiresTerminal: '当前终端不是交互式 TTY，无法启动模板 TUI。',
+        footer: 'Enter action  q quit  ? help',
+        menuShowTitle: '显示标题',
+        menuToggleSample: '切换 sampleOption',
+        menuExit: '退出',
+        helpLines: [
+            'Enter: 执行动作',
+            'Up/Down: 切换菜单',
+            'q: 退出',
+            '?: 显示帮助'
+        ]
     },
     en: {
-        title: 'mytool - Plugin title',
+        title: 'mytool - Template plugin',
         usage: 'Usage:',
         options: 'Options:',
-        help: 'Show help message',
-        interactive: 'Interactive mode',
-        interactiveMenu: 'Select an action:',
-        showTitle: 'Show title',
+        help: 'Show help',
+        tui: 'Launch the default full-screen TUI',
+        hello: 'Print a sample greeting',
+        config: 'Show the template config',
         error: 'Error',
-        exit: 'Exit'
+        configTitle: 'Current template config:',
+        helloOutput: 'Hello from template-basic',
+        tuiRequiresTerminal: 'The current terminal is not interactive, so the template TUI cannot be launched.',
+        footer: 'Enter action  q quit  ? help',
+        menuShowTitle: 'Show title',
+        menuToggleSample: 'Toggle sampleOption',
+        menuExit: 'Exit',
+        helpLines: [
+            'Enter: run action',
+            'Up/Down: move',
+            'q: quit',
+            '?: show help'
+        ]
     }
 };
 
-function t(key, params = {}) {
-    const lang = getLanguage();
-    const langMessages = messages[lang] || messages.zh;
-    let message = langMessages[key];
-    if (message === undefined) {
-        return key;
+export function t(key, params = {}) {
+    const language = getLanguage();
+    const currentMessages = messages[language] || messages.zh;
+    const message = currentMessages[key];
+
+    if (typeof message !== 'string') {
+        return message ?? key;
     }
-    if (typeof message === 'string') {
-        return message.replace(/\{(\w+)\}/g, (match, param) => {
-            return params[param] !== undefined ? params[param] : match;
-        });
-    }
-    return message;
+
+    return message.replace(/\{(\w+)\}/gu, (match, name) => {
+        return params[name] !== undefined ? String(params[name]) : match;
+    });
 }
-
-module.exports = {
-    t,
-    getLanguage
-};

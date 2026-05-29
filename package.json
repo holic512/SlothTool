@@ -3,11 +3,12 @@
   "version": "1.0.10",
   "description": "A plugin manager and dispatcher for CLI tools",
   "main": "lib/index.js",
+  "type": "module",
   "bin": {
     "slothtool": "bin/slothtool.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [
     "cli",
@@ -33,9 +34,10 @@
     "plugins/loc"
   ],
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
-    "prompts": "^2.4.2"
+    "ink": "^7.0.4",
+    "react": "^19.2.0"
   }
 }

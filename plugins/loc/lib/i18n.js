@@ -1,157 +1,183 @@
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-
 /**
- * 获取 slothtool 设置路径
- * @returns {string} ~/.slothtool/settings.json
+ * @file LocI18n
+ * @project SlothTool
+ * @module LOC Plugin / Internationalization
+ * @description 提供 loc 插件 CLI 与默认 TUI 所需的双语文案。
+ * @logic 1. 读取 ~/.slothtool/settings.json 的语言设置；2. 输出 loc CLI/TUI 文案；3. 支持模板变量替换。
+ * @dependencies Node: fs/os/path
+ * @index_tags loc i18n, 双语, TUI文案, CLI文案
+ * @author holic512
  */
+
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 function getSettingsPath() {
     return path.join(os.homedir(), '.slothtool', 'settings.json');
 }
 
-/**
- * 获取当前语言设置
- * @returns {string} 语言代码 ('zh' 或 'en')
- */
-function getLanguage() {
+export function getLanguage() {
     try {
         if (fs.existsSync(getSettingsPath())) {
             const settings = JSON.parse(fs.readFileSync(getSettingsPath(), 'utf8'));
             return settings.language || 'zh';
         }
-    } catch (error) {
-        // 忽略错误，使用默认语言
+    } catch {
+        return 'zh';
     }
-    return 'zh'; // 默认中文
+
+    return 'zh';
 }
 
 const messages = {
     zh: {
-        // 帮助信息
         title: 'loc - 统计目录中的代码行数',
         usage: '用法：',
         options: '选项：',
         examples: '示例：',
-        help: '显示此帮助信息',
-        verbose: '显示详细的文件信息',
-        config: '配置文件类型过滤',
-        interactive: '交互式模式',
-
-        // 示例
-        exampleHelp: '显示帮助信息',
-        exampleCurrent: '统计当前目录的代码行数',
-        exampleSrc: '统计 ./src 目录的代码行数',
-        exampleVerbose: '显示详细的文件信息',
-        exampleConfig: '配置文件类型过滤',
-        exampleInteractive: '交互式选择目录和配置',
-
-        // 统计信息
-        counting: '正在统计代码行数：',
-        totalFiles: '总文件数：',
-        totalLines: '总行数：',
-        files: '文件：',
+        help: '显示帮助信息',
+        verbose: '显示详细文件清单',
+        config: '显示当前配置',
+        tuiOption: '启动全屏 TUI',
+        configCommands: '配置命令',
+        exampleTui: '进入默认 TUI',
+        exampleCurrent: '统计当前目录',
+        exampleSrc: '统计 ./src 目录',
+        exampleVerbose: '统计并输出详细文件清单',
+        exampleConfig: '显示当前配置',
+        exampleConfigSet: '禁用 md 扩展统计',
+        invalidDirectory: '无效目录：{dir}',
+        counting: '正在统计：{dir}',
+        totalFiles: '总文件数：{count}',
+        totalLines: '总行数：{count}',
+        files: '文件明细',
         lines: '行',
-
-        // 交互式菜单
-        menuTitle: '请选择操作：',
-        menuCountCurrent: '统计当前目录代码行数',
-        menuCountCustom: '统计指定目录代码行数',
-        menuConfigFileTypes: '配置文件类型过滤',
-        menuConfigExcludeDirs: '配置排除目录',
-        menuExit: '退出',
-
-        // 输入提示
-        enterDirectory: '请输入目录路径：',
-        invalidDirectory: '无效的目录路径',
-
-        // 配置
-        configTitle: '配置文件类型过滤',
-        configExcludeDirsTitle: '配置排除目录',
-        configInstructions: '使用空格键选择/取消选择，回车键确认',
-        configSaved: '配置已保存！',
-        allExtensions: '所有文件扩展名：',
-        selectExtensions: '选择要统计的文件类型：',
-        selectExcludeDirs: '选择要排除的目录：',
-        excludeDirsHint: '这些目录将在统计时被跳过'
+        configSaved: '配置已保存。',
+        configReset: '配置已重置为默认值。',
+        configUnknownTarget: '未知配置目标，请使用 "ext" 或 "exclude"。',
+        configUnknownState: '状态必须是 "on" 或 "off"。',
+        configShowTitle: '当前 loc 配置：',
+        warningsTitle: '扫描告警：',
+        tuiRequiresTerminal: '当前终端不是交互式 TTY，无法启动 loc TUI。',
+        tui: {
+            title: 'loc',
+            subtitle: 'Count lines with a default full-screen UI.',
+            menu: {
+                current: '统计当前目录',
+                custom: '统计指定目录',
+                extensions: '配置文件扩展名',
+                excludes: '配置排除目录',
+                reset: '重置为默认配置',
+                exit: '退出'
+            },
+            footer: 'Tab/Up/Down move  Enter action  Space toggle  Esc back  q quit',
+            prompt: '输入目录后按 Enter 执行统计，Esc 返回。',
+            emptyResult: '尚未执行统计。',
+            inputLabel: '目录输入：',
+            resultTitle: '结果摘要',
+            configHint: 'Space 切换当前项，Enter 返回主菜单。',
+            saved: '配置切换已保存。',
+            resetDone: '配置已重置。',
+            help: {
+                title: '快捷键',
+                lines: [
+                    'Up/Down: 移动',
+                    'Enter: 执行操作',
+                    'Space: 切换配置项',
+                    'Esc: 返回主菜单',
+                    'q: 退出',
+                    '?: 打开帮助'
+                ]
+            }
+        }
     },
-
     en: {
-        // Help
         title: 'loc - Count lines of code in a directory',
         usage: 'Usage:',
         options: 'Options:',
         examples: 'Examples:',
         help: 'Show this help message',
-        verbose: 'Show detailed file information',
-        config: 'Configure file type filtering',
-        interactive: 'Interactive mode',
-
-        // Examples
-        exampleHelp: 'Show help message',
-        exampleCurrent: 'Count lines in current directory',
-        exampleSrc: 'Count lines in ./src directory',
-        exampleVerbose: 'Show detailed file information',
-        exampleConfig: 'Configure file type filtering',
-        exampleInteractive: 'Interactive mode to select directory and config',
-
-        // Statistics
-        counting: 'Counting lines of code in:',
-        totalFiles: 'Total files:',
-        totalLines: 'Total lines:',
-        files: 'Files:',
+        verbose: 'Show the detailed file list',
+        config: 'Show the current configuration',
+        tuiOption: 'Launch the full-screen TUI',
+        configCommands: 'Config commands',
+        exampleTui: 'Enter the default TUI',
+        exampleCurrent: 'Count the current directory',
+        exampleSrc: 'Count ./src',
+        exampleVerbose: 'Count and print the file list',
+        exampleConfig: 'Show the current config',
+        exampleConfigSet: 'Disable md extension counting',
+        invalidDirectory: 'Invalid directory: {dir}',
+        counting: 'Counting: {dir}',
+        totalFiles: 'Total files: {count}',
+        totalLines: 'Total lines: {count}',
+        files: 'Files',
         lines: 'lines',
-
-        // Interactive menu
-        menuTitle: 'Please select an action:',
-        menuCountCurrent: 'Count lines in current directory',
-        menuCountCustom: 'Count lines in custom directory',
-        menuConfigFileTypes: 'Configure file type filtering',
-        menuConfigExcludeDirs: 'Configure exclude directories',
-        menuExit: 'Exit',
-
-        // Input prompts
-        enterDirectory: 'Enter directory path:',
-        invalidDirectory: 'Invalid directory path',
-
-        // Config
-        configTitle: 'Configure File Type Filtering',
-        configExcludeDirsTitle: 'Configure Exclude Directories',
-        configInstructions: 'Use space to select/deselect, enter to confirm',
-        configSaved: 'Configuration saved!',
-        allExtensions: 'All file extensions:',
-        selectExtensions: 'Select file types to count:',
-        selectExcludeDirs: 'Select directories to exclude:',
-        excludeDirsHint: 'These directories will be skipped during counting'
+        configSaved: 'Configuration saved.',
+        configReset: 'Configuration reset to defaults.',
+        configUnknownTarget: 'Unknown config target. Use "ext" or "exclude".',
+        configUnknownState: 'State must be "on" or "off".',
+        configShowTitle: 'Current loc config:',
+        warningsTitle: 'Warnings:',
+        tuiRequiresTerminal: 'The current terminal is not interactive, so the loc TUI cannot be launched.',
+        tui: {
+            title: 'loc',
+            subtitle: 'Count lines with a default full-screen UI.',
+            menu: {
+                current: 'Count current directory',
+                custom: 'Count custom directory',
+                extensions: 'Configure file extensions',
+                excludes: 'Configure excluded directories',
+                reset: 'Reset to defaults',
+                exit: 'Exit'
+            },
+            footer: 'Tab/Up/Down move  Enter action  Space toggle  Esc back  q quit',
+            prompt: 'Type a directory path and press Enter. Esc goes back.',
+            emptyResult: 'No count has been executed yet.',
+            inputLabel: 'Directory input:',
+            resultTitle: 'Result summary',
+            configHint: 'Space toggles the current item. Enter returns to the menu.',
+            saved: 'Configuration toggle saved.',
+            resetDone: 'Configuration reset.',
+            help: {
+                title: 'Keymap',
+                lines: [
+                    'Up/Down: move',
+                    'Enter: run action',
+                    'Space: toggle config item',
+                    'Esc: return to menu',
+                    'q: quit',
+                    '?: open help'
+                ]
+            }
+        }
     }
 };
 
-/**
- * 获取本地化消息
- * @param {string} key - 消息键
- * @param {Object} params - 替换参数
- * @returns {string} 本地化的消息
- */
-function t(key, params = {}) {
-    const lang = getLanguage();
-    const langMessages = messages[lang] || messages.zh;
+export function t(key, params = {}) {
+    const language = getLanguage();
+    const currentMessages = messages[language] || messages.zh;
+    const keys = key.split('.');
+    let message = currentMessages;
 
-    let message = langMessages[key];
-    if (message === undefined) {
-        return key;
+    for (const currentKey of keys) {
+        message = message?.[currentKey];
+        if (message === undefined) {
+            return key;
+        }
     }
 
-    // 替换参数
     if (typeof message === 'string') {
-        return message.replace(/\{(\w+)\}/g, (match, param) => {
-            return params[param] !== undefined ? params[param] : match;
+        return message.replace(/\{(\w+)\}/gu, (match, name) => {
+            return params[name] !== undefined ? String(params[name]) : match;
         });
     }
 
     return message;
 }
 
-module.exports = {
-    t,
-    getLanguage
+export default {
+    getLanguage,
+    t
 };

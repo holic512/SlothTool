@@ -3,15 +3,26 @@
   "version": "1.0.4",
   "description": "Count lines of code in a directory",
   "main": "lib/counter.js",
+  "type": "module",
   "bin": {
     "loc": "bin/loc.js"
   },
   "slothtool": {
     "interactive": true,
-    "interactiveFlag": "-i"
+    "interactiveFlag": "-i",
+    "ui": {
+      "cli": true,
+      "tui": true,
+      "defaultMode": "tui",
+      "tuiFlag": "--tui",
+      "compatFlags": [
+        "-i",
+        "--interactive"
+      ]
+    }
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [
     "slothtool",
@@ -23,6 +34,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "prompts": "^2.4.2"
+    "ink": "^7.0.4",
+    "react": "^19.2.0"
   }
 }
