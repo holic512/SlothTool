@@ -7,11 +7,13 @@ SlothTool 是一个默认以全屏 TUI 运行、同时保留脚本化 CLI 能力
 ## Highlights
 
 - 默认入口是 Ink 全屏 TUI：直接执行 `slothtool`
+- 根 TUI 固定导航为：`首页 / 运行 / 安装 / 更新 / 设置`
 - 所有能力仍保留显式 CLI：`install`、`list`、`update`、`config`、`run`
 - 官方插件安装到 `~/.slothtool/plugins/`
 - 根管理器和官方插件都支持默认 TUI + 显式 CLI
 - 双语支持：中文 / English
 - 根 TUI 使用固定单行导航头部与状态栏，并跟随当前语言切换
+- 支持全局代理与 GitHub 源配置，默认预填 Clash `127.0.0.1:7980`
 
 ## Requirements
 
@@ -60,8 +62,55 @@ slothtool --update-all
 slothtool uninstall loc
 slothtool config language zh
 slothtool config language en
+slothtool config proxy show
+slothtool config proxy enabled on
+slothtool config proxy port 7890
+slothtool config proxy github official
+slothtool config proxy github-url https://proxy.example.com
 slothtool self-update
 slothtool --uninstall-all
+```
+
+## Network Settings
+
+默认设置会写入 `~/.slothtool/settings.json`：
+
+```json
+{
+  "language": "zh",
+  "network": {
+    "proxy": {
+      "enabled": false,
+      "protocol": "http",
+      "host": "127.0.0.1",
+      "port": 7980,
+      "noProxy": "localhost,127.0.0.1,::1"
+    },
+    "github": {
+      "preset": "gh-proxy",
+      "customBaseUrl": ""
+    }
+  }
+}
+```
+
+常见配置：
+
+```bash
+# 查看当前语言、代理与 GitHub 源
+slothtool config
+
+# 打开 Clash 代理
+slothtool config proxy enabled on
+
+# 在 7980 / 7890 端口之间切换时，也可以直接显式设置
+slothtool config proxy port 7890
+
+# 切换为官方 GitHub
+slothtool config proxy github official
+
+# 写入自定义 GitHub 代理地址，并自动切换到 custom
+slothtool config proxy github-url https://proxy.example.com
 ```
 
 ## Official Plugin: `loc`

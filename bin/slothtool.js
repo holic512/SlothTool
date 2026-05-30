@@ -29,7 +29,7 @@ function printHelp() {
     console.log(`  slothtool list                  ${t('commands.list')}`);
     console.log(`  slothtool run <plugin> [args]   ${t('commands.run')}`);
     console.log(`  slothtool <plugin> [args]       ${t('commands.runShorthand')}`);
-    console.log(`  slothtool config language <x>   ${t('commands.config')}`);
+    console.log(`  slothtool config <...>          ${t('commands.config')}`);
     console.log(`  slothtool --uninstall-all       ${t('commands.uninstallAll')}`);
     console.log(`  slothtool self-update           ${t('commands.selfUpdate')}`);
     console.log('');
@@ -39,6 +39,7 @@ function printHelp() {
     console.log('  slothtool loc');
     console.log('  slothtool loc ./src');
     console.log('  slothtool config language en');
+    console.log('  slothtool config proxy show');
 }
 
 async function main() {

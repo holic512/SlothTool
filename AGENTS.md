@@ -89,11 +89,10 @@ These constraints should be preserved unless the user explicitly asks to change 
 - Avoid nested TUI sessions; exit the current TUI before launching a plugin TUI or CLI child process.
 - Preserve the root TUI page model unless the user explicitly asks to change product behavior:
   - `Home`
-  - `Install`
-  - `Plugins`
   - `Run`
+  - `Install`
+  - `Update`
   - `Settings`
-  - `Danger Zone`
 
 ### I18N and persistence
 
@@ -178,6 +177,7 @@ npm test
 - Root shipped-behavior changes require updating the root `package.json` version and keeping `package-lock.json` in sync.
 - `plugins/loc` shipped-behavior changes require updating `plugins/loc/package.json` and keeping the workspace section in `package-lock.json` in sync.
 - If one change modifies both the manager and the official plugin, bump both versions in the same change set.
+- Before creating a commit that changes any shipped package version, stop and confirm the intended version increment with the user. The user decides how far to bump the version; do not choose the increment unilaterally.
 - Do not rely on workflow runs alone; releases are gated by whether the version tag already exists.
 - Before finishing work that changes shipped code, verify the next release tags implied by the versions are new:
   - core: `slothtool-v<root-version>`

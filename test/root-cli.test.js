@@ -62,6 +62,7 @@ test('root help advertises the TUI-first entry', () => {
     const output = runNode(rootBin, ['--help'], {HOME: createTempHome(false)});
     assert.match(output, /slothtool tui/u);
     assert.match(output, /slothtool\s+loc/u);
+    assert.match(output, /slothtool config proxy show/u);
 });
 
 test('root default entry can exit through the TUI smoke hook', () => {

@@ -15,8 +15,14 @@ import {messages} from '../lib/i18n.js';
 
 test('root TUI zh chrome is localized', () => {
     assert.equal(messages.zh.tui.tabs.home, '首页');
-    assert.equal(messages.zh.tui.tabs.danger, '危险区');
+    assert.equal(messages.zh.tui.tabs.run, '运行');
+    assert.equal(messages.zh.tui.tabs.install, '安装');
+    assert.equal(messages.zh.tui.tabs.update, '更新');
+    assert.equal(messages.zh.tui.tabs.settings, '设置');
+    assert.equal(messages.zh.tui.tabs.danger, undefined);
     assert.equal(messages.zh.tui.status.ready, '就绪');
+    assert.equal(messages.zh.tui.settings.proxyToggle, '代理开关');
+    assert.equal(messages.zh.tui.actions.selfUpdate, '更新 SlothTool');
     assert.equal(messages.zh.tui.title, undefined);
     assert.equal(messages.zh.tui.subtitle, undefined);
     assert.equal(messages.zh.tui.logs, undefined);
@@ -25,8 +31,14 @@ test('root TUI zh chrome is localized', () => {
 
 test('root TUI en chrome stays explicit', () => {
     assert.equal(messages.en.tui.tabs.home, 'Home');
-    assert.equal(messages.en.tui.tabs.danger, 'Danger Zone');
+    assert.equal(messages.en.tui.tabs.run, 'Run');
+    assert.equal(messages.en.tui.tabs.install, 'Install');
+    assert.equal(messages.en.tui.tabs.update, 'Update');
+    assert.equal(messages.en.tui.tabs.settings, 'Settings');
+    assert.equal(messages.en.tui.tabs.danger, undefined);
     assert.equal(messages.en.tui.status.ready, 'Ready');
+    assert.equal(messages.en.tui.settings.proxyToggle, 'Proxy toggle');
+    assert.equal(messages.en.tui.actions.selfUpdate, 'Update SlothTool');
     assert.equal(messages.en.tui.title, undefined);
     assert.equal(messages.en.tui.subtitle, undefined);
     assert.equal(messages.en.tui.logs, undefined);
