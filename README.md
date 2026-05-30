@@ -11,6 +11,7 @@ SlothTool 是一个默认以全屏 TUI 运行、同时保留脚本化 CLI 能力
 - 官方插件安装到 `~/.slothtool/plugins/`
 - 根管理器和官方插件都支持默认 TUI + 显式 CLI
 - 双语支持：中文 / English
+- 根 TUI 的标签栏、状态栏和帮助提示会跟随当前语言切换
 
 ## Requirements
 
