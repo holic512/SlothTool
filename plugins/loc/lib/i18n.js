@@ -72,7 +72,7 @@ export const messages = {
                 reset: '重置为默认配置',
                 exit: '退出'
             },
-            footer: 'Tab 切页  Up/Down 移动  Enter 执行  Space 切换  Esc 返回  ? 帮助  q 退出',
+            footer: 'Tab 切页  Up/Down 移动  [/] 翻页  Enter 执行  Space 切换  Esc 返回  ? 帮助  q 退出',
             prompt: '输入目录后按 Enter 执行统计，Esc 返回统计页。',
             emptyResult: '尚未执行统计。',
             inputLabel: '目录输入：',
@@ -83,7 +83,8 @@ export const messages = {
             panels: {
                 countInput: '目录输入',
                 extensions: '文件扩展名',
-                excludes: '排除目录'
+                excludes: '排除目录',
+                page: '第 {page}/{total} 页'
             },
             status: {
                 ready: '就绪',
@@ -96,6 +97,7 @@ export const messages = {
                 lines: [
                     'Tab: 切换顶部页面',
                     'Up/Down: 移动',
+                    '[/]: 上一页 / 下一页',
                     'Enter: 执行操作',
                     'Space: 切换配置项',
                     'Esc: 返回统计页',
@@ -146,7 +148,7 @@ export const messages = {
                 reset: 'Reset to defaults',
                 exit: 'Exit'
             },
-            footer: 'Tab page  Up/Down move  Enter action  Space toggle  Esc back  ? help  q quit',
+            footer: 'Tab page  Up/Down move  [/] page  Enter action  Space toggle  Esc back  ? help  q quit',
             prompt: 'Type a directory path and press Enter. Esc returns to Count.',
             emptyResult: 'No count has been executed yet.',
             inputLabel: 'Directory input:',
@@ -157,7 +159,8 @@ export const messages = {
             panels: {
                 countInput: 'Directory input',
                 extensions: 'File extensions',
-                excludes: 'Excluded directories'
+                excludes: 'Excluded directories',
+                page: 'Page {page}/{total}'
             },
             status: {
                 ready: 'Ready',
@@ -170,6 +173,7 @@ export const messages = {
                 lines: [
                     'Tab: switch top page',
                     'Up/Down: move',
+                    '[/]: previous / next page',
                     'Enter: run action',
                     'Space: toggle config item',
                     'Esc: return to Count',

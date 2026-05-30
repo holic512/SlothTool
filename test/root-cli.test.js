@@ -83,6 +83,18 @@ test('root default entry can restart itself through the TUI smoke hook', () => {
     });
 });
 
+test('root manager relaunches after plugin exit and restores the TUI snapshot', () => {
+    const output = runNode(rootBin, [], {
+        HOME: createTempHome(true),
+        SLOTHTOOL_TUI_TEST_ACTION: 'run-plugin-return',
+        SLOTHTOOL_LOC_TUI_TEST_ACTION: 'exit'
+    });
+
+    assert.match(output, /TUI_TEST_RESTORED_STATE:/u);
+    assert.match(output, /"activeTab":"run"/u);
+    assert.match(output, /"run":0/u);
+});
+
 test('root shorthand runs the local loc workspace plugin in CLI mode', () => {
     const output = runNode(rootBin, ['loc', '.'], {HOME: createTempHome(true)});
     assert.match(output, /总文件数/u);

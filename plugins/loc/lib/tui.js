@@ -2,10 +2,10 @@
  * @file LocPluginTui
  * @project SlothTool
  * @module LOC Plugin / TUI
- * @description 提供 loc 插件默认全屏 Ink 界面，复用统一插件外壳并保留统计、目录输入和配置切换能力。
- * @logic 1. 用顶部 tab 划分统计、扩展名和排除目录页面；2. 用底部状态栏承载就绪、加载和结果消息；3. 保留结果面板展示统计摘要与 warning 汇总。
- * @dependencies Libraries: react/ink, Services: ./service.js, I18N: ./i18n.js
- * @index_tags loc TUI, Ink, 统一外壳, tab导航, 配置切换
+ * @description 提供 loc 插件默认全屏 Ink 界面，复用统一插件外壳并保留统计、目录输入、配置切换与分页浏览能力。
+ * @logic 1. 用顶部 tab 划分统计、扩展名和排除目录页面；2. 用固定页大小管理配置列表；3. 用底部状态栏承载就绪、加载和结果消息。
+ * @dependencies Libraries: react/ink, Services: ./service.js, I18N: ./i18n.js, Pagination: ./pagination.js
+ * @index_tags loc TUI, Ink, 统一外壳, tab导航, 配置切换, 翻页
  * @author holic512
  */
 
@@ -13,6 +13,12 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Box, Spacer, Text, render, useApp, useInput} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
 import {t} from './i18n.js';
+import {
+    createPagedState,
+    flipPagedPage,
+    getPagedItems,
+    movePagedSelection
+} from './pagination.js';
 import {
     countTargetDirectory,
     getConfigSummary,
@@ -192,9 +198,9 @@ function LocTuiApp() {
     const app = useApp();
     const [activeTab, setActiveTab] = useState('count');
     const [countMenuIndex, setCountMenuIndex] = useState(0);
-    const [toggleSelection, setToggleSelection] = useState({
-        extensions: 0,
-        excludes: 0
+    const [pagedSelection, setPagedSelection] = useState({
+        extensions: createPagedState(0, 0),
+        excludes: createPagedState(0, 0)
     });
     const [directoryInput, setDirectoryInput] = useState('.');
     const [inputMode, setInputMode] = useState(false);
@@ -212,6 +218,8 @@ function LocTuiApp() {
     const config = getConfigSummary();
     const extensionItems = Object.entries(config.fileExtensions).map(([name, enabled]) => ({name, enabled}));
     const excludeItems = Object.entries(config.excludeDirectories).map(([name, enabled]) => ({name, enabled}));
+    const extensionPage = getPagedItems(extensionItems, pagedSelection.extensions.selectedIndex);
+    const excludePage = getPagedItems(excludeItems, pagedSelection.excludes.selectedIndex);
     const resultPanel = createResultBox(result);
 
     useEffect(() => {
@@ -231,6 +239,13 @@ function LocTuiApp() {
     useEffect(() => () => {
         clearTimeout(resultTimeoutRef.current);
     }, []);
+
+    useEffect(() => {
+        setPagedSelection(currentSelection => ({
+            extensions: createPagedState(currentSelection.extensions.selectedIndex, extensionItems.length),
+            excludes: createPagedState(currentSelection.excludes.selectedIndex, excludeItems.length)
+        }));
+    }, [extensionItems.length, excludeItems.length]);
 
     function exitApp() {
         app.exit();
@@ -328,7 +343,7 @@ function LocTuiApp() {
 
     function toggleCurrentConfigItem() {
         const itemList = activeTab === 'extensions' ? extensionItems : excludeItems;
-        const currentIndex = toggleSelection[activeTab];
+        const currentIndex = pagedSelection[activeTab].selectedIndex;
         const currentItem = itemList[currentIndex];
 
         if (!currentItem) {
@@ -419,9 +434,9 @@ function LocTuiApp() {
             }
 
             const itemCount = activeTab === 'extensions' ? extensionItems.length : excludeItems.length;
-            setToggleSelection(currentSelection => ({
+            setPagedSelection(currentSelection => ({
                 ...currentSelection,
-                [activeTab]: (currentSelection[activeTab] - 1 + itemCount) % itemCount
+                [activeTab]: movePagedSelection(currentSelection[activeTab].selectedIndex, -1, itemCount)
             }));
             return;
         }
@@ -433,9 +448,27 @@ function LocTuiApp() {
             }
 
             const itemCount = activeTab === 'extensions' ? extensionItems.length : excludeItems.length;
-            setToggleSelection(currentSelection => ({
+            setPagedSelection(currentSelection => ({
                 ...currentSelection,
-                [activeTab]: (currentSelection[activeTab] + 1) % itemCount
+                [activeTab]: movePagedSelection(currentSelection[activeTab].selectedIndex, 1, itemCount)
+            }));
+            return;
+        }
+
+        if (input === '[' && (activeTab === 'extensions' || activeTab === 'excludes')) {
+            const itemCount = activeTab === 'extensions' ? extensionItems.length : excludeItems.length;
+            setPagedSelection(currentSelection => ({
+                ...currentSelection,
+                [activeTab]: flipPagedPage(currentSelection[activeTab].selectedIndex, -1, itemCount)
+            }));
+            return;
+        }
+
+        if (input === ']' && (activeTab === 'extensions' || activeTab === 'excludes')) {
+            const itemCount = activeTab === 'extensions' ? extensionItems.length : excludeItems.length;
+            setPagedSelection(currentSelection => ({
+                ...currentSelection,
+                [activeTab]: flipPagedPage(currentSelection[activeTab].selectedIndex, 1, itemCount)
             }));
             return;
         }
@@ -477,9 +510,13 @@ function LocTuiApp() {
             ? h(DirectoryInputPanel, {value: directoryInput})
             : h(CountMenuList, {selectedIndex: countMenuIndex})
         : h(ToggleList, {
-            title: activeTab === 'extensions' ? t('tui.panels.extensions') : t('tui.panels.excludes'),
-            items: activeTab === 'extensions' ? extensionItems : excludeItems,
-            selectedIndex: toggleSelection[activeTab],
+            title: `${activeTab === 'extensions' ? t('tui.panels.extensions') : t('tui.panels.excludes')} · ${t('tui.panels.page', {
+                page: (activeTab === 'extensions' ? extensionPage.pageIndex : excludePage.pageIndex) + 1,
+                total: activeTab === 'extensions' ? extensionPage.pageCount : excludePage.pageCount
+            })}`,
+            items: activeTab === 'extensions' ? extensionPage.items : excludePage.items,
+            selectedIndex: (activeTab === 'extensions' ? extensionPage.selectedIndex : excludePage.selectedIndex)
+                - (activeTab === 'extensions' ? extensionPage.startIndex : excludePage.startIndex),
             hint: t('tui.configHint')
         });
 

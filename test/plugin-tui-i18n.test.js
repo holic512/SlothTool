@@ -18,6 +18,8 @@ test('loc TUI shell keys exist in zh and en', () => {
     assert.equal(locMessages.zh.tui.tabs.count, '统计');
     assert.equal(locMessages.en.tui.tabs.count, 'Count');
     assert.match(locMessages.zh.tui.footer, /Tab/u);
+    assert.match(locMessages.zh.tui.footer, /\[\/\]/u);
+    assert.match(locMessages.en.tui.help.lines.join('\n'), /\[\/\]/u);
     assert.equal(locMessages.zh.tui.status.ready, '就绪');
     assert.equal(locMessages.en.tui.status.ready, 'Ready');
 });

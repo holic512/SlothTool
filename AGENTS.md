@@ -92,6 +92,7 @@ These constraints should be preserved unless the user explicitly asks to change 
   - `Run`
   - `Install`
   - `Update`
+  - `Uninstall`
   - `Settings`
 
 ### I18N and persistence
