@@ -2,17 +2,17 @@
  * @file LocPluginTui
  * @project SlothTool
  * @module LOC Plugin / TUI
- * @description 提供 loc 插件默认全屏 Ink 界面，支持统计、目录输入和配置切换。
- * @logic 1. 以 alternateScreen 渲染独立页面；2. 在菜单、输入和配置模式间切换；3. 将统计结果与配置状态同步展示。
+ * @description 提供 loc 插件默认全屏 Ink 界面，复用统一插件外壳并保留统计、目录输入和配置切换能力。
+ * @logic 1. 用顶部 tab 划分统计、扩展名和排除目录页面；2. 用底部状态栏承载就绪、加载和结果消息；3. 保留结果面板展示统计摘要与 warning 汇总。
  * @dependencies Libraries: react/ink, Services: ./service.js, I18N: ./i18n.js
- * @index_tags loc TUI, Ink, 目录输入, 配置切换, 全屏页面
+ * @index_tags loc TUI, Ink, 统一外壳, tab导航, 配置切换
  * @author holic512
  */
 
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Box, Spacer, Text, render, useApp, useInput} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
-import {getLanguage, t} from './i18n.js';
+import {t} from './i18n.js';
 import {
     countTargetDirectory,
     getConfigSummary,
@@ -22,14 +22,96 @@ import {
 } from './service.js';
 
 const h = React.createElement;
-const MENU_ITEMS = [
-    'current',
-    'custom',
-    'extensions',
-    'excludes',
-    'reset',
-    'exit'
-];
+const TABS = ['count', 'extensions', 'excludes'];
+const COUNT_MENU_ITEMS = ['current', 'custom', 'reset', 'exit'];
+const RESULT_DISPLAY_MS = 1600;
+const SPINNER_INTERVAL_MS = 120;
+const SPINNER_FRAMES = ['-', '\\', '|', '/'];
+
+function getContentWidth() {
+    return Math.max(24, (process.stdout.columns || 80) - 4);
+}
+
+function buildDividerLine() {
+    return '─'.repeat(getContentWidth());
+}
+
+function getDisplayWidth(text) {
+    return Array.from(text).reduce((width, character) => (
+        width + (character.codePointAt(0) > 0xFF ? 2 : 1)
+    ), 0);
+}
+
+function truncateFromLeft(text, maxWidth) {
+    if (maxWidth <= 0) {
+        return '';
+    }
+
+    if (getDisplayWidth(text) <= maxWidth) {
+        return text;
+    }
+
+    const ellipsis = '...';
+    if (maxWidth <= ellipsis.length) {
+        return ellipsis.slice(0, maxWidth);
+    }
+
+    let result = '';
+    let width = 0;
+
+    for (const character of Array.from(text).reverse()) {
+        const characterWidth = getDisplayWidth(character);
+        if (width + characterWidth + ellipsis.length > maxWidth) {
+            break;
+        }
+
+        result = `${character}${result}`;
+        width += characterWidth;
+    }
+
+    return `${ellipsis}${result}`;
+}
+
+function buildTabText(tabKey, activeTab) {
+    const label = t(`tui.tabs.${tabKey}`);
+    return tabKey === activeTab ? `[${label}]` : label;
+}
+
+function buildHeaderMetaText(activeTab) {
+    const versionText = `v${pluginPackage.version}`;
+    const tabStripText = TABS.map(tabKey => buildTabText(tabKey, activeTab)).join('  ');
+    const availableWidth = Math.max(0, getContentWidth() - getDisplayWidth(tabStripText) - 2);
+
+    if (availableWidth <= 0) {
+        return '';
+    }
+
+    if (getDisplayWidth(versionText) >= availableWidth) {
+        return truncateFromLeft(versionText, availableWidth);
+    }
+
+    const pathWidth = availableWidth - getDisplayWidth(versionText) - 2;
+    const pathText = truncateFromLeft(process.cwd(), pathWidth);
+    return pathText ? `${versionText}  ${pathText}` : versionText;
+}
+
+function resolveStatusColor(mode, tone) {
+    if (mode === 'progress') {
+        return 'cyan';
+    }
+
+    if (mode === 'result') {
+        if (tone === 'error') {
+            return 'red';
+        }
+
+        if (tone === 'warn') {
+            return 'yellow';
+        }
+    }
+
+    return 'green';
+}
 
 function createResultBox(result) {
     if (!result) {
@@ -73,89 +155,213 @@ function ResultPanel({panel}) {
     );
 }
 
-function MenuList({selectedIndex}) {
+function CountMenuList({selectedIndex}) {
     return h(
         Box,
         {borderStyle: 'round', paddingX: 1, paddingY: 1, flexDirection: 'column'},
-        ...MENU_ITEMS.map((item, index) =>
+        ...COUNT_MENU_ITEMS.map((item, index) =>
             h(Text, {key: item, color: index === selectedIndex ? 'cyan' : undefined}, `${index === selectedIndex ? '>' : ' '} ${t(`tui.menu.${item}`)}`)
         )
     );
 }
 
-function ToggleList({items, selectedIndex, hint}) {
+function ToggleList({title, items, selectedIndex, hint}) {
     return h(
         Box,
         {borderStyle: 'round', paddingX: 1, paddingY: 1, flexDirection: 'column'},
+        h(Text, {bold: true}, title),
         h(Text, {dimColor: true}, hint),
+        h(Box, {marginTop: 1}, h(Text, {}, '')),
         ...items.map((item, index) =>
             h(Text, {key: item.name, color: index === selectedIndex ? 'cyan' : undefined}, `${index === selectedIndex ? '>' : ' '} [${item.enabled ? 'x' : ' '}] ${item.name}`)
         )
     );
 }
 
+function DirectoryInputPanel({value}) {
+    return h(
+        Box,
+        {borderStyle: 'round', paddingX: 1, paddingY: 1, flexDirection: 'column'},
+        h(Text, {bold: true}, t('tui.panels.countInput')),
+        h(Text, {color: 'cyan'}, value || '.'),
+        h(Text, {dimColor: true}, t('tui.prompt'))
+    );
+}
+
 function LocTuiApp() {
     const app = useApp();
-    const [mode, setMode] = useState('menu');
-    const [menuIndex, setMenuIndex] = useState(0);
-    const [toggleIndex, setToggleIndex] = useState(0);
+    const [activeTab, setActiveTab] = useState('count');
+    const [countMenuIndex, setCountMenuIndex] = useState(0);
+    const [toggleSelection, setToggleSelection] = useState({
+        extensions: 0,
+        excludes: 0
+    });
     const [directoryInput, setDirectoryInput] = useState('.');
-    const [status, setStatus] = useState(t('tui.subtitle'));
+    const [inputMode, setInputMode] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
     const [result, setResult] = useState(null);
-    const language = getLanguage();
-    const config = getConfigSummary();
+    const [spinnerFrameIndex, setSpinnerFrameIndex] = useState(0);
+    const [statusState, setStatusState] = useState({
+        mode: 'idle',
+        tone: 'success',
+        message: '',
+        label: ''
+    });
+    const resultTimeoutRef = useRef(null);
 
+    const config = getConfigSummary();
     const extensionItems = Object.entries(config.fileExtensions).map(([name, enabled]) => ({name, enabled}));
     const excludeItems = Object.entries(config.excludeDirectories).map(([name, enabled]) => ({name, enabled}));
     const resultPanel = createResultBox(result);
+
+    useEffect(() => {
+        if (statusState.mode !== 'progress') {
+            return undefined;
+        }
+
+        const interval = setInterval(() => {
+            setSpinnerFrameIndex(currentIndex => (currentIndex + 1) % SPINNER_FRAMES.length);
+        }, SPINNER_INTERVAL_MS);
+
+        return () => {
+            clearInterval(interval);
+        };
+    }, [statusState.mode]);
+
+    useEffect(() => () => {
+        clearTimeout(resultTimeoutRef.current);
+    }, []);
 
     function exitApp() {
         app.exit();
     }
 
-    function performCount(targetDir) {
+    function clearPendingStatus() {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+    }
+
+    function showResultStatus(tone, message) {
+        clearPendingStatus();
+        setStatusState({
+            mode: 'result',
+            tone,
+            message,
+            label: ''
+        });
+
+        resultTimeoutRef.current = setTimeout(() => {
+            setStatusState({
+                mode: 'idle',
+                tone: 'success',
+                message: '',
+                label: ''
+            });
+        }, RESULT_DISPLAY_MS);
+    }
+
+    async function runTask(label, task, options = {}) {
+        clearPendingStatus();
+
+        if (options.useSpinner) {
+            setSpinnerFrameIndex(0);
+            setStatusState({
+                mode: 'progress',
+                tone: 'success',
+                message: '',
+                label
+            });
+        }
+
         try {
-            const nextResult = countTargetDirectory(targetDir, {verbose: true});
-            setResult(nextResult);
-            setStatus(t('counting', {dir: nextResult.resolvedDir}));
+            const taskResult = await task();
+            const feedback = options.resolveFeedback?.(taskResult) || {
+                tone: 'success',
+                message: label
+            };
+            showResultStatus(feedback.tone, feedback.message);
+            return taskResult;
         } catch (error) {
-            setStatus(t('invalidDirectory', {dir: error.message}));
+            showResultStatus('error', error.message);
+            return null;
         }
     }
 
+    function setActiveTabSafe(tabKey) {
+        setInputMode(false);
+        setActiveTab(tabKey);
+    }
+
+    function performCount(targetDir) {
+        return runTask(t('tui.status.countingLabel'), async () => {
+            try {
+                const nextResult = countTargetDirectory(targetDir, {verbose: true});
+                setResult(nextResult);
+                return nextResult;
+            } catch (error) {
+                throw new Error(t('invalidDirectory', {dir: error.message}));
+            }
+        }, {
+            useSpinner: true,
+            resolveFeedback(nextResult) {
+                return {
+                    tone: 'success',
+                    message: t('tui.status.countDone', {dir: nextResult.resolvedDir})
+                };
+            }
+        });
+    }
+
+    function resetConfigState() {
+        return runTask(t('tui.status.resetLabel'), async () => {
+            resetPluginConfig();
+            return null;
+        }, {
+            resolveFeedback() {
+                return {
+                    tone: 'success',
+                    message: t('tui.resetDone')
+                };
+            }
+        });
+    }
+
     function toggleCurrentConfigItem() {
-        try {
-            if (mode === 'extensions') {
-                const item = extensionItems[toggleIndex];
-                if (!item) {
-                    return;
-                }
+        const itemList = activeTab === 'extensions' ? extensionItems : excludeItems;
+        const currentIndex = toggleSelection[activeTab];
+        const currentItem = itemList[currentIndex];
 
-                toggleExtension(item.name, !item.enabled);
-                setStatus(t('tui.saved'));
-                return;
-            }
-
-            if (mode === 'excludes') {
-                const item = excludeItems[toggleIndex];
-                if (!item) {
-                    return;
-                }
-
-                toggleExcludedDirectory(item.name, !item.enabled);
-                setStatus(t('tui.saved'));
-            }
-        } catch (error) {
-            setStatus(error.message);
+        if (!currentItem) {
+            return;
         }
+
+        return runTask(t('tui.saved'), async () => {
+            if (activeTab === 'extensions') {
+                toggleExtension(currentItem.name, !currentItem.enabled);
+            } else {
+                toggleExcludedDirectory(currentItem.name, !currentItem.enabled);
+            }
+        }, {
+            resolveFeedback() {
+                return {
+                    tone: 'success',
+                    message: t('tui.saved')
+                };
+            }
+        });
     }
 
     useInput((input, key) => {
         if (helpOpen) {
             if (key.escape || input === '?') {
                 setHelpOpen(false);
+                setInputMode(false);
+                setActiveTab('count');
             }
+            return;
+        }
+
+        if (statusState.mode === 'progress') {
             return;
         }
 
@@ -169,15 +375,16 @@ function LocTuiApp() {
             return;
         }
 
-        if (mode === 'input') {
+        if (inputMode) {
             if (key.escape) {
-                setMode('menu');
+                setInputMode(false);
+                setActiveTab('count');
                 return;
             }
 
             if (key.return) {
+                setInputMode(false);
                 performCount(directoryInput);
-                setMode('menu');
                 return;
             }
 
@@ -193,95 +400,97 @@ function LocTuiApp() {
             return;
         }
 
-        if (mode === 'extensions' || mode === 'excludes') {
-            const itemCount = mode === 'extensions' ? extensionItems.length : excludeItems.length;
+        if (key.tab) {
+            const currentIndex = TABS.indexOf(activeTab);
+            const nextTab = TABS[(currentIndex + 1) % TABS.length];
+            setActiveTabSafe(nextTab);
+            return;
+        }
 
-            if (key.escape || key.return) {
-                setMode('menu');
-                return;
-            }
-
-            if (key.upArrow) {
-                setToggleIndex(currentValue => (currentValue - 1 + itemCount) % itemCount);
-                return;
-            }
-
-            if (key.downArrow) {
-                setToggleIndex(currentValue => (currentValue + 1) % itemCount);
-                return;
-            }
-
-            if (input === ' ') {
-                toggleCurrentConfigItem();
-            }
-
+        if (key.escape) {
+            setActiveTabSafe('count');
             return;
         }
 
         if (key.upArrow) {
-            setMenuIndex(currentValue => (currentValue - 1 + MENU_ITEMS.length) % MENU_ITEMS.length);
+            if (activeTab === 'count') {
+                setCountMenuIndex(currentValue => (currentValue - 1 + COUNT_MENU_ITEMS.length) % COUNT_MENU_ITEMS.length);
+                return;
+            }
+
+            const itemCount = activeTab === 'extensions' ? extensionItems.length : excludeItems.length;
+            setToggleSelection(currentSelection => ({
+                ...currentSelection,
+                [activeTab]: (currentSelection[activeTab] - 1 + itemCount) % itemCount
+            }));
             return;
         }
 
-        if (key.downArrow || key.tab) {
-            setMenuIndex(currentValue => (currentValue + 1) % MENU_ITEMS.length);
+        if (key.downArrow) {
+            if (activeTab === 'count') {
+                setCountMenuIndex(currentValue => (currentValue + 1) % COUNT_MENU_ITEMS.length);
+                return;
+            }
+
+            const itemCount = activeTab === 'extensions' ? extensionItems.length : excludeItems.length;
+            setToggleSelection(currentSelection => ({
+                ...currentSelection,
+                [activeTab]: (currentSelection[activeTab] + 1) % itemCount
+            }));
             return;
         }
 
-        if (key.return) {
-            const selectedItem = MENU_ITEMS[menuIndex];
+        if (input === ' ' && (activeTab === 'extensions' || activeTab === 'excludes')) {
+            toggleCurrentConfigItem();
+            return;
+        }
 
-            if (selectedItem === 'current') {
-                performCount(process.cwd());
-                return;
-            }
+        if (!key.return || activeTab !== 'count') {
+            return;
+        }
 
-            if (selectedItem === 'custom') {
-                setDirectoryInput('.');
-                setMode('input');
-                setStatus(t('tui.prompt'));
-                return;
-            }
+        const selectedItem = COUNT_MENU_ITEMS[countMenuIndex];
 
-            if (selectedItem === 'extensions') {
-                setMode('extensions');
-                setToggleIndex(0);
-                return;
-            }
+        if (selectedItem === 'current') {
+            performCount(process.cwd());
+            return;
+        }
 
-            if (selectedItem === 'excludes') {
-                setMode('excludes');
-                setToggleIndex(0);
-                return;
-            }
+        if (selectedItem === 'custom') {
+            setDirectoryInput('.');
+            setInputMode(true);
+            return;
+        }
 
-            if (selectedItem === 'reset') {
-                resetPluginConfig();
-                setStatus(t('tui.resetDone'));
-                return;
-            }
+        if (selectedItem === 'reset') {
+            resetConfigState();
+            return;
+        }
 
-            if (selectedItem === 'exit') {
-                exitApp();
-            }
+        if (selectedItem === 'exit') {
+            exitApp();
         }
     });
 
-    const leftPane = mode === 'menu'
-        ? h(MenuList, {selectedIndex: menuIndex})
-        : mode === 'input'
-            ? h(
-                Box,
-                {borderStyle: 'round', paddingX: 1, paddingY: 1, flexDirection: 'column'},
-                h(Text, {bold: true}, t('tui.inputLabel')),
-                h(Text, {color: 'cyan'}, directoryInput || '.'),
-                h(Text, {dimColor: true}, t('tui.prompt'))
-            )
-            : h(ToggleList, {
-                items: mode === 'extensions' ? extensionItems : excludeItems,
-                selectedIndex: toggleIndex,
-                hint: t('tui.configHint')
-            });
+    const leftPane = activeTab === 'count'
+        ? inputMode
+            ? h(DirectoryInputPanel, {value: directoryInput})
+            : h(CountMenuList, {selectedIndex: countMenuIndex})
+        : h(ToggleList, {
+            title: activeTab === 'extensions' ? t('tui.panels.extensions') : t('tui.panels.excludes'),
+            items: activeTab === 'extensions' ? extensionItems : excludeItems,
+            selectedIndex: toggleSelection[activeTab],
+            hint: t('tui.configHint')
+        });
+
+    const statusText = statusState.mode === 'progress'
+        ? `${SPINNER_FRAMES[spinnerFrameIndex]} ${statusState.label}`
+        : statusState.mode === 'result'
+            ? statusState.message
+            : t('tui.status.ready');
+    const dividerLine = buildDividerLine();
+    const headerMetaText = buildHeaderMetaText(activeTab);
+    const statusColor = resolveStatusColor(statusState.mode, statusState.tone);
 
     return h(
         Box,
@@ -289,16 +498,23 @@ function LocTuiApp() {
         h(
             Box,
             {marginBottom: 1},
-            h(Box, {flexDirection: 'column'},
-                h(Text, {bold: true}, t('tui.title')),
-                h(Text, {dimColor: true}, t('tui.subtitle'))
+            h(
+                Box,
+                {},
+                ...TABS.map(tabKey =>
+                    h(
+                        Box,
+                        {key: tabKey, marginRight: 2},
+                        h(Text, {color: tabKey === activeTab ? 'cyan' : 'gray'}, buildTabText(tabKey, activeTab))
+                    )
+                )
             ),
             h(Spacer, {}),
-            h(Box, {flexDirection: 'column', alignItems: 'flex-end'},
-                h(Text, {color: 'gray'}, `v${pluginPackage.version}`),
-                h(Text, {dimColor: true}, language)
-            )
+            headerMetaText
+                ? h(Text, {dimColor: true}, headerMetaText)
+                : null
         ),
+        h(Box, {marginBottom: 1}, h(Text, {color: 'gray'}, dividerLine)),
         h(
             Box,
             {flexDirection: 'row', flexGrow: 1, marginBottom: 1},
@@ -308,7 +524,7 @@ function LocTuiApp() {
         h(
             Box,
             {},
-            h(Text, {color: 'green'}, status),
+            h(Text, {color: statusColor}, statusText),
             h(Spacer, {}),
             h(Text, {dimColor: true}, t('tui.footer'))
         ),

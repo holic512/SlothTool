@@ -29,7 +29,7 @@ function showHelp() {
     console.log('');
     console.log(t('options'));
     console.log(`  -h, --help       ${t('help')}`);
-    console.log(`  --tui            ${t('tui')}`);
+    console.log(`  --tui            ${t('tuiOption')}`);
 }
 
 async function main() {

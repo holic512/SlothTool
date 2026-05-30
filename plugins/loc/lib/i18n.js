@@ -30,7 +30,7 @@ export function getLanguage() {
     return 'zh';
 }
 
-const messages = {
+export const messages = {
     zh: {
         title: 'loc - 统计目录中的代码行数',
         usage: '用法：',
@@ -61,31 +61,44 @@ const messages = {
         warningsTitle: '扫描告警：',
         tuiRequiresTerminal: '当前终端不是交互式 TTY，无法启动 loc TUI。',
         tui: {
-            title: 'loc',
-            subtitle: 'Count lines with a default full-screen UI.',
+            tabs: {
+                count: '统计',
+                extensions: '扩展名',
+                excludes: '排除目录'
+            },
             menu: {
                 current: '统计当前目录',
                 custom: '统计指定目录',
-                extensions: '配置文件扩展名',
-                excludes: '配置排除目录',
                 reset: '重置为默认配置',
                 exit: '退出'
             },
-            footer: 'Tab/Up/Down move  Enter action  Space toggle  Esc back  q quit',
-            prompt: '输入目录后按 Enter 执行统计，Esc 返回。',
+            footer: 'Tab 切页  Up/Down 移动  Enter 执行  Space 切换  Esc 返回  ? 帮助  q 退出',
+            prompt: '输入目录后按 Enter 执行统计，Esc 返回统计页。',
             emptyResult: '尚未执行统计。',
             inputLabel: '目录输入：',
             resultTitle: '结果摘要',
-            configHint: 'Space 切换当前项，Enter 返回主菜单。',
+            configHint: 'Space 切换当前项。',
             saved: '配置切换已保存。',
             resetDone: '配置已重置。',
+            panels: {
+                countInput: '目录输入',
+                extensions: '文件扩展名',
+                excludes: '排除目录'
+            },
+            status: {
+                ready: '就绪',
+                countingLabel: '统计目录',
+                resetLabel: '重置配置',
+                countDone: '统计完成：{dir}'
+            },
             help: {
                 title: '快捷键',
                 lines: [
+                    'Tab: 切换顶部页面',
                     'Up/Down: 移动',
                     'Enter: 执行操作',
                     'Space: 切换配置项',
-                    'Esc: 返回主菜单',
+                    'Esc: 返回统计页',
                     'q: 退出',
                     '?: 打开帮助'
                 ]
@@ -122,31 +135,44 @@ const messages = {
         warningsTitle: 'Warnings:',
         tuiRequiresTerminal: 'The current terminal is not interactive, so the loc TUI cannot be launched.',
         tui: {
-            title: 'loc',
-            subtitle: 'Count lines with a default full-screen UI.',
+            tabs: {
+                count: 'Count',
+                extensions: 'Extensions',
+                excludes: 'Excludes'
+            },
             menu: {
                 current: 'Count current directory',
                 custom: 'Count custom directory',
-                extensions: 'Configure file extensions',
-                excludes: 'Configure excluded directories',
                 reset: 'Reset to defaults',
                 exit: 'Exit'
             },
-            footer: 'Tab/Up/Down move  Enter action  Space toggle  Esc back  q quit',
-            prompt: 'Type a directory path and press Enter. Esc goes back.',
+            footer: 'Tab page  Up/Down move  Enter action  Space toggle  Esc back  ? help  q quit',
+            prompt: 'Type a directory path and press Enter. Esc returns to Count.',
             emptyResult: 'No count has been executed yet.',
             inputLabel: 'Directory input:',
             resultTitle: 'Result summary',
-            configHint: 'Space toggles the current item. Enter returns to the menu.',
+            configHint: 'Space toggles the current item.',
             saved: 'Configuration toggle saved.',
             resetDone: 'Configuration reset.',
+            panels: {
+                countInput: 'Directory input',
+                extensions: 'File extensions',
+                excludes: 'Excluded directories'
+            },
+            status: {
+                ready: 'Ready',
+                countingLabel: 'Count directory',
+                resetLabel: 'Reset config',
+                countDone: 'Count complete: {dir}'
+            },
             help: {
                 title: 'Keymap',
                 lines: [
+                    'Tab: switch top page',
                     'Up/Down: move',
                     'Enter: run action',
                     'Space: toggle config item',
-                    'Esc: return to menu',
+                    'Esc: return to Count',
                     'q: quit',
                     '?: open help'
                 ]

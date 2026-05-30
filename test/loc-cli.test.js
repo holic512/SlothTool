@@ -56,6 +56,12 @@ test('loc default entry can exit through the TUI smoke hook', () => {
     });
 });
 
+test('loc help advertises the default TUI entry', () => {
+    const output = runLoc(['--help'], {HOME: createTempHome()});
+    assert.match(output, /loc --tui/u);
+    assert.match(output, /loc\s+进入默认 TUI/u);
+});
+
 test('loc CLI count prints the structured summary', () => {
     const output = runLoc(['.'], {HOME: createTempHome()});
     assert.match(output, /总文件数/u);

@@ -81,12 +81,23 @@ my-plugin/
 - 插件配置落盘
 - 双语输出
 
+## TUI Shell Standard
+
+插件默认全屏 TUI 应与根管理器保持一致的外壳结构：
+
+- 顶部使用单行 tab 栏，右侧显示 `v<version>` 和当前工作目录
+- tab 下方保留一条分割线
+- 底部使用单行状态栏：左侧放状态消息，右侧放快捷键帮助
+- `Tab` 优先切换顶部页面；`Esc` 返回主页面；`q` 退出；`?` 打开帮助
+- 业务结果详情放在正文面板中，状态栏只承载短消息、加载态和错误反馈
+
 ## Local Development
 
 ```bash
 node bin/mytool.js --help
 node bin/mytool.js
 node bin/mytool.js --tui
+SLOTHTOOL_TEMPLATE_TUI_TEST_ACTION=exit node bin/mytool.js
 ```
 
 `loc` 参考命令：
@@ -95,6 +106,7 @@ node bin/mytool.js --tui
 node plugins/loc/bin/loc.js
 node plugins/loc/bin/loc.js ./src
 node plugins/loc/bin/loc.js config show
+SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 ```
 
 ## Integration Notes

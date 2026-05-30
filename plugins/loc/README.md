@@ -31,6 +31,7 @@ loc config reset
 ## Features
 
 - 默认全屏 TUI 入口
+- 使用统一的插件 tab 头部与状态栏外壳
 - 显式 CLI 统计目录和详细文件清单
 - 文件扩展名过滤
 - 排除目录配置
