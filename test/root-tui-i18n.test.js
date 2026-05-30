@@ -17,6 +17,9 @@ test('root TUI zh chrome is localized', () => {
     assert.equal(messages.zh.tui.tabs.home, '首页');
     assert.equal(messages.zh.tui.tabs.danger, '危险区');
     assert.equal(messages.zh.tui.status.ready, '就绪');
+    assert.equal(messages.zh.tui.title, undefined);
+    assert.equal(messages.zh.tui.subtitle, undefined);
+    assert.equal(messages.zh.tui.logs, undefined);
     assert.match(messages.zh.tui.footer.help, /帮助/u);
 });
 
@@ -24,5 +27,8 @@ test('root TUI en chrome stays explicit', () => {
     assert.equal(messages.en.tui.tabs.home, 'Home');
     assert.equal(messages.en.tui.tabs.danger, 'Danger Zone');
     assert.equal(messages.en.tui.status.ready, 'Ready');
+    assert.equal(messages.en.tui.title, undefined);
+    assert.equal(messages.en.tui.subtitle, undefined);
+    assert.equal(messages.en.tui.logs, undefined);
     assert.match(messages.en.tui.footer.help, /help/u);
 });

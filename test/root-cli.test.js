@@ -73,6 +73,15 @@ test('root default entry can exit through the TUI smoke hook', () => {
     });
 });
 
+test('root default entry can restart itself through the TUI smoke hook', () => {
+    assert.doesNotThrow(() => {
+        runNode(rootBin, [], {
+            HOME: createTempHome(false),
+            SLOTHTOOL_TUI_TEST_ACTION: 'restart-self'
+        });
+    });
+});
+
 test('root shorthand runs the local loc workspace plugin in CLI mode', () => {
     const output = runNode(rootBin, ['loc', '.'], {HOME: createTempHome(true)});
     assert.match(output, /总文件数/u);
