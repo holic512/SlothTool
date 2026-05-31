@@ -1,0 +1,41 @@
+{
+  "name": "@holic512/plugin-image-compress",
+  "version": "0.1.0",
+  "description": "Compress images with a Go backend, Node CLI wrapper, and Ink TUI",
+  "main": "lib/service.js",
+  "type": "module",
+  "bin": {
+    "image-compress": "bin/image-compress.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i",
+    "ui": {
+      "cli": true,
+      "tui": true,
+      "defaultMode": "tui",
+      "tuiFlag": "--tui",
+      "compatFlags": [
+        "-i",
+        "--interactive"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "image",
+    "compress",
+    "ink",
+    "go"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ink": "^7.0.4",
+    "react": "^19.2.0"
+  }
+}

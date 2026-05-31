@@ -23,6 +23,38 @@
         "Interactive mode",
         "Verbose mode"
       ]
+    },
+    {
+      "alias": "image-compress",
+      "packageName": "@holic512/plugin-image-compress",
+      "repository": "holic512/SlothTool",
+      "packageDir": "plugins/image-compress",
+      "releaseTagPrefix": "plugin-image-compress-v",
+      "assetNamePrefix": "holic512-plugin-image-compress-",
+      "assetStrategy": "platform-target",
+      "supportedTargets": [
+        "macos-arm64",
+        "macos-amd64",
+        "linux-amd64",
+        "linux-arm64",
+        "windows-amd64"
+      ],
+      "description": "压缩图片并提供可拖拽 TUI，自动匹配当前平台的 Go 后端资产",
+      "descriptionEn": "Compress images with a drag-and-drop TUI and a platform-matched Go backend asset",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "图片压缩",
+        "批量目录处理",
+        "拖拽输入路径",
+        "多平台预编译后端"
+      ],
+      "featuresEn": [
+        "Image compression",
+        "Batch directory processing",
+        "Drag-and-drop path input",
+        "Multi-platform prebuilt backend"
+      ]
     }
   ]
 }

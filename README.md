@@ -2,7 +2,7 @@
 
 SlothTool 是一个默认以全屏 TUI 运行、同时保留脚本化 CLI 能力的轻量级插件管理器。
 
-根包通过 npm 分发，官方插件通过 GitHub Release 源码包分发。当前仓库只保留一个官方插件：`loc`。
+根包通过 npm 分发，官方插件通过 GitHub Release 资产分发。当前内置官方插件包括：`loc` 与 `image-compress`。
 
 ## Highlights
 
@@ -16,6 +16,7 @@ SlothTool 是一个默认以全屏 TUI 运行、同时保留脚本化 CLI 能力
 - 从根 TUI 启动插件后，插件退出会自动返回根 TUI，并恢复到离开前的位置
 - 支持全局代理与 GitHub 源配置，默认预填 Clash `127.0.0.1:7980`
 - `loc` 插件的扩展名与排除目录页支持固定分页浏览
+- `image-compress` 插件会按当前平台和 CPU 架构自动选择对应发布资产
 
 ## Requirements
 
@@ -41,15 +42,20 @@ slothtool
 # 默认进入根 TUI
 slothtool
 
-# 安装唯一官方插件
+# 安装官方插件
 slothtool install loc
+slothtool install image-compress
 
 # 无参数默认进入插件 TUI
 slothtool loc
+slothtool image-compress
 
 # 显式 CLI 统计
 slothtool loc ./src
 slothtool loc -v ./src
+
+# 显式 CLI 压缩
+slothtool image-compress ./photo.jpg --dry-run
 ```
 
 ## Core Commands
@@ -58,6 +64,7 @@ slothtool loc -v ./src
 slothtool
 slothtool tui
 slothtool install loc
+slothtool install image-compress
 slothtool list
 slothtool update loc
 slothtool --update-all
@@ -137,10 +144,25 @@ loc config exclude dist on
 loc config reset
 ```
 
+## Official Plugin: `image-compress`
+
+`image-compress` 用于压缩 JPEG / PNG 图片，并提供支持拖拽路径的全屏 TUI。
+
+```bash
+# 默认进入 image-compress TUI
+slothtool image-compress
+image-compress
+
+# CLI 压缩
+slothtool image-compress ./photo.jpg
+image-compress ./photo.jpg --dry-run
+image-compress -r ./album --output-dir ./compressed
+```
+
 ## How It Works
 
-1. `slothtool install loc` 读取内置官方插件清单。
-2. SlothTool 从 GitHub Release 下载插件 `.tgz` 资产。
+1. `slothtool install <alias>` 读取内置官方插件清单。
+2. SlothTool 根据当前系统平台和 CPU 架构选择最匹配的 GitHub Release `.tgz` 资产。
 3. 资产被解压到 `~/.slothtool/plugins/<alias>/`，并安装生产依赖。
 4. 插件入口、版本和来源信息写入 `~/.slothtool/registry.json`。
 5. `slothtool <plugin>` 会从注册表解析插件入口；无额外参数时优先进入插件默认 TUI。
@@ -152,6 +174,7 @@ loc config reset
 ├── settings.json
 ├── registry.json
 ├── plugins/
+│   ├── image-compress/
 │   └── loc/
 └── plugin-configs/
     └── loc.json
@@ -165,6 +188,7 @@ SlothTool/
 ├── lib/                     # Root services, commands, and TUI
 ├── plugins/
 │   ├── loc/                 # Official plugin workspace
+│   ├── image-compress/      # Official plugin workspace
 │   └── template-basic/      # Scaffold only
 ├── README.md
 ├── PLUGIN_DEVELOPMENT.md
@@ -179,6 +203,7 @@ npm install
 npm link
 node bin/slothtool.js --help
 node plugins/loc/bin/loc.js --help
+node plugins/image-compress/bin/image-compress.js --help
 ```
 
 更多说明见：

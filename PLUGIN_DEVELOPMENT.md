@@ -1,6 +1,6 @@
 # Plugin Development Guide
 
-本仓库保留一个官方插件工作区 `plugins/loc` 和一个脚手架目录 `plugins/template-basic`。
+本仓库当前保留两个官方插件工作区 `plugins/loc`、`plugins/image-compress`，以及一个脚手架目录 `plugins/template-basic`。
 
 ## Design Rule
 
@@ -74,7 +74,7 @@ my-plugin/
 
 ## Current Reference Package
 
-优先参考 `plugins/loc` 来实现：
+优先参考 `plugins/loc` 或 `plugins/image-compress` 来实现：
 
 - 默认 TUI 入口
 - 显式 CLI 统计/配置命令
@@ -113,7 +113,7 @@ SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 
 SlothTool 当前只安装内置官方插件：
 
-- `slothtool install loc` 可用，因为 `loc` 定义在 `lib/official-plugins.json`
+- `slothtool install loc`、`slothtool install image-compress` 可用，因为它们定义在 `lib/official-plugins.json`
 - 任意第三方插件安装暂不属于当前产品范围
 
 如果未来新增官方插件，需要同步更新：

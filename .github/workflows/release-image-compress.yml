@@ -1,0 +1,301 @@
+# @file release-image-compress.yml
+# @project SlothTool
+# @module GitHub Actions / Image Compress Release
+# @description 为 image-compress 插件构建多平台 Go 后端资产，并把 Node 包装层和目标平台二进制一起发布为 GitHub Release 资产。
+# @logic 1. 校验 Node 包装层与 Go 后端测试；2. 通过矩阵交叉编译多个 GOOS/GOARCH 目标；3. 为每个平台生成插件 tgz 并上传到专属 release。
+# @dependencies GitHub Actions, actions/setup-go, actions/upload-artifact, actions/download-artifact, actions/github-script, plugins/image-compress/**
+# @index_tags workflow, image-compress-release, go-cross-compile, multi-platform-assets, plugin-release
+# @author holic512
+
+name: Release Image Compress Plugin
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'plugins/image-compress/**'
+      - 'test/image-compress-plugin.test.js'
+      - '.github/workflows/release-image-compress.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    outputs:
+      package_name: ${{ steps.meta.outputs.package_name }}
+      package_version: ${{ steps.meta.outputs.package_version }}
+      package_tag: ${{ steps.meta.outputs.package_tag }}
+      asset_prefix: ${{ steps.meta.outputs.asset_prefix }}
+      publish: ${{ steps.tag_check.outputs.publish }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Resolve plugin metadata
+        id: meta
+        run: |
+          PACKAGE_NAME=$(node -p "require('./plugins/image-compress/package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./plugins/image-compress/package.json').version")
+          PACKAGE_TAG="plugin-image-compress-v${PACKAGE_VERSION}"
+          ASSET_PREFIX="holic512-plugin-image-compress-${PACKAGE_VERSION}"
+
+          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "package_tag=$PACKAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "asset_prefix=$ASSET_PREFIX" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing release tag
+        id: tag_check
+        run: |
+          git fetch --tags origin
+          if git rev-parse -q --verify "refs/tags/${{ steps.meta.outputs.package_tag }}" >/dev/null; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  validate:
+    needs: metadata
+    if: needs.metadata.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Validate plugin entry files
+        run: |
+          node --check plugins/image-compress/bin/image-compress.js
+          node --check plugins/image-compress/lib/service.js
+          node --check plugins/image-compress/lib/tui.js
+
+      - name: Test Go backend
+        run: |
+          cd plugins/image-compress/backend
+          GOCACHE="$(mktemp -d)" go test ./...
+
+      - name: Test Node wrapper
+        run: node --test test/image-compress-plugin.test.js
+
+  build-assets:
+    needs:
+      - metadata
+      - validate
+    if: needs.metadata.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-arm64
+            goos: darwin
+            goarch: arm64
+            asset_suffix: macos-arm64
+            binary_name: image-compress-backend
+          - target: macos-amd64
+            goos: darwin
+            goarch: amd64
+            asset_suffix: macos-amd64
+            binary_name: image-compress-backend
+          - target: linux-amd64
+            goos: linux
+            goarch: amd64
+            asset_suffix: linux-amd64
+            binary_name: image-compress-backend
+          - target: linux-arm64
+            goos: linux
+            goarch: arm64
+            asset_suffix: linux-arm64
+            binary_name: image-compress-backend
+          - target: windows-amd64
+            goos: windows
+            goarch: amd64
+            asset_suffix: windows-amd64
+            binary_name: image-compress-backend.exe
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+
+      - name: Build backend binary
+        run: |
+          mkdir -p "$RUNNER_TEMP/image-compress-build"
+          cd plugins/image-compress/backend
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -trimpath -ldflags="-s -w" \
+            -o "$RUNNER_TEMP/image-compress-build/${{ matrix.binary_name }}" \
+            ./cmd/image-compress
+
+      - name: Prepare plugin bundle
+        run: |
+          node plugins/image-compress/scripts/prepare-release-bundle.mjs \
+            --target "${{ matrix.target }}" \
+            --goos "${{ matrix.goos }}" \
+            --goarch "${{ matrix.goarch }}" \
+            --binary-path "$RUNNER_TEMP/image-compress-build/${{ matrix.binary_name }}" \
+            --binary-name "${{ matrix.binary_name }}" \
+            --stage-dir "$RUNNER_TEMP/image-compress-stage/${{ matrix.target }}"
+
+      - name: Archive platform plugin bundle
+        run: |
+          mkdir -p "$RUNNER_TEMP/image-compress-assets"
+          tar -czf \
+            "$RUNNER_TEMP/image-compress-assets/${{ needs.metadata.outputs.asset_prefix }}-${{ matrix.asset_suffix }}.tgz" \
+            -C "$RUNNER_TEMP/image-compress-stage/${{ matrix.target }}" \
+            .
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-compress-${{ matrix.target }}
+          path: ${{ runner.temp }}/image-compress-assets/*.tgz
+          if-no-files-found: error
+
+  release:
+    needs:
+      - metadata
+      - build-assets
+    if: needs.metadata.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download bundled assets
+        uses: actions/download-artifact@v5
+        with:
+          path: ${{ runner.temp }}/release-assets
+          pattern: image-compress-*
+          merge-multiple: true
+
+      - name: Push release tag
+        run: |
+          git fetch --tags origin
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag "${{ needs.metadata.outputs.package_tag }}"
+          git push origin "${{ needs.metadata.outputs.package_tag }}"
+
+      - name: Create release and upload assets
+        uses: actions/github-script@v9
+        env:
+          PACKAGE_NAME: ${{ needs.metadata.outputs.package_name }}
+          PACKAGE_VERSION: ${{ needs.metadata.outputs.package_version }}
+          PACKAGE_TAG: ${{ needs.metadata.outputs.package_tag }}
+          ASSET_DIR: ${{ runner.temp }}/release-assets
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const tag = process.env.PACKAGE_TAG;
+            const assetDir = process.env.ASSET_DIR;
+
+            let release;
+            try {
+              release = await github.rest.repos.getReleaseByTag({owner, repo, tag});
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+
+              const releaseBody = [
+                `## ${process.env.PACKAGE_NAME} v${process.env.PACKAGE_VERSION}`,
+                '',
+                '### Install target-specific asset',
+                '- Each asset contains the Node plugin wrapper and one prebuilt Go backend binary.',
+                '- Pick the archive that matches the target operating system and CPU architecture.',
+                '',
+                '### Included targets',
+                '- macos-arm64',
+                '- macos-amd64',
+                '- linux-amd64',
+                '- linux-arm64',
+                '- windows-amd64',
+                '',
+                '### Notes',
+                '- Local Go is no longer required when using a matching release asset.',
+                '- The plugin still falls back to `go run` in source checkouts where the backend source is present.'
+              ].join('\n');
+
+              release = await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                name: `${process.env.PACKAGE_NAME} v${process.env.PACKAGE_VERSION}`,
+                draft: false,
+                prerelease: false,
+                body: releaseBody
+              });
+            }
+
+            const existingAssets = release.data.assets || [];
+            for (const assetName of fs.readdirSync(assetDir)) {
+              const assetPath = path.join(assetDir, assetName);
+              const existing = existingAssets.find(item => item.name === assetName);
+              if (existing) {
+                await github.rest.repos.deleteReleaseAsset({
+                  owner,
+                  repo,
+                  asset_id: existing.id
+                });
+              }
+
+              await github.rest.repos.uploadReleaseAsset({
+                owner,
+                repo,
+                release_id: release.data.id,
+                name: assetName,
+                data: fs.readFileSync(assetPath)
+              });
+            }
+
+      - name: Skip summary
+        run: ls -1 "${{ runner.temp }}/release-assets"
+
+  skip-existing-release:
+    needs: metadata
+    if: needs.metadata.outputs.publish != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip publish for existing version
+        run: echo "Release tag ${{ needs.metadata.outputs.package_tag }} already exists, skipping publish."

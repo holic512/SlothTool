@@ -1,110 +1,59 @@
 # AGENTS.md
 
-This file provides guidance to Codex when working with this repository.
+Concise repo rules for Codex working on SlothTool.
 
-## Project Snapshot
+## 1. Project Facts
 
-SlothTool is a TUI-first plugin manager.
-
+- SlothTool is a TUI-first plugin manager.
 - Root package: `@holic512/slothtool`
-- Only official plugin kept in this repository: `@holic512/plugin-loc`
-- Official plugins are installed from GitHub Release `.tgz` assets, not arbitrary npm package names entered by users
-- Default product experience is full-screen Ink TUI
-- Explicit CLI subcommands remain available for scripting and automation
-- Current user-facing languages are `zh` and `en`
+- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc` and `@holic512/plugin-image-compress`.
+- `plugins/image-compress` ships as an official plugin workspace with a dedicated multi-platform release workflow and target-aware asset installation.
+- Official plugins are installed from GitHub Release `.tgz` assets, not arbitrary npm names.
+- Runtime baseline:
+  - Node.js `>=22`
+  - npm `>=10`
+  - ESM only
+  - Root and plugin TUIs use `ink`
+- User data:
+  - `~/.slothtool/settings.json`
+  - `~/.slothtool/registry.json`
+  - `~/.slothtool/plugins/`
+  - `~/.slothtool/plugin-configs/`
 
-User data is stored under:
+## 2. Product Invariants
 
-- `~/.slothtool/settings.json`
-- `~/.slothtool/registry.json`
-- `~/.slothtool/plugins/`
-- `~/.slothtool/plugin-configs/`
-
-## Runtime Baseline
-
-- Node.js `>=22`
-- npm `>=10`
-- Root package and workspace plugin code use ESM (`"type": "module"`)
-- Root TUI and plugin TUIs use `ink`
-
-Do not add new CommonJS modules unless explicitly requested.
-
-## Working Style
-
-Use this default rhythm to keep changes small and verifiable:
-
-1. Read the smallest relevant entrypoint, service, and test files first.
-2. Put behavior changes in shared service modules before touching CLI or TUI wrappers.
-3. Preserve the TUI-first product model unless the user explicitly asks to change it.
-4. Run the narrowest useful smoke checks first, then `npm test` when shipped behavior changes.
-5. Only sync versions and docs when the actual change scope requires it.
-
-## Fast Change Map
-
-- Root command dispatch and help: `bin/slothtool.js`, `lib/commands/*`, `test/root-cli.test.js`
-- Root plugin lifecycle and execution: `lib/services/plugin-service.js`, `lib/registry.js`, `lib/settings.js`
-- Root TUI: `lib/tui/root-tui.js`, `lib/i18n.js`
-- Official plugin catalog: `lib/official-plugins.json`
-- `loc` plugin entry, service, config, TUI, i18n: `plugins/loc/bin/loc.js`, `plugins/loc/lib/*`, `test/loc-cli.test.js`
-- Plugin scaffold only: `plugins/template-basic/**`
-
-`plugins/template-basic` is a scaffold reference. It is not a workspace package and is not published.
-
-## Product Rules
-
-These constraints should be preserved unless the user explicitly asks to change them:
-
-1. TUI is the default user entry.
-2. CLI is the underlying capability layer.
-3. `slothtool` with no args launches the root full-screen TUI.
-4. `slothtool <plugin>` with no extra args launches that plugin's default TUI.
-5. Explicit CLI commands such as `install`, `list`, `update`, `config`, `run`, `self-update`, `uninstall`, and bulk flags remain supported.
-6. Root and plugin TUI behavior should feel like an isolated full-screen page by using Ink `alternateScreen`.
-7. Service logic must stay reusable by both CLI and TUI.
-
-## Architecture Rules
-
-### Service-first
-
-- Put business logic in reusable service or use-case modules first.
-- CLI and TUI should both consume the same underlying logic.
-- Avoid implementing product logic directly inside Ink components.
-
-### UI separation
-
-- TUI files own rendering, navigation, keyboard handling, and high-level orchestration.
-- CLI command files own argument parsing, output formatting, and exit-code handling.
-- Shared services should not directly depend on Ink.
-
-### Output discipline
-
-- Service modules should not own terminal interaction patterns such as `process.exit()`, prompts, or ad hoc menu logic.
-- Service modules may emit structured progress through reporter callbacks.
-- CLI and TUI layers decide how to render service events.
-
-### TUI conventions
-
-- Prefer Ink over prompt-based flows.
-- Use `alternateScreen: true` for full-screen experiences.
-- Avoid nested TUI sessions; exit the current TUI before launching a plugin TUI or CLI child process.
-- Preserve the root TUI page model unless the user explicitly asks to change product behavior:
+- TUI is the default product entry.
+- CLI remains the capability layer for scripting and automation.
+- `slothtool` with no args launches the root full-screen TUI.
+- `slothtool <plugin>` with no extra args launches that plugin's default TUI.
+- Explicit CLI commands must keep working: `install`, `list`, `update`, `config`, `run`, `self-update`, `uninstall`, bulk flags.
+- Root TUI page model is:
   - `Home`
   - `Run`
   - `Install`
   - `Update`
   - `Uninstall`
   - `Settings`
+- Root `Update` page is a two-step flow: check first, then update.
+- If a plugin is launched from the root TUI, plugin exit returns to the root TUI and restores prior page/selection.
+- Direct CLI plugin launches return to the terminal, not the manager TUI.
+- Root and plugin TUIs should feel like isolated full-screen pages via `alternateScreen: true`.
 
-### I18N and persistence
+## 3. Architecture Rules
 
-- User-facing copy changes should update the corresponding `i18n.js` module for both `zh` and `en`.
-- Keep persistence rules centralized in `lib/registry.js`, `lib/settings.js`, or the plugin config modules instead of scattering file writes.
+- Put behavior in reusable service modules first; CLI and TUI both consume them.
+- Do not put core product logic directly inside Ink components.
+- TUI owns rendering, navigation, keyboard handling, and high-level orchestration.
+- CLI owns arg parsing, output formatting, and exit-code handling.
+- Shared services must not depend on Ink.
+- Service modules must not own `process.exit()`, prompts, or ad hoc menu flows.
+- Persistence stays centralized in `lib/registry.js`, `lib/settings.js`, or plugin config modules.
+- User-facing copy changes must update both `zh` and `en`.
+- Do not add CommonJS unless explicitly requested.
 
-## Plugin Contract
+## 4. Plugin Contract
 
-Plugins should keep exposing `slothtool.ui` metadata in `package.json`.
-
-Current contract:
+Plugins should expose `slothtool.ui` in `package.json`:
 
 ```json
 {
@@ -124,16 +73,25 @@ Current contract:
 
 Rules:
 
-- Keep backward compatibility with legacy `interactive` and `interactiveFlag` when touching root plugin resolution logic.
-- New official plugins and scaffold work should follow `slothtool.ui`.
-- A plugin that supports TUI should support explicit `--tui`.
-- No-arg plugin entry should default to TUI unless product requirements change.
+- Keep backward compatibility with legacy `interactive` and `interactiveFlag`.
+- TUI-capable plugins should support explicit `--tui`.
+- No-arg plugin entry defaults to TUI unless product requirements change.
 
-## Validation Matrix
+## 5. Fast Change Map
 
-Prefer targeted checks that match the files you changed.
+- Root command dispatch/help: `bin/slothtool.js`, `lib/commands/*`, `test/root-cli.test.js`
+- Root services/persistence: `lib/services/plugin-service.js`, `lib/registry.js`, `lib/settings.js`
+- Root TUI/i18n: `lib/tui/root-tui.js`, `lib/i18n.js`
+- Official plugin catalog: `lib/official-plugins.json`
+- `loc` plugin: `plugins/loc/bin/loc.js`, `plugins/loc/lib/*`, `test/loc-cli.test.js`
+- `image-compress` plugin: `plugins/image-compress/bin/image-compress.js`, `plugins/image-compress/lib/*`, `plugins/image-compress/backend/**`, `test/image-compress-plugin.test.js`
+- `plugins/template-basic/**` is scaffold-only, not a published workspace package.
 
-### Root manager changes
+## 6. Validation
+
+Prefer the narrowest useful checks first, then `npm test` for shipped behavior changes.
+
+Root manager:
 
 ```bash
 node --check bin/slothtool.js
@@ -143,7 +101,7 @@ node bin/slothtool.js --help
 SLOTHTOOL_TUI_TEST_ACTION=exit node bin/slothtool.js
 ```
 
-### `loc` plugin changes
+`loc` plugin:
 
 ```bash
 node plugins/loc/bin/loc.js --help
@@ -152,60 +110,54 @@ node plugins/loc/bin/loc.js config show
 SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 ```
 
-### Packaging and release-path changes
+Packaging:
 
 ```bash
 npm pack --dry-run
 cd plugins/loc && npm pack --dry-run
+cd plugins/image-compress/backend && GOCACHE=$(mktemp -d) go test ./...
+node --test test/image-compress-plugin.test.js
+node --test test/official-plugin-selection.test.js
 ```
 
-### Full regression pass
+Full regression:
 
 ```bash
 npm test
 ```
 
-## Test Conventions
+Testing conventions:
 
-- Tests use `node:test`; keep new coverage lightweight and behavior-oriented.
-- Prefer isolated temporary `HOME` directories for persistence-related tests.
-- Prefer existing TUI smoke hooks over brittle interactive automation when only boot and exit paths need validation.
-- When adding a regression, cover the service or command boundary that actually failed instead of snapshotting full terminal output.
+- Use `node:test`
+- Prefer isolated temporary `HOME`
+- Prefer existing TUI smoke hooks over brittle interactive automation
+- Regress at the failing service or command boundary, not by snapshotting full terminal output
 
-## Versioning Rules
+## 7. Versioning And Release
 
 - Docs-only, tests-only, or `AGENTS.md`-only changes do not require a version bump.
-- Root shipped-behavior changes require updating the root `package.json` version and keeping `package-lock.json` in sync.
-- `plugins/loc` shipped-behavior changes require updating `plugins/loc/package.json` and keeping the workspace section in `package-lock.json` in sync.
-- If one change modifies both the manager and the official plugin, bump both versions in the same change set.
-- Before creating a commit that changes any shipped package version, stop and confirm the intended version increment with the user. The user decides how far to bump the version; do not choose the increment unilaterally.
-- Do not rely on workflow runs alone; releases are gated by whether the version tag already exists.
-- Before finishing work that changes shipped code, verify the next release tags implied by the versions are new:
+- Root shipped behavior changes require bumping root `package.json` and syncing `package-lock.json`.
+- `plugins/loc` shipped behavior changes require bumping `plugins/loc/package.json` and its workspace lock entry.
+- If a change ships both core and the official plugin, bump both in the same change set.
+- Before any commit that changes a shipped package version, confirm the intended version increment with the user. Do not choose the bump unilaterally.
+- Before finishing shipped code changes, verify release tags are still free:
   - core: `slothtool-v<root-version>`
   - plugin: `plugin-loc-v<plugin-version>`
+  - image-compress plugin: `plugin-image-compress-v<plugin-version>`
+- Release workflows:
+  - core: `.github/workflows/release-core.yml`
+  - plugins: `.github/workflows/release-plugins.yml`
+  - image-compress: `.github/workflows/release-image-compress.yml`
 
-## Release Model
+## 8. Docs And Safety
 
-- Root package release workflow: `.github/workflows/release-core.yml`
-- Plugin release workflow: `.github/workflows/release-plugins.yml`
-- Official plugin catalog: `lib/official-plugins.json`
-
-The core release workflow is path-filtered on root package files and docs, but an actual publish still depends on a new root version tag.
-
-## Documentation Sync Rules
-
-- Update `README.md` when install steps, user commands, or user-visible behavior changes.
-- Update `LOCAL_BUILD_GUIDE.md` when local setup or validation workflow changes.
-- Update `PLUGIN_DEVELOPMENT.md` when plugin contract or scaffold guidance changes.
-- Keep `AGENTS.md` aligned with actual file layout, command surface, and release rules.
-- Do not expand doc updates beyond the real scope of the change.
-
-## Important Notes
-
+- Update `README.md` when user-visible behavior, commands, or install steps change.
+- Update `LOCAL_BUILD_GUIDE.md` only when local setup or validation workflow changes.
+- Update `PLUGIN_DEVELOPMENT.md` only when plugin contract or scaffold guidance changes.
+- Keep `AGENTS.md` aligned with actual repo behavior.
 - Do not reintroduce deleted plugin packages unless explicitly requested.
 - Keep `slothtool install` restricted to built-in official aliases.
-- Treat `plugins/template-basic` as scaffold-only, not a published package.
-- If you touch root or plugin entrypoints, preserve executable bits on:
+- Preserve executable bits on:
   - `bin/slothtool.js`
   - `plugins/loc/bin/loc.js`
   - `plugins/template-basic/bin/mytool.js`
