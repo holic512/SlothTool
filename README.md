@@ -1,27 +1,33 @@
 # SlothTool
 
-SlothTool 是一个默认以全屏 TUI 运行、同时保留脚本化 CLI 能力的轻量级插件管理器。
+SlothTool 是一个 TUI-first 的插件管理器：日常使用默认进入 Ink 全屏界面，同时保留可脚本化的 CLI 命令。
 
-根包通过 npm 分发，官方插件通过 GitHub Release 资产分发。当前内置官方插件包括：`loc` 与 `image-compress`。
+根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc` 和 `image-compress`。
 
-## Highlights
+```bash
+npm install -g @holic512/slothtool
+slothtool
+```
 
-- 默认入口是 Ink 全屏 TUI：直接执行 `slothtool`
-- 根 TUI 固定导航为：`首页 / 运行 / 安装 / 更新 / 卸载 / 设置`
-- 所有能力仍保留显式 CLI：`install`、`list`、`update`、`config`、`run`
-- 官方插件安装到 `~/.slothtool/plugins/`
-- 根管理器和官方插件都支持默认 TUI + 显式 CLI
-- 双语支持：中文 / English
-- 根 TUI 使用固定单行导航头部与状态栏，并跟随当前语言切换
-- 从根 TUI 启动插件后，插件退出会自动返回根 TUI，并恢复到离开前的位置
-- 支持全局代理与 GitHub 源配置，默认预填 Clash `127.0.0.1:7980`
-- `loc` 插件的扩展名与排除目录页支持固定分页浏览
-- `image-compress` 插件会按当前平台和 CPU 架构自动选择对应发布资产
+## Overview
+
+SlothTool 把“插件管理器”作为默认交互入口：根命令负责安装、更新、卸载和调度插件；插件自身继续保留独立命令与 TUI。这样日常操作可以在全屏界面完成，自动化脚本仍然可以直接调用稳定的 CLI。
+
+## Features
+
+| 能力 | 说明 |
+| --- | --- |
+| 默认 TUI | `slothtool` 无参数启动根管理器全屏 TUI。 |
+| CLI 兼容 | `install`、`list`、`update`、`config`、`run`、`self-update` 等命令可直接脚本化调用。 |
+| 官方插件分发 | 内置官方插件清单，安装源限定为 GitHub Release 资产。 |
+| 平台资产选择 | `image-compress` 按当前系统和 CPU 架构选择匹配的预编译后端资产。 |
+| 双语界面 | 根管理器和官方插件支持中文 / English 文案。 |
+| 本地用户数据 | 设置、注册表、插件包和插件配置都保存在 `~/.slothtool/`。 |
 
 ## Requirements
 
-- Node.js >= 22
-- npm >= 10
+- Node.js `>=22.0.0`
+- npm `>=10`
 
 ## Install
 
@@ -29,7 +35,7 @@ SlothTool 是一个默认以全屏 TUI 运行、同时保留脚本化 CLI 能力
 npm install -g @holic512/slothtool
 ```
 
-验证安装：
+验证入口：
 
 ```bash
 slothtool --help
@@ -38,51 +44,102 @@ slothtool
 
 ## Quick Start
 
-```bash
-# 默认进入根 TUI
-slothtool
+启动根 TUI：
 
-# 安装官方插件
+```bash
+slothtool
+```
+
+安装并运行官方插件：
+
+```bash
 slothtool install loc
 slothtool install image-compress
 
-# 无参数默认进入插件 TUI
 slothtool loc
 slothtool image-compress
+```
 
-# 显式 CLI 统计
+使用显式 CLI：
+
+```bash
 slothtool loc ./src
 slothtool loc -v ./src
 
-# 显式 CLI 压缩
 slothtool image-compress ./photo.jpg --dry-run
+slothtool image-compress -r ./album --output-dir ./compressed
 ```
 
-## Core Commands
+## TUI Pages
+
+根 TUI 的页面模型固定为：
+
+| 页面 | 主要职责 |
+| --- | --- |
+| Home | 展示管理器入口信息与当前导航提示。 |
+| Run | 选择已安装插件并启动插件 TUI 或 CLI 能力。 |
+| Install | 从内置官方插件清单安装插件。 |
+| Update | 先检查可更新项，再执行更新。 |
+| Uninstall | 卸载已安装插件。 |
+| Settings | 切换语言、代理与 GitHub 源配置。 |
+
+从根 TUI 启动插件后，插件退出会返回根 TUI，并恢复离开前的页面与选择位置。
+
+## Commands
+
+| 命令 | 用途 |
+| --- | --- |
+| `slothtool` | 启动根全屏 TUI。 |
+| `slothtool tui` | 显式启动根全屏 TUI。 |
+| `slothtool install <alias>` | 安装内置官方插件。 |
+| `slothtool uninstall <alias>` | 卸载指定插件。 |
+| `slothtool update <alias>` | 更新指定插件。 |
+| `slothtool --update-all` | 更新全部可更新目标。 |
+| `slothtool list` | 查看已安装插件。 |
+| `slothtool run <plugin> [args]` | 运行指定插件。 |
+| `slothtool <plugin> [args]` | 插件简写运行方式。 |
+| `slothtool config <...>` | 管理语言、代理和 GitHub 源。 |
+| `slothtool self-update` | 更新根管理器包。 |
+| `slothtool --uninstall-all` | 删除 SlothTool 用户数据与已安装插件。 |
+
+## Official Plugins
+
+| Alias | Package | 能力 | 入口 |
+| --- | --- | --- | --- |
+| `loc` | `@holic512/plugin-loc` | 统计目录代码行数、文件类型过滤、排除目录配置、详细模式。 | `slothtool loc` / `loc` |
+| `image-compress` | `@holic512/plugin-image-compress` | JPEG / PNG 图片压缩、目录批处理、拖拽路径 TUI、多平台 Go 后端资产。 | `slothtool image-compress` / `image-compress` |
+
+### `loc`
 
 ```bash
-slothtool
-slothtool tui
 slothtool install loc
-slothtool install image-compress
-slothtool list
-slothtool update loc
-slothtool --update-all
-slothtool uninstall loc
-slothtool config language zh
-slothtool config language en
-slothtool config proxy show
-slothtool config proxy enabled on
-slothtool config proxy port 7890
-slothtool config proxy github official
-slothtool config proxy github-url https://proxy.example.com
-slothtool self-update
-slothtool --uninstall-all
+
+slothtool loc
+slothtool loc .
+slothtool loc -v ./src
+
+loc config show
+loc config ext md off
+loc config exclude dist on
+loc config reset
 ```
 
-## Network Settings
+### `image-compress`
 
-默认设置会写入 `~/.slothtool/settings.json`：
+```bash
+slothtool install image-compress
+
+slothtool image-compress
+slothtool image-compress ./photo.jpg
+slothtool image-compress ./photo.jpg --dry-run --json
+slothtool image-compress -r ./album --output-dir ./compressed
+```
+
+常用压缩参数包括 `--quality`、`--max-width`、`--max-height`、`--overwrite`、`--allow-larger`、`--concurrency`、`--dry-run`、`--json` 和 `--quiet`。
+
+## Configuration
+
+全局设置默认保存在 `~/.slothtool/settings.json`：
 
 ```json
 {
@@ -103,69 +160,50 @@ slothtool --uninstall-all
 }
 ```
 
-常见配置：
+常用配置命令：
 
-```bash
-# 查看当前语言、代理与 GitHub 源
-slothtool config
+| 命令 | 说明 |
+| --- | --- |
+| `slothtool config` | 查看语言、代理和 GitHub 源摘要。 |
+| `slothtool config language zh` | 切换为中文。 |
+| `slothtool config language en` | 切换为 English。 |
+| `slothtool config proxy show` | 查看网络配置。 |
+| `slothtool config proxy enabled on` | 启用代理。 |
+| `slothtool config proxy enabled off` | 关闭代理。 |
+| `slothtool config proxy host 127.0.0.1` | 设置代理主机。 |
+| `slothtool config proxy port 7890` | 设置代理端口。 |
+| `slothtool config proxy github official` | 使用官方 GitHub 源。 |
+| `slothtool config proxy github gh-proxy` | 使用内置 GitHub 代理预设。 |
+| `slothtool config proxy github-url https://proxy.example.com` | 写入自定义 GitHub 代理地址，并切换到 `custom`。 |
 
-# 打开 Clash 代理
-slothtool config proxy enabled on
+## Architecture
 
-# 在 7980 / 7890 端口之间切换时，也可以直接显式设置
-slothtool config proxy port 7890
-
-# 切换为官方 GitHub
-slothtool config proxy github official
-
-# 写入自定义 GitHub 代理地址，并自动切换到 custom
-slothtool config proxy github-url https://proxy.example.com
+```mermaid
+flowchart TD
+    A["slothtool CLI"] --> B{"Has command?"}
+    B -- "No" --> C["Root Ink TUI"]
+    B -- "Root command" --> D["Command handlers"]
+    B -- "Plugin alias" --> E["Plugin runner"]
+    C --> D
+    D --> F["Plugin service"]
+    F --> G["official-plugins.json"]
+    F --> H["GitHub Release .tgz"]
+    F --> I["~/.slothtool/registry.json"]
+    F --> J["~/.slothtool/plugins/<alias>/"]
+    E --> I
+    E --> K["Plugin bin"]
+    K --> L{"No args / --tui?"}
+    L -- "Yes" --> M["Plugin Ink TUI"]
+    L -- "No" --> N["Plugin CLI behavior"]
 ```
 
-## Official Plugin: `loc`
+安装流程：
 
-`loc` 用于统计目录中的代码行数。
-
-```bash
-# 默认进入 loc TUI
-slothtool loc
-loc
-
-# CLI 统计
-slothtool loc .
-loc ./src
-loc -v ./src
-
-# CLI 配置
-loc --config
-loc config show
-loc config ext md off
-loc config exclude dist on
-loc config reset
-```
-
-## Official Plugin: `image-compress`
-
-`image-compress` 用于压缩 JPEG / PNG 图片，并提供支持拖拽路径的全屏 TUI。
-
-```bash
-# 默认进入 image-compress TUI
-slothtool image-compress
-image-compress
-
-# CLI 压缩
-slothtool image-compress ./photo.jpg
-image-compress ./photo.jpg --dry-run
-image-compress -r ./album --output-dir ./compressed
-```
-
-## How It Works
-
-1. `slothtool install <alias>` 读取内置官方插件清单。
-2. SlothTool 根据当前系统平台和 CPU 架构选择最匹配的 GitHub Release `.tgz` 资产。
-3. 资产被解压到 `~/.slothtool/plugins/<alias>/`，并安装生产依赖。
+1. `slothtool install <alias>` 从 `lib/official-plugins.json` 查找内置官方插件。
+2. SlothTool 根据插件策略、当前系统平台和 CPU 架构选择 GitHub Release `.tgz` 资产。
+3. 资产被解包并部署到 `~/.slothtool/plugins/<alias>/`。
 4. 插件入口、版本和来源信息写入 `~/.slothtool/registry.json`。
-5. `slothtool <plugin>` 会从注册表解析插件入口；无额外参数时优先进入插件默认 TUI。
+5. `slothtool <plugin>` 从注册表解析插件入口；无额外参数时优先进入插件默认 TUI。
 
 ## Data Layout
 
@@ -184,15 +222,15 @@ image-compress -r ./album --output-dir ./compressed
 
 ```text
 SlothTool/
-├── bin/                     # Root CLI entry
-├── lib/                     # Root services, commands, and TUI
+├── bin/                     Root CLI entry
+├── lib/                     Root commands, services, settings, i18n, and TUI
 ├── plugins/
-│   ├── loc/                 # Official plugin workspace
-│   ├── image-compress/      # Official plugin workspace
-│   └── template-basic/      # Scaffold only
-├── README.md
-├── PLUGIN_DEVELOPMENT.md
-├── LOCAL_BUILD_GUIDE.md
+│   ├── loc/                 Official LOC plugin workspace
+│   ├── image-compress/      Official image compression plugin workspace
+│   └── template-basic/      Plugin scaffold template
+├── test/                    node:test regression suite
+├── PLUGIN_DEVELOPMENT.md    Plugin contract and development notes
+├── LOCAL_BUILD_GUIDE.md     Local build and release validation notes
 └── package.json
 ```
 
@@ -201,12 +239,33 @@ SlothTool/
 ```bash
 npm install
 npm link
+
 node bin/slothtool.js --help
 node plugins/loc/bin/loc.js --help
 node plugins/image-compress/bin/image-compress.js --help
 ```
 
-更多说明见：
+Focused checks:
 
-- [PLUGIN_DEVELOPMENT.md](./PLUGIN_DEVELOPMENT.md)
-- [LOCAL_BUILD_GUIDE.md](./LOCAL_BUILD_GUIDE.md)
+```bash
+node --check bin/slothtool.js
+node --check lib/tui/root-tui.js
+SLOTHTOOL_TUI_TEST_ACTION=exit node bin/slothtool.js
+SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
+SLOTHTOOL_IMAGE_COMPRESS_TUI_TEST_ACTION=exit node plugins/image-compress/bin/image-compress.js
+```
+
+Full regression:
+
+```bash
+npm test
+```
+
+More project docs:
+
+- [Plugin development](./PLUGIN_DEVELOPMENT.md)
+- [Local build guide](./LOCAL_BUILD_GUIDE.md)
+
+## License
+
+ISC, as declared in [package.json](./package.json). This repository does not currently include a standalone `LICENSE` file.
