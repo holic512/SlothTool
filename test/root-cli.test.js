@@ -92,6 +92,15 @@ test('root default entry can restart itself through the TUI smoke hook', () => {
     });
 });
 
+test('root self-update style restart does not background-detach the replacement TUI', () => {
+    assert.doesNotThrow(() => {
+        runNode(rootBin, [], {
+            HOME: createTempHome(false),
+            SLOTHTOOL_TUI_TEST_ACTION: 'self-update-restart'
+        });
+    });
+});
+
 test('root manager relaunches after plugin exit and restores the TUI snapshot', () => {
     const output = runNode(rootBin, [], {
         HOME: createTempHome(true),
