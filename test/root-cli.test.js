@@ -74,6 +74,15 @@ test('root default entry can exit through the TUI smoke hook', () => {
     });
 });
 
+test('root default entry can render with an empty initial TUI snapshot', () => {
+    assert.doesNotThrow(() => {
+        runNode(rootBin, [], {
+            HOME: createTempHome(false),
+            SLOTHTOOL_TUI_TEST_ACTION: 'render-exit'
+        });
+    });
+});
+
 test('root default entry can restart itself through the TUI smoke hook', () => {
     assert.doesNotThrow(() => {
         runNode(rootBin, [], {
