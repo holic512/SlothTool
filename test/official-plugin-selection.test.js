@@ -19,6 +19,7 @@ import {
     getOfficialPlugin,
     getOfficialPluginAliases,
     installPlugin,
+    resolveExtractedPackageRoot,
     selectReleaseAssetForEnvironment
 } from '../lib/services/plugin-service.js';
 
@@ -119,4 +120,36 @@ test('installPlugin forwards the current system target to the official release f
         assert.equal(installedAssetName, 'holic512-plugin-image-compress-0.1.0-windows-amd64.tgz');
         assert.equal(result.status, 'installed');
     });
+});
+
+test('release asset package root resolver accepts npm pack and direct archive layouts', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-release-layout-'));
+
+    const npmPackExtractDir = path.join(tempDir, 'npm-pack');
+    fs.mkdirSync(path.join(npmPackExtractDir, 'package'), {recursive: true});
+    fs.writeFileSync(path.join(npmPackExtractDir, 'package', 'package.json'), '{}', 'utf8');
+    assert.equal(
+        resolveExtractedPackageRoot(npmPackExtractDir, 'npm-pack.tgz'),
+        path.join(npmPackExtractDir, 'package')
+    );
+
+    const directExtractDir = path.join(tempDir, 'direct');
+    fs.mkdirSync(directExtractDir, {recursive: true});
+    fs.writeFileSync(path.join(directExtractDir, 'package.json'), '{}', 'utf8');
+    assert.equal(resolveExtractedPackageRoot(directExtractDir, 'direct.tgz'), directExtractDir);
+
+    const singleFolderExtractDir = path.join(tempDir, 'single-folder');
+    fs.mkdirSync(path.join(singleFolderExtractDir, 'image-compress'), {recursive: true});
+    fs.writeFileSync(path.join(singleFolderExtractDir, 'image-compress', 'package.json'), '{}', 'utf8');
+    assert.equal(
+        resolveExtractedPackageRoot(singleFolderExtractDir, 'single-folder.tgz'),
+        path.join(singleFolderExtractDir, 'image-compress')
+    );
+});
+
+test('release asset package root resolver reports missing package.json clearly', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-release-layout-missing-'));
+    assert.throws(() => {
+        resolveExtractedPackageRoot(tempDir, 'broken-asset.tgz');
+    }, /package\.json not found in release asset: broken-asset\.tgz/u);
 });

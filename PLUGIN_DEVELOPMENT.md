@@ -58,6 +58,28 @@ cd my-plugin
 }
 ```
 
+## Cross-Platform Official Plugin Packaging
+
+如果插件需要为不同平台分发不同资产，统一遵守以下规则：
+
+1. 在 `lib/official-plugins.json` 中声明：
+   - `assetStrategy: "platform-target"`
+   - `supportedTargets`
+2. `supportedTargets` 只使用标准化目标名：
+   - `macos-arm64`
+   - `macos-amd64`
+   - `linux-amd64`
+   - `linux-arm64`
+   - `windows-amd64`
+3. GitHub Release 资产文件名统一为：
+   - `<assetNamePrefix><version>-<target>.tgz`
+4. 资产解包后必须能直接定位到插件根目录：
+   - 要么根目录直接包含 `package.json`
+   - 要么使用 `npm pack` 风格的 `package/package.json`
+5. 如果插件带预编译后端：
+   - 二进制统一放在 `backend/dist/`
+   - Node 包装层必须优先使用该二进制，并在源码工作区保留明确的回退策略
+
 ## Recommended Layout
 
 ```text

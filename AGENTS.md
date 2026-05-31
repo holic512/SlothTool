@@ -77,6 +77,14 @@ Rules:
 - TUI-capable plugins should support explicit `--tui`.
 - No-arg plugin entry defaults to TUI unless product requirements change.
 
+Cross-platform official plugin rules:
+
+- If a plugin needs target-specific release assets, declare `assetStrategy: "platform-target"` in `lib/official-plugins.json`.
+- Declare explicit `supportedTargets` in `lib/official-plugins.json` using normalized targets such as `macos-arm64`, `macos-amd64`, `linux-amd64`, `linux-arm64`, `windows-amd64`.
+- Release asset names must follow `<assetNamePrefix><version>-<target>.tgz`.
+- Release archives must contain a runnable plugin root either directly at archive root or under the standard `package/` directory produced by `npm pack`.
+- If the plugin ships a prebuilt backend, place it under `backend/dist/`, and keep the Node wrapper able to prefer that binary at runtime.
+
 ## 5. Fast Change Map
 
 - Root command dispatch/help: `bin/slothtool.js`, `lib/commands/*`, `test/root-cli.test.js`
