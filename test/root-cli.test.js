@@ -16,6 +16,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
+import {startRootTui} from '../lib/tui/root-tui.js';
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(testDir, '..');
@@ -81,6 +82,22 @@ test('root default entry can render with an empty initial TUI snapshot', () => {
             SLOTHTOOL_TUI_TEST_ACTION: 'render-exit'
         });
     });
+});
+
+test('root TUI startup tolerates a null options object', async () => {
+    const previousAction = process.env.SLOTHTOOL_TUI_TEST_ACTION;
+    process.env.SLOTHTOOL_TUI_TEST_ACTION = 'exit';
+
+    try {
+        const result = await startRootTui(null);
+        assert.deepEqual(result, {type: 'exit'});
+    } finally {
+        if (previousAction === undefined) {
+            delete process.env.SLOTHTOOL_TUI_TEST_ACTION;
+        } else {
+            process.env.SLOTHTOOL_TUI_TEST_ACTION = previousAction;
+        }
+    }
 });
 
 test('root default entry can restart itself through the TUI smoke hook', () => {
