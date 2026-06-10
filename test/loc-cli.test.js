@@ -44,7 +44,27 @@ test('loc config commands update the saved config state', () => {
     const homeDir = createTempHome();
     runLoc(['config', 'ext', 'md', 'off'], {HOME: homeDir});
     const output = runLoc(['--config'], {HOME: homeDir});
+    const migratedConfigPath = path.join(homeDir, '.slothtool', 'data', 'plugin-configs', 'loc.json');
     assert.match(output, /"md": false/u);
+    assert.equal(fs.existsSync(migratedConfigPath), true);
+});
+
+test('loc config migrates the legacy plugin-configs path into data', () => {
+    const homeDir = createTempHome();
+    const legacyConfigDir = path.join(homeDir, '.slothtool', 'plugin-configs');
+    const legacyConfigPath = path.join(legacyConfigDir, 'loc.json');
+    const migratedConfigPath = path.join(homeDir, '.slothtool', 'data', 'plugin-configs', 'loc.json');
+
+    fs.mkdirSync(legacyConfigDir, {recursive: true});
+    fs.writeFileSync(legacyConfigPath, JSON.stringify({
+        fileExtensions: {md: false},
+        excludeDirectories: {}
+    }, null, 2));
+
+    const output = runLoc(['--config'], {HOME: homeDir});
+    assert.match(output, /"md": false/u);
+    assert.equal(fs.existsSync(migratedConfigPath), true);
+    assert.equal(fs.existsSync(legacyConfigPath), false);
 });
 
 test('loc default entry can exit through the TUI smoke hook', () => {

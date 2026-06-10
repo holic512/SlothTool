@@ -51,6 +51,11 @@ test('official plugin catalog includes image-compress', () => {
     assert.equal(getOfficialPlugin('image-compress').packageName, '@holic512/plugin-image-compress');
 });
 
+test('official plugin catalog includes gstore', () => {
+    assert.ok(getOfficialPluginAliases().includes('gstore'));
+    assert.equal(getOfficialPlugin('gstore').packageName, '@holic512/plugin-gstore');
+});
+
 test('platform-target asset selection chooses the matching release bundle', () => {
     const pluginMeta = getOfficialPlugin('image-compress');
     const release = {

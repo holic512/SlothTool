@@ -22,8 +22,9 @@ const testDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(testDir, '..');
 const rootBin = path.join(rootDir, 'bin', 'slothtool.js');
 const locBin = path.join(rootDir, 'plugins', 'loc', 'bin', 'loc.js');
+const gstoreBin = path.join(rootDir, 'plugins', 'gstore', 'bin', 'gstore.js');
 
-function createTempHome(withLocalLoc = false) {
+function createTempHome(withLocalLoc = false, withLocalGstore = false) {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-home-'));
     const slothDir = path.join(homeDir, '.slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
@@ -40,6 +41,17 @@ function createTempHome(withLocalLoc = false) {
             version: 'workspace',
             binPath: locBin,
             installedAt: '2026-05-30T00:00:00.000Z',
+            sourceType: 'github-release'
+        };
+    }
+
+    if (withLocalGstore) {
+        registry.plugins.gstore = {
+            name: '@holic512/plugin-gstore',
+            packageName: '@holic512/plugin-gstore',
+            version: 'workspace',
+            binPath: gstoreBin,
+            installedAt: '2026-06-11T00:00:00.000Z',
             sourceType: 'github-release'
         };
     }
@@ -134,4 +146,10 @@ test('root shorthand runs the local loc workspace plugin in CLI mode', () => {
     const output = runNode(rootBin, ['loc', '.'], {HOME: createTempHome(true)});
     assert.match(output, /总文件数/u);
     assert.match(output, /总行数/u);
+});
+
+test('root shorthand runs the local gstore workspace plugin in CLI mode', () => {
+    const output = runNode(rootBin, ['gstore', '--help'], {HOME: createTempHome(false, true)});
+    assert.match(output, /gstore repo set/u);
+    assert.match(output, /gstore sync/u);
 });

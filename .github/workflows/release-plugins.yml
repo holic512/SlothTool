@@ -1,13 +1,13 @@
 # @file release-plugins.yml
 # @project SlothTool
 # @module GitHub Actions / Plugin Release
-# @description 当 `plugins/loc` 变更时，自动打包唯一官方插件并发布 GitHub Release 资产。
-# @logic 1. 监听 main 分支的 loc 插件目录；2. 安装依赖并可选构建；3. 执行 npm pack 并上传 tgz 资产。
-# @dependencies GitHub Actions, npm, plugins/loc/package.json
-# @index_tags workflow, plugin-release, loc-only, npm-pack
+# @description 当纯 Node 官方插件变更时，按矩阵打包并发布 GitHub Release 资产。
+# @logic 1. 监听 loc 与 gstore 插件目录；2. 按矩阵解析插件元数据并执行 npm pack；3. 为不存在的版本 tag 创建 release 并上传 tgz。
+# @dependencies GitHub Actions, npm, plugins/loc/package.json, plugins/gstore/package.json
+# @index_tags workflow, plugin-release, loc, gstore, npm-pack
 # @author holic512
 
-name: Release Official Plugin Loc
+name: Release Official Node Plugins
 
 on:
   push:
@@ -15,14 +15,28 @@ on:
       - main
     paths:
       - 'plugins/loc/**'
+      - 'plugins/gstore/**'
+      - 'test/loc-cli.test.js'
+      - 'test/gstore-cli.test.js'
       - '.github/workflows/release-plugins.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release-loc:
+  release-node-plugin:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - alias: loc
+            package_dir: plugins/loc
+            tag_prefix: plugin-loc-v
+          - alias: gstore
+            package_dir: plugins/gstore
+            tag_prefix: plugin-gstore-v
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -38,10 +52,10 @@ jobs:
       - name: Resolve plugin metadata
         id: meta
         run: |
-          PACKAGE_DIR="plugins/loc"
-          PACKAGE_NAME=$(node -p "require('./plugins/loc/package.json').name")
-          PACKAGE_VERSION=$(node -p "require('./plugins/loc/package.json').version")
-          PACKAGE_TAG="plugin-loc-v${PACKAGE_VERSION}"
+          PACKAGE_DIR="${{ matrix.package_dir }}"
+          PACKAGE_NAME=$(node -p "require('./${PACKAGE_DIR}/package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./${PACKAGE_DIR}/package.json').version")
+          PACKAGE_TAG="${{ matrix.tag_prefix }}${PACKAGE_VERSION}"
 
           echo "package_dir=$PACKAGE_DIR" >> "$GITHUB_OUTPUT"
           echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
@@ -61,20 +75,20 @@ jobs:
       - name: Install package dependencies
         if: steps.tag-check.outputs.publish == 'true'
         run: |
-          cd plugins/loc
+          cd "${{ steps.meta.outputs.package_dir }}"
           npm install
 
       - name: Build package if script exists
         if: steps.tag-check.outputs.publish == 'true'
         run: |
-          cd plugins/loc
+          cd "${{ steps.meta.outputs.package_dir }}"
           npm run build --if-present
 
       - name: Pack plugin source archive
         if: steps.tag-check.outputs.publish == 'true'
         id: pack
         run: |
-          cd plugins/loc
+          cd "${{ steps.meta.outputs.package_dir }}"
           ASSET_NAME=$(npm pack --json | node -e "const fs = require('fs'); console.log(JSON.parse(fs.readFileSync(0, 'utf8'))[0].filename)")
           echo "asset_name=$ASSET_NAME" >> "$GITHUB_OUTPUT"
 
@@ -102,7 +116,7 @@ jobs:
 
             ### Install with SlothTool
             ```bash
-            slothtool install loc
+            slothtool install ${{ matrix.alias }}
             ```
 
             ### Asset
@@ -116,7 +130,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: plugins/loc/${{ steps.pack.outputs.asset_name }}
+          asset_path: ${{ steps.meta.outputs.package_dir }}/${{ steps.pack.outputs.asset_name }}
           asset_name: ${{ steps.pack.outputs.asset_name }}
           asset_content_type: application/gzip
 

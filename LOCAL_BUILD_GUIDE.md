@@ -12,7 +12,7 @@
 npm install
 ```
 
-根包依赖和 `plugins/loc` workspace 依赖会一起安装。
+根包依赖和 `plugins/loc`、`plugins/gstore` workspace 依赖会一起安装。
 
 ## Link SlothTool Locally
 
@@ -55,6 +55,16 @@ node plugins/loc/bin/loc.js ./src
 node plugins/loc/bin/loc.js --tui
 ```
 
+## `gstore` Plugin Development
+
+本地最快的迭代方式是直接运行工作区插件。真实 GitHub 同步需要本机安装 `git` 和 `gh`；回归测试使用本地 bare git repo，不访问 GitHub。
+
+```bash
+node plugins/gstore/bin/gstore.js --help
+SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
+node plugins/gstore/bin/gstore.js repo status
+```
+
 ## Testing
 
 ```bash
@@ -67,6 +77,7 @@ npm test
 node bin/slothtool.js --help
 SLOTHTOOL_TUI_TEST_ACTION=exit node bin/slothtool.js
 SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
+SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 ```
 
 ## Package Validation
@@ -79,6 +90,9 @@ npm pack --dry-run
 
 ```bash
 cd plugins/loc
+npm pack --dry-run
+
+cd ../gstore
 npm pack --dry-run
 ```
 

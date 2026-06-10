@@ -1,11 +1,11 @@
 {
-  "name": "@holic512/plugin-loc",
-  "version": "1.2.0",
-  "description": "Count lines of code in a directory",
-  "main": "lib/counter.js",
+  "name": "@holic512/plugin-gstore",
+  "version": "0.1.0",
+  "description": "Sync personal tool data through a private GitHub repository",
+  "main": "lib/service.js",
   "type": "module",
   "bin": {
-    "loc": "bin/loc.js"
+    "gstore": "bin/gstore.js"
   },
   "slothtool": {
     "interactive": true,
@@ -27,9 +27,10 @@
   "keywords": [
     "slothtool",
     "plugin",
-    "loc",
-    "lines-of-code",
-    "counter"
+    "github",
+    "git",
+    "sync",
+    "data"
   ],
   "author": "",
   "license": "ISC",

@@ -55,6 +55,32 @@
         "Drag-and-drop path input",
         "Multi-platform prebuilt backend"
       ]
+    },
+    {
+      "alias": "gstore",
+      "packageName": "@holic512/plugin-gstore",
+      "repository": "holic512/SlothTool",
+      "packageDir": "plugins/gstore",
+      "releaseTagPrefix": "plugin-gstore-v",
+      "assetNamePrefix": "holic512-plugin-gstore-",
+      "description": "通过 GitHub private repo 同步 SlothTool 数据和插件配置",
+      "descriptionEn": "Sync SlothTool data and plugin configs through a GitHub private repo",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "GitHub CLI 登录",
+        "私有仓库绑定",
+        "数据目录同步",
+        "冲突检测",
+        "手动同步 TUI"
+      ],
+      "featuresEn": [
+        "GitHub CLI authentication",
+        "Private repository binding",
+        "Data directory sync",
+        "Conflict detection",
+        "Manual sync TUI"
+      ]
     }
   ]
 }

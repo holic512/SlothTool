@@ -2,8 +2,8 @@
  * @file LocConfigStore
  * @project SlothTool
  * @module LOC Plugin / Storage
- * @description 管理 loc 插件配置，包括文件扩展名过滤与排除目录规则。
- * @logic 1. 统一定位 ~/.slothtool/plugin-configs/loc.json；2. 读取时合并默认配置；3. 提供切换与重置辅助方法。
+ * @description 管理 loc 插件配置，包括文件扩展名过滤与排除目录规则，并兼容迁移旧配置路径。
+ * @logic 1. 统一定位 ~/.slothtool/data/plugin-configs/loc.json；2. 首次读取时迁移旧 plugin-configs 配置；3. 读取时合并默认配置并提供切换与重置辅助方法。
  * @dependencies Node: fs/os/path
  * @index_tags loc配置, 文件扩展名, 排除目录, plugin-configs
  * @author holic512
@@ -17,17 +17,47 @@ function getSlothToolHome() {
     return path.join(os.homedir(), '.slothtool');
 }
 
+function getSlothToolDataDir() {
+    return path.join(getSlothToolHome(), 'data');
+}
+
 function getPluginConfigsDir() {
+    return path.join(getSlothToolDataDir(), 'plugin-configs');
+}
+
+function getLegacyPluginConfigsDir() {
     return path.join(getSlothToolHome(), 'plugin-configs');
 }
 
-function getLocConfigPath() {
+export function getLocConfigPath() {
     return path.join(getPluginConfigsDir(), 'loc.json');
+}
+
+export function getLegacyLocConfigPath() {
+    return path.join(getLegacyPluginConfigsDir(), 'loc.json');
 }
 
 function ensureDir(dirPath) {
     if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, {recursive: true});
+    }
+}
+
+function migrateLegacyConfigIfNeeded() {
+    const configPath = getLocConfigPath();
+    const legacyConfigPath = getLegacyLocConfigPath();
+
+    if (fs.existsSync(configPath) || !fs.existsSync(legacyConfigPath)) {
+        return;
+    }
+
+    ensureDir(getPluginConfigsDir());
+
+    try {
+        fs.renameSync(legacyConfigPath, configPath);
+    } catch {
+        fs.copyFileSync(legacyConfigPath, configPath);
+        fs.rmSync(legacyConfigPath, {force: true});
     }
 }
 
@@ -100,6 +130,7 @@ export function getDefaultConfig() {
 
 export function readConfig() {
     ensureDir(getPluginConfigsDir());
+    migrateLegacyConfigIfNeeded();
     const configPath = getLocConfigPath();
 
     if (!fs.existsSync(configPath)) {
