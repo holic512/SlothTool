@@ -2,14 +2,18 @@
  * @file GStoreGithubCliService
  * @project SlothTool
  * @module GStore Plugin / GitHub CLI
- * @description 封装 GitHub CLI 检测、自动安装、登录、repo 创建和 git 凭据配置。
- * @logic 1. 检测 gh 是否存在；2. 按平台选择包管理器安装命令；3. 用 gh auth 和 repo 命令完成 GitHub 操作且不保存 token。
- * @dependencies Runner: ./command-runner.js
+ * @description 封装 GitHub CLI 检测、自动安装、登录、repo 创建和 git 凭据配置，并在非可靠终端中提示手动设备登录。
+ * @logic 1. 检测 gh 是否存在；2. 按平台选择包管理器安装命令；3. 用 gh auth 和 repo 命令完成 GitHub 操作；4. 非可靠终端解析 device code 并自动继续等待授权。
+ * @dependencies Node: child_process, Runner: ./command-runner.js, I18N: ./i18n.js
  * @index_tags gstore gh, GitHub CLI, auth login, repo create, 自动安装
  * @author holic512
  */
 
+import {spawn} from 'node:child_process';
 import {commandExists, runCommand, tryRunCommand} from './command-runner.js';
+import {t} from './i18n.js';
+
+const DEVICE_LOGIN_URL = 'https://github.com/login/device';
 
 export function isGhAvailable(options = {}) {
     return commandExists('gh', options);
@@ -119,15 +123,113 @@ export function getAuthStatus(options = {}) {
     };
 }
 
-export function ensureGithubAuth(options = {}) {
+export function parseDeviceLoginOutput(output) {
+    const codeMatch = String(output).match(/\b([A-Z0-9]{4}-[A-Z0-9]{4})\b/u);
+    const urlMatch = String(output).match(/https:\/\/github\.com\/login\/device/u);
+
+    return {
+        code: codeMatch ? codeMatch[1] : '',
+        url: urlMatch ? urlMatch[0] : DEVICE_LOGIN_URL
+    };
+}
+
+export function isReliableAuthTerminal(options = {}) {
+    if (typeof options.reliableTerminal === 'boolean') {
+        return options.reliableTerminal;
+    }
+
+    if (process.env.SLOTHTOOL_GSTORE_MANUAL_AUTH === '1') {
+        return false;
+    }
+
+    return Boolean(process.stdin.isTTY && process.stdout.isTTY && !process.env.CI);
+}
+
+function runManualDeviceLogin(options = {}) {
+    return new Promise((resolve, reject) => {
+        const child = spawn('gh', ['auth', 'login', '--git-protocol', 'https', '--web'], {
+            env: {
+                ...process.env,
+                ...options.env
+            },
+            stdio: ['pipe', 'pipe', 'pipe']
+        });
+        let output = '';
+        let prompted = false;
+        let continued = false;
+
+        function maybePrintManualPrompt() {
+            if (prompted) {
+                return;
+            }
+
+            const login = parseDeviceLoginOutput(output);
+            if (!login.code && !/Press Enter/iu.test(output)) {
+                return;
+            }
+
+            prompted = true;
+            if (login.code) {
+                console.error(t('manualDeviceLogin', login));
+            } else {
+                console.error(t('manualDeviceLoginNoCode'));
+            }
+        }
+
+        function maybeContinue() {
+            if (continued || !/Press Enter/iu.test(output)) {
+                return;
+            }
+
+            continued = true;
+            maybePrintManualPrompt();
+            child.stdin.write('\n');
+        }
+
+        child.stdout.on('data', chunk => {
+            const text = String(chunk);
+            output += text;
+            process.stderr.write(text);
+            maybePrintManualPrompt();
+            maybeContinue();
+        });
+
+        child.stderr.on('data', chunk => {
+            const text = String(chunk);
+            output += text;
+            process.stderr.write(text);
+            maybePrintManualPrompt();
+            maybeContinue();
+        });
+
+        child.on('error', reject);
+        child.on('exit', code => {
+            if (code === 0) {
+                resolve({stdout: output, stderr: '', exitCode: 0});
+                return;
+            }
+
+            const error = new Error(output.trim() || `gh auth login exited with code ${code}`);
+            error.exitCode = code || 1;
+            error.stderr = output;
+            reject(error);
+        });
+    });
+}
+
+export async function ensureGithubAuth(options = {}) {
     ensureGhInstalled(options);
     const currentStatus = getAuthStatus(options);
 
     if (!currentStatus.authenticated) {
-        (options.runner || runCommand)('gh', ['auth', 'login', '--git-protocol', 'https', '--web'], {
-            stdio: options.stdio || 'inherit',
-            env: options.env
-        });
+        if (!isReliableAuthTerminal(options) && !options.runner) {
+            await runManualDeviceLogin(options);
+        } else {
+            (options.runner || runCommand)('gh', ['auth', 'login', '--git-protocol', 'https', '--web'], {
+                stdio: options.stdio || 'inherit',
+                env: options.env
+            });
+        }
     }
 
     (options.runner || runCommand)('gh', ['auth', 'setup-git'], {
@@ -152,6 +254,8 @@ export default {
     ensureGithubAuth,
     getAuthStatus,
     installGh,
+    isReliableAuthTerminal,
     isGhAvailable,
+    parseDeviceLoginOutput,
     resolveGhInstaller
 };

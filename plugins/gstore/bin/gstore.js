@@ -221,7 +221,7 @@ async function runCli(args) {
     const command = commandArgs[0];
 
     if (command === 'auth') {
-        const result = ensureAuth();
+        const result = await ensureAuth();
         if (json) {
             printJson(result);
         } else {

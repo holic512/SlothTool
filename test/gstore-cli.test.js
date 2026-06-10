@@ -16,7 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {resolveGhInstaller} from '../plugins/gstore/lib/gh.js';
+import {isReliableAuthTerminal, parseDeviceLoginOutput, resolveGhInstaller} from '../plugins/gstore/lib/gh.js';
 import {classifyError} from '../plugins/gstore/lib/service.js';
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
@@ -171,4 +171,13 @@ test('gstore gh installer selection and error classification are deterministic',
     assert.equal(classifyError(new Error('Could not resolve host: github.com')), 'network');
     assert.equal(classifyError(new Error('Authentication failed')), 'auth');
     assert.equal(classifyError(new Error('Updates were rejected because the remote contains work')), 'push-rejected');
+});
+
+test('gstore parses GitHub CLI device login output for manual auth guidance', () => {
+    const login = parseDeviceLoginOutput('! First copy your one-time code: A3F2-0DBE\nPress Enter to open https://github.com/login/device in your browser...');
+
+    assert.equal(login.code, 'A3F2-0DBE');
+    assert.equal(login.url, 'https://github.com/login/device');
+    assert.equal(isReliableAuthTerminal({reliableTerminal: false}), false);
+    assert.equal(isReliableAuthTerminal({reliableTerminal: true}), true);
 });

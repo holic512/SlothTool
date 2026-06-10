@@ -318,7 +318,7 @@ export function syncBinding(tool, name, options = {}) {
     };
 }
 
-export function ensureAuth(options = {}) {
+export async function ensureAuth(options = {}) {
     return ensureGithubAuth(options);
 }
 
