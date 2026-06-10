@@ -12,7 +12,7 @@
 npm install
 ```
 
-根包依赖和 `plugins/loc`、`plugins/gstore` workspace 依赖会一起安装。
+根包依赖和 `plugins/loc`、`plugins/gstore`、`plugins/todo` workspace 依赖会一起安装。
 
 ## Link SlothTool Locally
 
@@ -65,6 +65,17 @@ SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 node plugins/gstore/bin/gstore.js repo status
 ```
 
+## `todo` Plugin Development
+
+本地最快的迭代方式是直接运行工作区插件。同步命令需要已安装并已绑定的 `gstore`；普通任务管理只读写临时 HOME 下的 JSON 文件。
+
+```bash
+node plugins/todo/bin/todo.js --help
+SLOTHTOOL_TODO_TUI_TEST_ACTION=exit node plugins/todo/bin/todo.js
+node plugins/todo/bin/todo.js add "Buy milk" --tag home --due today
+node plugins/todo/bin/todo.js list --json
+```
+
 ## Testing
 
 ```bash
@@ -78,6 +89,7 @@ node bin/slothtool.js --help
 SLOTHTOOL_TUI_TEST_ACTION=exit node bin/slothtool.js
 SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
+SLOTHTOOL_TODO_TUI_TEST_ACTION=exit node plugins/todo/bin/todo.js
 ```
 
 ## Package Validation
@@ -93,6 +105,9 @@ cd plugins/loc
 npm pack --dry-run
 
 cd ../gstore
+npm pack --dry-run
+
+cd ../todo
 npm pack --dry-run
 ```
 

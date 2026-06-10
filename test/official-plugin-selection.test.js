@@ -56,6 +56,14 @@ test('official plugin catalog includes gstore', () => {
     assert.equal(getOfficialPlugin('gstore').packageName, '@holic512/plugin-gstore');
 });
 
+test('official plugin catalog includes todo as a generic Node plugin', () => {
+    const plugin = getOfficialPlugin('todo');
+    assert.ok(getOfficialPluginAliases().includes('todo'));
+    assert.equal(plugin.packageName, '@holic512/plugin-todo');
+    assert.equal(plugin.assetStrategy, undefined);
+    assert.equal(plugin.assetNamePrefix, 'holic512-plugin-todo-');
+});
+
 test('platform-target asset selection chooses the matching release bundle', () => {
     const pluginMeta = getOfficialPlugin('image-compress');
     const release = {

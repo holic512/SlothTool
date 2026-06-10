@@ -81,6 +81,32 @@
         "Conflict detection",
         "Manual sync TUI"
       ]
+    },
+    {
+      "alias": "todo",
+      "packageName": "@holic512/plugin-todo",
+      "repository": "holic512/SlothTool",
+      "packageDir": "plugins/todo",
+      "releaseTagPrefix": "plugin-todo-v",
+      "assetNamePrefix": "holic512-plugin-todo-",
+      "description": "基于独立 JSON 文件的 TodoList，并通过 gstore 手动同步",
+      "descriptionEn": "Manage split JSON todo tasks and manually sync them through gstore",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "拆分 JSON 任务文件",
+        "完整任务字段",
+        "任务列表和标签",
+        "手动 gstore 同步",
+        "默认 TUI"
+      ],
+      "featuresEn": [
+        "Split JSON task files",
+        "Rich task fields",
+        "Lists and tags",
+        "Manual gstore sync",
+        "Default TUI"
+      ]
     }
   ]
 }

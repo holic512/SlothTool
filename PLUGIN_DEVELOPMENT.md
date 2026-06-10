@@ -1,6 +1,6 @@
 # Plugin Development Guide
 
-本仓库当前保留三个官方插件工作区 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`，以及一个脚手架目录 `plugins/template-basic`。
+本仓库当前保留四个官方插件工作区 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`、`plugins/todo`，以及一个脚手架目录 `plugins/template-basic`。
 
 ## Design Rule
 
@@ -96,7 +96,7 @@ my-plugin/
 
 ## Current Reference Package
 
-优先参考 `plugins/loc`、`plugins/image-compress` 或 `plugins/gstore` 来实现：
+优先参考 `plugins/loc`、`plugins/image-compress`、`plugins/gstore` 或 `plugins/todo` 来实现：
 
 - 默认 TUI 入口
 - 显式 CLI 统计/配置命令
@@ -104,6 +104,8 @@ my-plugin/
 - 双语输出
 
 `gstore` 是需要 CLI + TUI 但核心逻辑仍独立于 Ink 的参考实现；其本地 Git 工作区固定为 `~/.slothtool/data`。
+
+`todo` 是需要拆分 JSON 数据文件、完整 CLI 和手动同步桥接的参考实现；它通过 `gstore` 命令同步 `~/.slothtool/data/todo/default`。
 
 ## TUI Shell Standard
 
@@ -141,11 +143,20 @@ SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 node plugins/gstore/bin/gstore.js repo status
 ```
 
+`todo` 参考命令：
+
+```bash
+node plugins/todo/bin/todo.js --help
+SLOTHTOOL_TODO_TUI_TEST_ACTION=exit node plugins/todo/bin/todo.js
+node plugins/todo/bin/todo.js add "Buy milk" --tag home
+node plugins/todo/bin/todo.js list
+```
+
 ## Integration Notes
 
 SlothTool 当前只安装内置官方插件：
 
-- `slothtool install loc`、`slothtool install image-compress`、`slothtool install gstore` 可用，因为它们定义在 `lib/official-plugins.json`
+- `slothtool install loc`、`slothtool install image-compress`、`slothtool install gstore`、`slothtool install todo` 可用，因为它们定义在 `lib/official-plugins.json`
 - 任意第三方插件安装暂不属于当前产品范围
 
 如果未来新增官方插件，需要同步更新：
@@ -160,10 +171,11 @@ SlothTool 当前只安装内置官方插件：
 - gstore 同步数据目录：`~/.slothtool/data`
 - 可同步插件配置目录：`~/.slothtool/data/plugin-configs/<alias>.json`
 - 本机插件私有配置目录：`~/.slothtool/plugin-configs/<alias>.json`
+- `todo` 任务目录：`~/.slothtool/data/todo/default/tasks/<yyyy>/<mm>/<uuid>.json`
 
 ## Publishing Model
 
 - 根包 `@holic512/slothtool` 从仓库根目录发布
-- 官方纯 Node 插件 `@holic512/plugin-loc`、`@holic512/plugin-gstore` 通过 `npm pack` 生成 GitHub Release 资产
+- 官方纯 Node 插件 `@holic512/plugin-loc`、`@holic512/plugin-gstore`、`@holic512/plugin-todo` 通过 `npm pack` 生成 GitHub Release 资产
 - `@holic512/plugin-image-compress` 使用专用多平台 release workflow
 - `plugins/template-basic` 不发布

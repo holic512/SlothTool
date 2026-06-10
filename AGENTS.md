@@ -6,9 +6,10 @@ Concise repo rules for Codex working on SlothTool.
 
 - SlothTool is a TUI-first plugin manager.
 - Root package: `@holic512/slothtool`
-- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, and `@holic512/plugin-gstore`.
+- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, and `@holic512/plugin-todo`.
 - `plugins/image-compress` ships as an official plugin workspace with a dedicated multi-platform release workflow and target-aware asset installation.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing `~/.slothtool/data` through a GitHub private repository via local `git` and `gh`.
+- `plugins/todo` ships as an official CLI + TUI plugin workspace that stores split JSON tasks in `~/.slothtool/data/todo/default` and delegates sync to `gstore`.
 - Official plugins are installed from GitHub Release `.tgz` assets, not arbitrary npm names.
 - Runtime baseline:
   - Node.js `>=22`
@@ -96,6 +97,7 @@ Cross-platform official plugin rules:
 - `loc` plugin: `plugins/loc/bin/loc.js`, `plugins/loc/lib/*`, `test/loc-cli.test.js`
 - `image-compress` plugin: `plugins/image-compress/bin/image-compress.js`, `plugins/image-compress/lib/*`, `plugins/image-compress/backend/**`, `test/image-compress-plugin.test.js`
 - `gstore` plugin: `plugins/gstore/bin/gstore.js`, `plugins/gstore/lib/*`, `test/gstore-cli.test.js`
+- `todo` plugin: `plugins/todo/bin/todo.js`, `plugins/todo/lib/*`, `test/todo-cli.test.js`
 - `plugins/template-basic/**` is scaffold-only, not a published workspace package.
 
 ## 6. Validation
@@ -130,12 +132,22 @@ SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 node --test test/gstore-cli.test.js
 ```
 
+`todo` plugin:
+
+```bash
+node plugins/todo/bin/todo.js --help
+node --check plugins/todo/lib/service.js
+SLOTHTOOL_TODO_TUI_TEST_ACTION=exit node plugins/todo/bin/todo.js
+node --test test/todo-cli.test.js
+```
+
 Packaging:
 
 ```bash
 npm pack --dry-run
 cd plugins/loc && npm pack --dry-run
 cd plugins/gstore && npm pack --dry-run
+cd plugins/todo && npm pack --dry-run
 cd plugins/image-compress/backend && GOCACHE=$(mktemp -d) go test ./...
 node --test test/image-compress-plugin.test.js
 node --test test/official-plugin-selection.test.js
@@ -160,6 +172,7 @@ Testing conventions:
 - Root shipped behavior changes require bumping root `package.json` and syncing `package-lock.json`.
 - `plugins/loc` shipped behavior changes require bumping `plugins/loc/package.json` and its workspace lock entry.
 - `plugins/gstore` shipped behavior changes require bumping `plugins/gstore/package.json` and its workspace lock entry.
+- `plugins/todo` shipped behavior changes require bumping `plugins/todo/package.json` and its workspace lock entry.
 - If a change ships both core and the official plugin, bump both in the same change set.
 - Before any commit that changes a shipped package version, confirm the intended version increment with the user. Do not choose the bump unilaterally.
 - Before finishing shipped code changes, verify release tags are still free:
@@ -167,6 +180,7 @@ Testing conventions:
   - plugin: `plugin-loc-v<plugin-version>`
   - image-compress plugin: `plugin-image-compress-v<plugin-version>`
   - gstore plugin: `plugin-gstore-v<plugin-version>`
+  - todo plugin: `plugin-todo-v<plugin-version>`
 - Release workflows:
   - core: `.github/workflows/release-core.yml`
   - plugins: `.github/workflows/release-plugins.yml`
@@ -184,4 +198,5 @@ Testing conventions:
   - `bin/slothtool.js`
   - `plugins/loc/bin/loc.js`
   - `plugins/gstore/bin/gstore.js`
+  - `plugins/todo/bin/todo.js`
   - `plugins/template-basic/bin/mytool.js`

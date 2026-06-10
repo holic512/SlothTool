@@ -2,9 +2,9 @@
 # @project SlothTool
 # @module GitHub Actions / Plugin Release
 # @description 当纯 Node 官方插件变更时，按矩阵打包并发布 GitHub Release 资产。
-# @logic 1. 监听 loc 与 gstore 插件目录；2. 按矩阵解析插件元数据并执行 npm pack；3. 为不存在的版本 tag 创建 release 并上传 tgz。
-# @dependencies GitHub Actions, npm, plugins/loc/package.json, plugins/gstore/package.json
-# @index_tags workflow, plugin-release, loc, gstore, npm-pack
+# @logic 1. 监听 loc、gstore 与 todo 插件目录；2. 按矩阵解析插件元数据并执行 npm pack；3. 为不存在的版本 tag 创建 release 并上传 tgz。
+# @dependencies GitHub Actions, npm, plugins/loc/package.json, plugins/gstore/package.json, plugins/todo/package.json
+# @index_tags workflow, plugin-release, loc, gstore, todo, npm-pack
 # @author holic512
 
 name: Release Official Node Plugins
@@ -16,8 +16,10 @@ on:
     paths:
       - 'plugins/loc/**'
       - 'plugins/gstore/**'
+      - 'plugins/todo/**'
       - 'test/loc-cli.test.js'
       - 'test/gstore-cli.test.js'
+      - 'test/todo-cli.test.js'
       - '.github/workflows/release-plugins.yml'
   workflow_dispatch:
 
@@ -37,6 +39,9 @@ jobs:
           - alias: gstore
             package_dir: plugins/gstore
             tag_prefix: plugin-gstore-v
+          - alias: todo
+            package_dir: plugins/todo
+            tag_prefix: plugin-todo-v
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

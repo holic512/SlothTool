@@ -23,8 +23,9 @@ const rootDir = path.resolve(testDir, '..');
 const rootBin = path.join(rootDir, 'bin', 'slothtool.js');
 const locBin = path.join(rootDir, 'plugins', 'loc', 'bin', 'loc.js');
 const gstoreBin = path.join(rootDir, 'plugins', 'gstore', 'bin', 'gstore.js');
+const todoBin = path.join(rootDir, 'plugins', 'todo', 'bin', 'todo.js');
 
-function createTempHome(withLocalLoc = false, withLocalGstore = false) {
+function createTempHome(withLocalLoc = false, withLocalGstore = false, withLocalTodo = false) {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-home-'));
     const slothDir = path.join(homeDir, '.slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
@@ -51,6 +52,17 @@ function createTempHome(withLocalLoc = false, withLocalGstore = false) {
             packageName: '@holic512/plugin-gstore',
             version: 'workspace',
             binPath: gstoreBin,
+            installedAt: '2026-06-11T00:00:00.000Z',
+            sourceType: 'github-release'
+        };
+    }
+
+    if (withLocalTodo) {
+        registry.plugins.todo = {
+            name: '@holic512/plugin-todo',
+            packageName: '@holic512/plugin-todo',
+            version: 'workspace',
+            binPath: todoBin,
             installedAt: '2026-06-11T00:00:00.000Z',
             sourceType: 'github-release'
         };
@@ -152,4 +164,10 @@ test('root shorthand runs the local gstore workspace plugin in CLI mode', () => 
     const output = runNode(rootBin, ['gstore', '--help'], {HOME: createTempHome(false, true)});
     assert.match(output, /gstore repo set/u);
     assert.match(output, /gstore sync/u);
+});
+
+test('root shorthand runs the local todo workspace plugin in CLI mode', () => {
+    const output = runNode(rootBin, ['todo', '--help'], {HOME: createTempHome(false, false, true)});
+    assert.match(output, /todo add <title>/u);
+    assert.match(output, /todo sync/u);
 });
