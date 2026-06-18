@@ -99,13 +99,20 @@ function OverviewPage({summary, doctor}) {
     );
 }
 
-function AuthPage({doctor}) {
+function AuthPage({doctor, manualAuth}) {
     return h(
         Box,
         {flexDirection: 'column'},
         h(Text, null, `gh: ${doctor.gh ? t('installed') : t('missing')}`),
         h(Text, null, `auth: ${doctor.authenticated ? t('ok') : t('notLoggedIn')}`),
-        h(Text, {color: 'gray'}, 'a: gh auth login')
+        h(Text, {color: 'gray'}, 'a: manual gh auth login'),
+        manualAuth
+            ? h(Box, {flexDirection: 'column', marginTop: 1},
+                h(Text, {color: 'cyan'}, t('manualAuthUrl', {url: manualAuth.url})),
+                manualAuth.code ? h(Text, {color: 'cyan'}, t('manualAuthCode', {code: manualAuth.code})) : null,
+                h(Text, {color: 'gray'}, t('manualAuthWaiting'))
+            )
+            : null
     );
 }
 
@@ -172,6 +179,7 @@ function GStoreTuiApp() {
     const [status, setStatus] = useState({message: t('tui.status.ready'), tone: 'green'});
     const [inputMode, setInputMode] = useState(null);
     const [repoInput, setRepoInput] = useState('');
+    const [manualAuth, setManualAuth] = useState(null);
     const activeTab = TAB_ORDER[activeIndex];
     const selectedBinding = summary.bindings[selectedIndex];
 
@@ -266,7 +274,18 @@ function GStoreTuiApp() {
         }
 
         if (input === 'a') {
-            runAction(() => ensureAuth());
+            setActiveIndex(TAB_ORDER.indexOf('auth'));
+            setManualAuth(null);
+            runAction(async () => {
+                await ensureAuth({
+                    silent: true,
+                    onManualLogin: login => {
+                        setManualAuth(login);
+                        setStatus({message: t('tui.status.manualAuth'), tone: 'cyan'});
+                    }
+                });
+                setManualAuth(null);
+            });
             return;
         }
 
@@ -331,7 +350,7 @@ function GStoreTuiApp() {
     if (activeTab === 'overview') {
         content = h(OverviewPage, {summary, doctor});
     } else if (activeTab === 'auth') {
-        content = h(AuthPage, {doctor});
+        content = h(AuthPage, {doctor, manualAuth});
     } else if (activeTab === 'repository') {
         content = h(RepositoryPage, {summary, inputMode, repoInput});
     } else if (activeTab === 'bindings') {

@@ -16,7 +16,12 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {isReliableAuthTerminal, parseDeviceLoginOutput, resolveGhInstaller} from '../plugins/gstore/lib/gh.js';
+import {
+    isReliableAuthTerminal,
+    parseDeviceLoginOutput,
+    resolveGhInstaller,
+    resolveNoopBrowserCommand
+} from '../plugins/gstore/lib/gh.js';
 import {classifyError} from '../plugins/gstore/lib/service.js';
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
@@ -85,6 +90,7 @@ function prepareBoundRepo() {
 test('gstore help advertises CLI commands and default TUI', () => {
     const output = runGstore(['--help'], {HOME: createTempHome()});
     assert.match(output, /gstore --tui/u);
+    assert.match(output, /gstore auth.*一次性代码/u);
     assert.match(output, /gstore repo set/u);
     assert.match(output, /gstore sync/u);
 });
@@ -175,9 +181,11 @@ test('gstore gh installer selection and error classification are deterministic',
 
 test('gstore parses GitHub CLI device login output for manual auth guidance', () => {
     const login = parseDeviceLoginOutput('! First copy your one-time code: A3F2-0DBE\nPress Enter to open https://github.com/login/device in your browser...');
+    const noopBrowser = resolveNoopBrowserCommand();
 
     assert.equal(login.code, 'A3F2-0DBE');
     assert.equal(login.url, 'https://github.com/login/device');
+    assert.ok(fs.existsSync(noopBrowser));
     assert.equal(isReliableAuthTerminal({reliableTerminal: false}), false);
     assert.equal(isReliableAuthTerminal({reliableTerminal: true}), true);
 });

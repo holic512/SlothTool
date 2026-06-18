@@ -2,18 +2,22 @@
  * @file GStoreGithubCliService
  * @project SlothTool
  * @module GStore Plugin / GitHub CLI
- * @description 封装 GitHub CLI 检测、自动安装、登录、repo 创建和 git 凭据配置，并在非可靠终端中提示手动设备登录。
- * @logic 1. 检测 gh 是否存在；2. 按平台选择包管理器安装命令；3. 用 gh auth 和 repo 命令完成 GitHub 操作；4. 非可靠终端解析 device code 并自动继续等待授权。
+ * @description 封装 GitHub CLI 检测、自动安装、手动设备登录、repo 创建和 git 凭据配置。
+ * @logic 1. 检测 gh 是否存在；2. 按平台选择包管理器安装命令；3. 通过 device code 手动授权并阻止自动唤起浏览器；4. 调用 gh repo 与 auth setup-git。
  * @dependencies Node: child_process, Runner: ./command-runner.js, I18N: ./i18n.js
  * @index_tags gstore gh, GitHub CLI, auth login, repo create, 自动安装
  * @author holic512
  */
 
 import {spawn} from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {commandExists, runCommand, tryRunCommand} from './command-runner.js';
 import {t} from './i18n.js';
 
 const DEVICE_LOGIN_URL = 'https://github.com/login/device';
+const NOOP_BROWSER_DIR = 'slothtool-gstore';
 
 export function isGhAvailable(options = {}) {
     return commandExists('gh', options);
@@ -133,6 +137,39 @@ export function parseDeviceLoginOutput(output) {
     };
 }
 
+export function resolveNoopBrowserCommand(options = {}) {
+    if (options.noopBrowserCommand) {
+        return options.noopBrowserCommand;
+    }
+
+    const platform = options.platform || process.platform;
+    const dir = path.join(os.tmpdir(), NOOP_BROWSER_DIR);
+    fs.mkdirSync(dir, {recursive: true});
+
+    if (platform === 'win32') {
+        const commandPath = path.join(dir, 'noop-browser.cmd');
+        if (!fs.existsSync(commandPath)) {
+            fs.writeFileSync(commandPath, '@echo off\r\nexit /b 0\r\n');
+        }
+        return commandPath;
+    }
+
+    const commandPath = path.join(dir, 'noop-browser.sh');
+    if (!fs.existsSync(commandPath)) {
+        fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n');
+    }
+    fs.chmodSync(commandPath, 0o755);
+    return commandPath;
+}
+
+function buildManualAuthEnv(options = {}) {
+    return {
+        ...process.env,
+        ...options.env,
+        GH_BROWSER: resolveNoopBrowserCommand(options)
+    };
+}
+
 export function isReliableAuthTerminal(options = {}) {
     if (typeof options.reliableTerminal === 'boolean') {
         return options.reliableTerminal;
@@ -148,10 +185,7 @@ export function isReliableAuthTerminal(options = {}) {
 function runManualDeviceLogin(options = {}) {
     return new Promise((resolve, reject) => {
         const child = spawn('gh', ['auth', 'login', '--git-protocol', 'https', '--web'], {
-            env: {
-                ...process.env,
-                ...options.env
-            },
+            env: buildManualAuthEnv(options),
             stdio: ['pipe', 'pipe', 'pipe']
         });
         let output = '';
@@ -169,6 +203,14 @@ function runManualDeviceLogin(options = {}) {
             }
 
             prompted = true;
+            if (options.onManualLogin) {
+                options.onManualLogin(login);
+            }
+
+            if (options.silent) {
+                return;
+            }
+
             if (login.code) {
                 console.error(t('manualDeviceLogin', login));
             } else {
@@ -189,7 +231,9 @@ function runManualDeviceLogin(options = {}) {
         child.stdout.on('data', chunk => {
             const text = String(chunk);
             output += text;
-            process.stderr.write(text);
+            if (!options.silent) {
+                process.stderr.write(text);
+            }
             maybePrintManualPrompt();
             maybeContinue();
         });
@@ -197,7 +241,9 @@ function runManualDeviceLogin(options = {}) {
         child.stderr.on('data', chunk => {
             const text = String(chunk);
             output += text;
-            process.stderr.write(text);
+            if (!options.silent) {
+                process.stderr.write(text);
+            }
             maybePrintManualPrompt();
             maybeContinue();
         });
@@ -222,7 +268,7 @@ export async function ensureGithubAuth(options = {}) {
     const currentStatus = getAuthStatus(options);
 
     if (!currentStatus.authenticated) {
-        if (!isReliableAuthTerminal(options) && !options.runner) {
+        if (options.manualAuth !== false && !options.runner) {
             await runManualDeviceLogin(options);
         } else {
             (options.runner || runCommand)('gh', ['auth', 'login', '--git-protocol', 'https', '--web'], {
@@ -257,5 +303,6 @@ export default {
     isReliableAuthTerminal,
     isGhAvailable,
     parseDeviceLoginOutput,
+    resolveNoopBrowserCommand,
     resolveGhInstaller
 };

@@ -60,6 +60,7 @@ function printHelp() {
     console.log(`  -m, --message     ${t('messageOption')}`);
     console.log('');
     console.log(t('examples'));
+    console.log(`  gstore auth  # ${t('authExample')}`);
     console.log('  gstore repo set holic512/my-private-data --create');
     console.log('  gstore bind todo default ~/.slothtool/data/todo/default');
     console.log('  gstore sync todo default');
