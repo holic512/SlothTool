@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-gstore",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Sync personal tool data through a private GitHub repository",
   "main": "lib/service.js",
   "type": "module",

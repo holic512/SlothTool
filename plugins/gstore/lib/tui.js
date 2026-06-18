@@ -116,15 +116,22 @@ function AuthPage({doctor, manualAuth}) {
     );
 }
 
-function RepositoryPage({summary, inputMode, repoInput}) {
+function RepositoryPage({summary, inputMode, repoInput, repoCreate}) {
+    const editing = inputMode === 'repository';
+    const repositoryValue = editing ? repoInput : summary.repository || '';
+
     return h(
         Box,
         {flexDirection: 'column'},
-        h(Text, null, t('dataDir', {dir: summary.dataDir})),
-        h(Text, null, t('remote', {remote: summary.remote || t('noRemote')})),
-        inputMode
-            ? h(Text, {color: 'cyan'}, `${t('tui.inputHint')} ${repoInput}`)
-            : h(Text, {color: 'gray'}, 'e: set repository  n: create private repository')
+        h(Section, {title: t('tui.repository.title')},
+            h(Text, null, t('dataDir', {dir: summary.dataDir})),
+            h(Text, null, t('remote', {remote: summary.remote || t('noRemote')})),
+            h(Text, null, `${t('tui.repository.repository')}: ${repositoryValue || t('tui.repository.placeholder')}`),
+            h(Text, null, `${t('tui.repository.createPrivate')}: ${repoCreate ? t('yes') : t('no')}`),
+            editing
+                ? h(Text, {color: 'cyan'}, t('tui.repository.editing'))
+                : h(Text, {color: summary.remote ? 'gray' : 'yellow'}, t('tui.repository.ready'))
+        )
     );
 }
 
@@ -179,23 +186,27 @@ function GStoreTuiApp() {
     const [status, setStatus] = useState({message: t('tui.status.ready'), tone: 'green'});
     const [inputMode, setInputMode] = useState(null);
     const [repoInput, setRepoInput] = useState('');
+    const [repoCreate, setRepoCreate] = useState(false);
     const [manualAuth, setManualAuth] = useState(null);
     const activeTab = TAB_ORDER[activeIndex];
     const selectedBinding = summary.bindings[selectedIndex];
 
-    function refresh() {
+    function refresh(nextStatus = {message: t('tui.status.refreshed'), tone: 'green'}) {
         const nextSummary = getRepositorySummary();
         setSummary(nextSummary);
         setDoctor(runDoctor());
         setSelectedIndex(current => clamp(current, nextSummary.bindings.length));
-        setStatus({message: t('tui.status.refreshed'), tone: 'green'});
+        setStatus(nextStatus);
     }
 
-    async function runAction(action) {
+    async function runAction(action, getSuccessStatus) {
         try {
             setStatus({message: t('tui.status.loading'), tone: 'yellow'});
-            await Promise.resolve(action());
-            refresh();
+            const result = await Promise.resolve(action());
+            const nextStatus = typeof getSuccessStatus === 'function'
+                ? getSuccessStatus(result)
+                : {message: t('tui.status.refreshed'), tone: 'green'};
+            refresh(nextStatus);
         } catch (error) {
             setStatus({message: error.message, tone: 'red'});
         }
@@ -215,7 +226,7 @@ function GStoreTuiApp() {
     }, []);
 
     useInput((input, key) => {
-        if (inputMode) {
+        if (inputMode === 'repository') {
             if (key.escape) {
                 setInputMode(null);
                 setRepoInput('');
@@ -230,10 +241,16 @@ function GStoreTuiApp() {
                     return;
                 }
 
-                const create = inputMode === 'create-repo';
                 setInputMode(null);
                 setRepoInput('');
-                runAction(() => configureRepository(value, {create}));
+                runAction(
+                    () => {
+                        const result = configureRepository(value, {create: repoCreate});
+                        setRepoCreate(false);
+                        return result;
+                    },
+                    result => ({message: t('repoSet', {repo: result.repository}), tone: 'green'})
+                );
                 return;
             }
 
@@ -289,15 +306,15 @@ function GStoreTuiApp() {
             return;
         }
 
-        if (input === 'e' && activeTab === 'repository') {
-            setInputMode('set-repo');
+        if (activeTab === 'repository' && key.return) {
+            setInputMode('repository');
+            setRepoInput(summary.repository || '');
             setStatus({message: t('tui.status.inputRepo'), tone: 'cyan'});
             return;
         }
 
-        if (input === 'n' && activeTab === 'repository') {
-            setInputMode('create-repo');
-            setStatus({message: t('tui.status.inputRepo'), tone: 'cyan'});
+        if (activeTab === 'repository' && input === ' ') {
+            setRepoCreate(current => !current);
             return;
         }
 
@@ -352,7 +369,7 @@ function GStoreTuiApp() {
     } else if (activeTab === 'auth') {
         content = h(AuthPage, {doctor, manualAuth});
     } else if (activeTab === 'repository') {
-        content = h(RepositoryPage, {summary, inputMode, repoInput});
+        content = h(RepositoryPage, {summary, inputMode, repoInput, repoCreate});
     } else if (activeTab === 'bindings') {
         content = h(BindingList, {bindings: summary.bindings, selectedIndex});
     } else if (activeTab === 'sync') {

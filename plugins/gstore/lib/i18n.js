@@ -75,6 +75,8 @@ export const messages = {
         remoteChangedStop: '远端已有变更，请先执行 pull 或 sync。',
         doctorTitle: 'gstore 诊断',
         ok: '正常',
+        yes: '是',
+        no: '否',
         missing: '缺失',
         failed: '失败',
         installed: '已安装',
@@ -86,6 +88,14 @@ export const messages = {
         tui: {
             footer: 'Tab 切页  Up/Down 移动  r 刷新  a 手动登录  l Pull  p Push  s Sync  c 冲突  q 退出',
             inputHint: '输入 OWNER/REPO 后 Enter 保存，Esc 取消。',
+            repository: {
+                title: '远端仓库绑定',
+                repository: '仓库地址',
+                placeholder: '未填写',
+                createPrivate: '创建 GitHub private repo',
+                ready: 'Enter 编辑仓库地址，Space 切换是否创建私有仓库。',
+                editing: '输入 OWNER/REPO、remote URL 或本地路径，Enter 绑定，Esc 取消。'
+            },
             tabs: {
                 overview: '概览',
                 auth: '登录',
@@ -149,6 +159,8 @@ export const messages = {
         remoteChangedStop: 'Remote has changes. Run pull or sync first.',
         doctorTitle: 'gstore doctor',
         ok: 'OK',
+        yes: 'yes',
+        no: 'no',
         missing: 'missing',
         failed: 'failed',
         installed: 'installed',
@@ -160,6 +172,14 @@ export const messages = {
         tui: {
             footer: 'Tab page  Up/Down move  r refresh  a manual auth  l Pull  p Push  s Sync  c conflicts  q quit',
             inputHint: 'Type OWNER/REPO and press Enter. Esc cancels.',
+            repository: {
+                title: 'Remote repository binding',
+                repository: 'Repository',
+                placeholder: 'empty',
+                createPrivate: 'Create GitHub private repo',
+                ready: 'Press Enter to edit the repository, or Space to toggle private repo creation.',
+                editing: 'Type OWNER/REPO, remote URL, or local path. Enter binds it; Esc cancels.'
+            },
             tabs: {
                 overview: 'Overview',
                 auth: 'Auth',
