@@ -72,7 +72,7 @@ async function main() {
     }
 
     if (command === 'uninstall') {
-        commands.uninstall(args.slice(1));
+        await commands.uninstall(args.slice(1));
         return;
     }
 
@@ -108,7 +108,7 @@ async function main() {
     }
 
     if (command === 'self-update') {
-        commands.selfUpdate();
+        await commands.selfUpdate();
         return;
     }
 
