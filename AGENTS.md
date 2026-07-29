@@ -6,11 +6,13 @@ Concise repo rules for Codex working on SlothTool.
 
 - SlothTool is a TUI-first plugin manager.
 - Root package: `@holic512/slothtool`
-- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, and `@holic512/plugin-todo`.
+- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, `@holic512/plugin-todo`, and `@holic512/plugin-codex-models`.
 - `plugins/image-compress` ships as an official plugin workspace with a dedicated multi-platform release workflow and target-aware asset installation.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing `~/.slothtool/data` through a GitHub private repository via local `git` and `gh`.
 - `plugins/todo` ships as an official CLI + TUI plugin workspace that stores split JSON tasks in `~/.slothtool/data/todo/default` and delegates sync to `gstore`.
-- Official plugins are installed from GitHub Release `.tgz` assets, not arbitrary npm names.
+- `plugins/codex-models` ships as an official CLI + TUI plugin workspace for Codex custom-provider diagnostics, cross-vendor model metadata, reasoning-level switching, catalog sync, and safe Desktop offline repair-script generation.
+- Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
+- `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
 - Runtime baseline:
   - Node.js `>=22`
   - npm `>=10`
@@ -29,7 +31,7 @@ Concise repo rules for Codex working on SlothTool.
 - CLI remains the capability layer for scripting and automation.
 - `slothtool` with no args launches the root full-screen TUI.
 - `slothtool <plugin>` with no extra args launches that plugin's default TUI.
-- Explicit CLI commands must keep working: `install`, `list`, `update`, `config`, `run`, `self-update`, `uninstall`, bulk flags.
+- Explicit CLI commands must keep working: `install`, offline `install --file`, `bundle`, `list`, `update`, `config`, `run`, `self-update`, `uninstall`, bulk flags.
 - Root TUI page model is:
   - `Home`
   - `Run`
@@ -80,6 +82,14 @@ Rules:
 - TUI-capable plugins should support explicit `--tui`.
 - No-arg plugin entry defaults to TUI unless product requirements change.
 
+Offline official plugin rules:
+
+- `install <alias> --file <archive.tgz>` remains restricted to built-in official aliases and must validate the archive package name.
+- Offline archives should use the npm-pack-compatible `package/` root layout.
+- A self-contained archive must include production `node_modules`; otherwise installation may only use `npm install --omit=dev --offline` and must never silently fetch from the network.
+- `bundle <alias>` must refuse to create an incomplete dependency-bearing archive.
+- Offline installations record `sourceType: "offline-archive"` in the registry.
+
 Cross-platform official plugin rules:
 
 - If a plugin needs target-specific release assets, declare `assetStrategy: "platform-target"` in `lib/official-plugins.json`.
@@ -98,6 +108,8 @@ Cross-platform official plugin rules:
 - `image-compress` plugin: `plugins/image-compress/bin/image-compress.js`, `plugins/image-compress/lib/*`, `plugins/image-compress/backend/**`, `test/image-compress-plugin.test.js`
 - `gstore` plugin: `plugins/gstore/bin/gstore.js`, `plugins/gstore/lib/*`, `test/gstore-cli.test.js`
 - `todo` plugin: `plugins/todo/bin/todo.js`, `plugins/todo/lib/*`, `test/todo-cli.test.js`
+- `codex-models` plugin: `plugins/codex-models/bin/codex-models.js`, `plugins/codex-models/lib/*`, `test/codex-models-cli.test.js`
+- Offline install/bundle: `lib/commands/install.js`, `lib/commands/bundle.js`, `lib/services/plugin-service.js`, `test/offline-plugin-install.test.js`
 - `plugins/template-basic/**` is scaffold-only, not a published workspace package.
 
 ## 6. Validation
@@ -141,6 +153,17 @@ SLOTHTOOL_TODO_TUI_TEST_ACTION=exit node plugins/todo/bin/todo.js
 node --test test/todo-cli.test.js
 ```
 
+`codex-models` plugin:
+
+```bash
+node plugins/codex-models/bin/codex-models.js --help
+node --check plugins/codex-models/lib/model-library.js
+node --check plugins/codex-models/lib/service.js
+SLOTHTOOL_CODEX_MODELS_TUI_TEST_ACTION=exit node plugins/codex-models/bin/codex-models.js
+node --test test/codex-models-cli.test.js
+node --test test/offline-plugin-install.test.js
+```
+
 Packaging:
 
 ```bash
@@ -148,6 +171,7 @@ npm pack --dry-run
 cd plugins/loc && npm pack --dry-run
 cd plugins/gstore && npm pack --dry-run
 cd plugins/todo && npm pack --dry-run
+cd plugins/codex-models && npm pack --dry-run
 cd plugins/image-compress/backend && GOCACHE=$(mktemp -d) go test ./...
 node --test test/image-compress-plugin.test.js
 node --test test/official-plugin-selection.test.js
@@ -173,6 +197,7 @@ Testing conventions:
 - `plugins/loc` shipped behavior changes require bumping `plugins/loc/package.json` and its workspace lock entry.
 - `plugins/gstore` shipped behavior changes require bumping `plugins/gstore/package.json` and its workspace lock entry.
 - `plugins/todo` shipped behavior changes require bumping `plugins/todo/package.json` and its workspace lock entry.
+- `plugins/codex-models` shipped behavior changes require bumping `plugins/codex-models/package.json` and its workspace lock entry.
 - If a change ships both core and the official plugin, bump both in the same change set.
 - Before any commit that changes a shipped package version, confirm the intended version increment with the user. Do not choose the bump unilaterally.
 - Before finishing shipped code changes, verify release tags are still free:
@@ -181,6 +206,7 @@ Testing conventions:
   - image-compress plugin: `plugin-image-compress-v<plugin-version>`
   - gstore plugin: `plugin-gstore-v<plugin-version>`
   - todo plugin: `plugin-todo-v<plugin-version>`
+  - codex-models plugin: `plugin-codex-models-v<plugin-version>`
 - Release workflows:
   - core: `.github/workflows/release-core.yml`
   - plugins: `.github/workflows/release-plugins.yml`
@@ -199,4 +225,5 @@ Testing conventions:
   - `plugins/loc/bin/loc.js`
   - `plugins/gstore/bin/gstore.js`
   - `plugins/todo/bin/todo.js`
+  - `plugins/codex-models/bin/codex-models.js`
   - `plugins/template-basic/bin/mytool.js`

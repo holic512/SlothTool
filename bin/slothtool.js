@@ -4,10 +4,10 @@
  * @file SlothToolCliEntry
  * @project SlothTool
  * @module Core CLI / Entry
- * @description SlothTool 命令行入口，默认进入全屏 TUI，并为显式 CLI 子命令提供稳定分发。
- * @logic 1. 无参数时优先进入 TUI；2. 保留显式 CLI 子命令与插件简写；3. 统一处理命令异常和退出码。
+ * @description SlothTool 命令行入口，默认进入全屏 TUI，并为在线/离线安装、离线归档及其他显式 CLI 子命令提供稳定分发。
+ * @logic 1. 无参数时优先进入 TUI；2. 分发 install --file、bundle 等显式 CLI 子命令；3. 保留插件简写；4. 统一处理命令异常和退出码。
  * @dependencies Commands: ../lib/commands/index.js, I18N: ../lib/i18n.js, Utils: ../lib/utils.js
- * @index_tags CLI入口, 默认TUI, 命令分发, 插件简写
+ * @index_tags CLI入口, 默认TUI, 命令分发, 离线安装, bundle, 插件简写
  * @author holic512
  */
 
@@ -23,6 +23,7 @@ function printHelp() {
     console.log(`  slothtool                       ${t('commands.interactive')}`);
     console.log(`  slothtool tui                   ${t('commands.interactive')}`);
     console.log(`  slothtool install <alias>       ${t('commands.install')}`);
+    console.log(`  slothtool bundle <alias>        ${t('commands.bundle')}`);
     console.log(`  slothtool uninstall <alias>     ${t('commands.uninstall')}`);
     console.log(`  slothtool update <alias>        ${t('commands.update')}`);
     console.log(`  slothtool --update-all          ${t('commands.updateAll')}`);
@@ -36,6 +37,8 @@ function printHelp() {
     console.log(t('examples'));
     console.log('  slothtool');
     console.log('  slothtool install loc');
+    console.log('  slothtool install loc --file ./loc-offline.tgz');
+    console.log('  slothtool bundle loc --output ./loc-offline.tgz');
     console.log('  slothtool loc');
     console.log('  slothtool loc ./src');
     console.log('  slothtool config language en');
@@ -68,6 +71,11 @@ async function main() {
 
     if (command === 'install') {
         await commands.install(args.slice(1));
+        return;
+    }
+
+    if (command === 'bundle') {
+        await commands.bundle(args.slice(1));
         return;
     }
 

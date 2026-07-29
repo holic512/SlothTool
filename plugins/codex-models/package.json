@@ -1,0 +1,41 @@
+{
+  "name": "@holic512/plugin-codex-models",
+  "version": "0.1.0",
+  "description": "Configure Codex custom-provider model catalogs and generate safe offline Desktop model-filter repair scripts",
+  "main": "lib/service.js",
+  "type": "module",
+  "bin": {
+    "codex-models": "bin/codex-models.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i",
+    "ui": {
+      "cli": true,
+      "tui": true,
+      "defaultMode": "tui",
+      "tuiFlag": "--tui",
+      "compatFlags": [
+        "-i",
+        "--interactive"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "codex",
+    "models",
+    "provider",
+    "desktop"
+  ],
+  "author": "holic512",
+  "license": "ISC",
+  "dependencies": {
+    "ink": "^7.0.4",
+    "react": "^19.2.0"
+  }
+}

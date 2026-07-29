@@ -107,6 +107,34 @@
         "Manual gstore sync",
         "Default TUI"
       ]
+    },
+    {
+      "alias": "codex-models",
+      "packageName": "@holic512/plugin-codex-models",
+      "repository": "holic512/SlothTool",
+      "packageDir": "plugins/codex-models",
+      "releaseTagPrefix": "plugin-codex-models-v",
+      "assetNamePrefix": "holic512-plugin-codex-models-",
+      "description": "诊断 Codex 自定义 provider，同步跨厂商模型库、上下文与推理等级，并生成安全的 Desktop 离线筛选修复脚本",
+      "descriptionEn": "Diagnose Codex custom providers, sync cross-vendor model metadata and reasoning levels, and create safe offline Desktop filter repair scripts",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "Provider /models 诊断与凭据脱敏",
+        "OpenAI、Claude、Gemini、Grok、DeepSeek、Qwen、Mistral、Kimi 等跨厂商模型库",
+        "上下文窗口、输入模态、联网搜索与并行工具能力元数据",
+        "模型与推理等级切换（含 gpt-5.6-sol max / ultra）",
+        "完整 model_catalog_json 同步",
+        "Desktop LevelDB 一次性离线修复脚本"
+      ],
+      "featuresEn": [
+        "Provider /models diagnostics with credential redaction",
+        "Cross-vendor library for OpenAI, Claude, Gemini, Grok, DeepSeek, Qwen, Mistral, Kimi, and more",
+        "Context window, input modality, web search, and parallel-tool metadata",
+        "Model and reasoning-level switching, including gpt-5.6-sol max / ultra",
+        "Complete model_catalog_json sync",
+        "One-time offline Desktop LevelDB repair script"
+      ]
     }
   ]
 }

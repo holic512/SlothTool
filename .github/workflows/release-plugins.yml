@@ -2,9 +2,9 @@
 # @project SlothTool
 # @module GitHub Actions / Plugin Release
 # @description 当纯 Node 官方插件变更时，按矩阵打包并发布 GitHub Release 资产。
-# @logic 1. 监听 loc、gstore 与 todo 插件目录；2. 按矩阵解析插件元数据并执行 npm pack；3. 为不存在的版本 tag 创建 release 并上传 tgz。
-# @dependencies GitHub Actions, npm, plugins/loc/package.json, plugins/gstore/package.json, plugins/todo/package.json
-# @index_tags workflow, plugin-release, loc, gstore, todo, npm-pack
+# @logic 1. 监听 loc、gstore、todo 与 codex-models 插件目录；2. 按矩阵解析插件元数据并执行 npm pack；3. 为不存在的版本 tag 创建 release 并上传 tgz。
+# @dependencies GitHub Actions, npm, plugins/loc/package.json, plugins/gstore/package.json, plugins/todo/package.json, plugins/codex-models/package.json
+# @index_tags workflow, plugin-release, loc, gstore, todo, codex-models, npm-pack
 # @author holic512
 
 name: Release Official Node Plugins
@@ -17,9 +17,11 @@ on:
       - 'plugins/loc/**'
       - 'plugins/gstore/**'
       - 'plugins/todo/**'
+      - 'plugins/codex-models/**'
       - 'test/loc-cli.test.js'
       - 'test/gstore-cli.test.js'
       - 'test/todo-cli.test.js'
+      - 'test/codex-models-cli.test.js'
       - '.github/workflows/release-plugins.yml'
   workflow_dispatch:
 
@@ -42,6 +44,9 @@ jobs:
           - alias: todo
             package_dir: plugins/todo
             tag_prefix: plugin-todo-v
+          - alias: codex-models
+            package_dir: plugins/codex-models
+            tag_prefix: plugin-codex-models-v
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

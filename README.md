@@ -2,7 +2,7 @@
 
 SlothTool 是一个 TUI-first 的插件管理器：日常使用默认进入 Ink 全屏界面，同时保留可脚本化的 CLI 命令。
 
-根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc`、`image-compress`、`gstore` 和 `todo`。
+根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc`、`image-compress`、`gstore`、`todo` 和 `codex-models`。
 
 ```bash
 npm install -g @holic512/slothtool
@@ -19,10 +19,12 @@ SlothTool 把“插件管理器”作为默认交互入口：根命令负责安�
 | --- | --- |
 | 默认 TUI | `slothtool` 无参数启动根管理器全屏 TUI。 |
 | CLI 兼容 | `install`、`list`、`update`、`config`、`run`、`self-update` 等命令可直接脚本化调用。 |
-| 官方插件分发 | 内置官方插件清单，安装源限定为 GitHub Release 资产。 |
+| 官方插件分发 | 内置官方插件清单，支持 GitHub Release 在线安装与经过包名校验的离线 `.tgz` 安装。 |
+| 离线归档 | `slothtool bundle` 可把已安装且运行时依赖完整的官方插件打包为可迁移归档。 |
 | 平台资产选择 | `image-compress` 按当前系统和 CPU 架构选择匹配的预编译后端资产。 |
 | 数据同步 | `gstore` 可把 `~/.slothtool/data` 绑定到 GitHub private repo，并同步插件配置和项目数据。 |
 | TodoList | `todo` 将任务拆成独立 JSON 文件，并通过 `gstore` 手动同步。 |
+| Codex 模型管理 | `codex-models` 诊断自定义 provider，同步跨厂商模型库、上下文与推理等级，并生成 Desktop 离线修复脚本。 |
 | 双语界面 | 根管理器和官方插件支持中文 / English 文案。 |
 | 本地用户数据 | 设置、注册表、插件包、插件配置和同步数据都保存在 `~/.slothtool/`。 |
 
@@ -59,11 +61,13 @@ slothtool install loc
 slothtool install image-compress
 slothtool install gstore
 slothtool install todo
+slothtool install codex-models
 
 slothtool loc
 slothtool image-compress
 slothtool gstore
 slothtool todo
+slothtool codex-models
 ```
 
 使用显式 CLI：
@@ -82,6 +86,10 @@ slothtool gstore sync todo default
 slothtool todo add "Buy milk" --tag home --due today
 slothtool todo list --due today
 slothtool todo sync
+
+slothtool codex-models doctor
+slothtool codex-models library show gpt-5.6-sol
+slothtool codex-models model set gpt-5.6-sol --reasoning ultra
 ```
 
 ## TUI Pages
@@ -105,7 +113,9 @@ slothtool todo sync
 | --- | --- |
 | `slothtool` | 启动根全屏 TUI。 |
 | `slothtool tui` | 显式启动根全屏 TUI。 |
-| `slothtool install <alias>` | 安装内置官方插件。 |
+| `slothtool install <alias>` | 从 GitHub Release 安装内置官方插件。 |
+| `slothtool install <alias> --file <archive.tgz>` | 从经过 alias 与包名校验的本地归档离线安装官方插件。 |
+| `slothtool bundle <alias> [--output <archive.tgz>]` | 将已安装官方插件和已有运行时依赖打包为离线归档。 |
 | `slothtool uninstall <alias>` | 卸载指定插件。 |
 | `slothtool update <alias>` | 更新指定插件。 |
 | `slothtool --update-all` | 更新全部可更新目标。 |
@@ -124,6 +134,7 @@ slothtool todo sync
 | `image-compress` | `@holic512/plugin-image-compress` | JPEG / PNG 图片压缩、目录批处理、拖拽路径 TUI、多平台 Go 后端资产。 | `slothtool image-compress` / `image-compress` |
 | `gstore` | `@holic512/plugin-gstore` | GitHub CLI 登录、私有仓库绑定、数据同步、冲突检测、手动同步 TUI。 | `slothtool gstore` / `gstore` |
 | `todo` | `@holic512/plugin-todo` | 独立 JSON 任务文件、完整任务字段、列表、标签、手动 gstore 同步、默认 TUI。 | `slothtool todo` / `todo` |
+| `codex-models` | `@holic512/plugin-codex-models` | 自定义 provider 诊断、跨厂商模型库、上下文和推理等级切换、目录同步、Desktop 离线修复脚本。 | `slothtool codex-models` / `codex-models` |
 
 ### `loc`
 
@@ -195,6 +206,42 @@ slothtool gstore bind todo default ~/.slothtool/data/todo/default
 slothtool todo sync
 ```
 
+
+### `codex-models`
+
+```bash
+slothtool install codex-models
+
+slothtool codex-models
+slothtool codex-models doctor
+slothtool codex-models catalog sync
+slothtool codex-models library list
+slothtool codex-models library show gpt-5.6-sol
+slothtool codex-models model set gpt-5.6-sol --reasoning max
+slothtool codex-models reasoning set ultra
+slothtool codex-models repair create gpt-5.6-sol
+```
+
+`codex-models` 会优先采用 provider `/models` 返回的显式能力，再合并 OpenAI、Claude、Gemini、Grok、DeepSeek、Qwen、Mistral、Kimi、GLM、MiniMax、Llama、Hunyuan、Baichuan、InternLM、Nemotron、Jamba、Granite、Sonar 等常见厂商兼容画像。模型详情包含上下文窗口、推理等级、默认推理等级、输入模态、联网搜索和并行工具能力；未知模型保守回退为 `low / medium / high`。`gpt-5.6-sol` 的 provider 扩展画像包含 `max` 和 `ultra`。
+
+Desktop 修复命令只生成一次性脚本。必须完全退出 Codex 后在独立 Terminal 执行；脚本先检查 LevelDB 锁并完整备份，不修改 `app.asar`、不使用 `launchctl`、不修改 `default_model`。启用缓存冻结可减少 Statsig 立即覆盖，但会暂时冻结同一缓存身份的其他动态配置更新，详细回滚方法见 [`plugins/codex-models/README.md`](./plugins/codex-models/README.md)。
+
+## Offline Plugin Archives
+
+从本地归档安装仍只允许内置官方 alias，并会校验归档内 `package.json` 的包名：
+
+```bash
+slothtool install codex-models --file ./codex-models-offline.tgz
+```
+
+在已安装插件且运行时依赖完整的机器上创建自包含归档：
+
+```bash
+slothtool bundle codex-models --output ./codex-models-offline.tgz
+```
+
+离线归档使用 `package/` 根布局。若归档没有 `node_modules` 但声明了依赖，安装器只会尝试 `npm install --omit=dev --offline`；npm 缓存不完整时会失败并提示先在联网机器上执行 `slothtool bundle`。
+
 ## Configuration
 
 全局设置默认保存在 `~/.slothtool/settings.json`：
@@ -245,7 +292,7 @@ flowchart TD
     C --> D
     D --> F["Plugin service"]
     F --> G["official-plugins.json"]
-    F --> H["GitHub Release .tgz"]
+    F --> H["GitHub Release or offline .tgz"]
     F --> I["~/.slothtool/registry.json"]
     F --> J["~/.slothtool/plugins/<alias>/"]
     E --> I
@@ -257,10 +304,10 @@ flowchart TD
 
 安装流程：
 
-1. `slothtool install <alias>` 从 `lib/official-plugins.json` 查找内置官方插件。
-2. SlothTool 根据插件策略、当前系统平台和 CPU 架构选择 GitHub Release `.tgz` 资产。
-3. 资产被解包并部署到 `~/.slothtool/plugins/<alias>/`。
-4. 插件入口、版本和来源信息写入 `~/.slothtool/registry.json`。
+1. `slothtool install <alias>` 或 `install <alias> --file <archive.tgz>` 从 `lib/official-plugins.json` 查找内置官方插件。
+2. 在线安装按插件策略、当前平台和 CPU 架构选择 GitHub Release `.tgz`；离线安装校验本地归档包名。
+3. 资产被解包并部署到 `~/.slothtool/plugins/<alias>/`；缺少运行时依赖时只允许使用 npm 离线缓存补齐。
+4. 插件入口、版本和来源类型写入 `~/.slothtool/registry.json`。
 5. `slothtool <plugin>` 从注册表解析插件入口；无额外参数时优先进入插件默认 TUI。
 
 ## Data Layout
@@ -300,6 +347,7 @@ SlothTool/
 │   ├── image-compress/      Official image compression plugin workspace
 │   ├── gstore/              Official GitHub data sync plugin workspace
 │   ├── todo/                Official JSON TodoList plugin workspace
+│   ├── codex-models/        Official Codex model configuration plugin workspace
 │   └── template-basic/      Plugin scaffold template
 ├── test/                    node:test regression suite
 ├── PLUGIN_DEVELOPMENT.md    Plugin contract and development notes
@@ -318,6 +366,7 @@ node plugins/loc/bin/loc.js --help
 node plugins/image-compress/bin/image-compress.js --help
 node plugins/gstore/bin/gstore.js --help
 node plugins/todo/bin/todo.js --help
+node plugins/codex-models/bin/codex-models.js --help
 ```
 
 Focused checks:
@@ -330,6 +379,7 @@ SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 SLOTHTOOL_IMAGE_COMPRESS_TUI_TEST_ACTION=exit node plugins/image-compress/bin/image-compress.js
 SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 SLOTHTOOL_TODO_TUI_TEST_ACTION=exit node plugins/todo/bin/todo.js
+SLOTHTOOL_CODEX_MODELS_TUI_TEST_ACTION=exit node plugins/codex-models/bin/codex-models.js
 ```
 
 Full regression:
