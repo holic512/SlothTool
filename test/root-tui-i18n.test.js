@@ -33,7 +33,7 @@ test('root TUI zh chrome is localized', () => {
     assert.equal(messages.zh.tui.title, undefined);
     assert.equal(messages.zh.tui.subtitle, undefined);
     assert.equal(messages.zh.tui.logs, undefined);
-    assert.match(messages.zh.tui.footer.help, /帮助/u);
+    assert.equal(messages.zh.tui.footer.help, 'Tab 切页 | Enter 执行 | Esc 返回 | ? 帮助 | q 退出');
 });
 
 test('root TUI en chrome stays explicit', () => {
@@ -56,5 +56,5 @@ test('root TUI en chrome stays explicit', () => {
     assert.equal(messages.en.tui.title, undefined);
     assert.equal(messages.en.tui.subtitle, undefined);
     assert.equal(messages.en.tui.logs, undefined);
-    assert.match(messages.en.tui.footer.help, /help/u);
+    assert.equal(messages.en.tui.footer.help, 'Tab page | Enter action | Esc back | ? help | q quit');
 });
