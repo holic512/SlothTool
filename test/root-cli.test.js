@@ -154,16 +154,22 @@ test('root self-update style restart does not background-detach the replacement 
     });
 });
 
-test('root manager relaunches after plugin exit and restores the TUI snapshot', () => {
+test('root manager records the run and focuses the recent plugin after returning', () => {
+    const homeDir = createTempHome(true, true, true);
     const output = runNode(rootBin, [], {
-        HOME: createTempHome(true),
+        HOME: homeDir,
         SLOTHTOOL_TUI_TEST_ACTION: 'run-plugin-return',
         SLOTHTOOL_LOC_TUI_TEST_ACTION: 'exit'
     });
+    const persistedRegistry = JSON.parse(fs.readFileSync(
+        path.join(homeDir, '.slothtool', 'registry.json'),
+        'utf8'
+    ));
 
     assert.match(output, /TUI_TEST_RESTORED_STATE:/u);
     assert.match(output, /"activeTab":"run"/u);
     assert.match(output, /"run":0/u);
+    assert.match(persistedRegistry.plugins.loc.lastRunAt, /^\d{4}-\d{2}-\d{2}T/u);
 });
 
 test('root shorthand runs the local loc workspace plugin in CLI mode', () => {

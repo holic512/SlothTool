@@ -17,7 +17,8 @@ import test, {after} from 'node:test';
 import {
     buildSettingsItems,
     buildUninstallItems,
-    buildUpdateItems
+    buildUpdateItems,
+    sortPluginItemsByRecentRun
 } from '../lib/tui/root/items.js';
 import {ROOT_TUI_COLORS} from '../lib/tui/root/constants.js';
 import * as rootLayout from '../lib/tui/root/layout.js';
@@ -69,6 +70,29 @@ test('settings items preview current and next values before execution', () => {
     assert.equal(page.type, SelectionBrowserPage);
     assert.equal(page.props.listTitle, '设置项');
     assert.equal(page.props.listSummary, '5 个选项');
+});
+
+test('run items put the most recently launched plugin first without mutating the source list', () => {
+    const items = [
+        {alias: 'todo', lastRunAt: null},
+        {alias: 'loc', lastRunAt: '2026-08-08T10:00:00.000Z'},
+        {alias: 'gstore', lastRunAt: '2026-08-08T11:00:00.000Z'},
+        {alias: 'codex-models', lastRunAt: 'invalid'}
+    ];
+    const sortedItems = sortPluginItemsByRecentRun(items);
+
+    assert.deepEqual(sortedItems.map(item => item.alias), [
+        'gstore',
+        'loc',
+        'codex-models',
+        'todo'
+    ]);
+    assert.deepEqual(items.map(item => item.alias), [
+        'todo',
+        'loc',
+        'gstore',
+        'codex-models'
+    ]);
 });
 
 test('update items expose version status, batch scope, and failure details', () => {
