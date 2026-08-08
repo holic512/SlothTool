@@ -2,10 +2,10 @@
  * @file RootTuiI18nTest
  * @project SlothTool
  * @module Test / Root TUI
- * @description 验证根 TUI 关键导航与底栏文案在中英文环境下具备稳定的本地化输出。
- * @logic 1. 直接读取 i18n 消息字典；2. 校验首页标签、状态栏和帮助提示的双语文案；3. 防止根 TUI 关键 chrome 回退为硬编码英文。
+ * @description 验证根 TUI 关键导航、插件浏览页与底栏文案在中英文环境下具备稳定的本地化输出。
+ * @logic 1. 直接读取 i18n 消息字典；2. 校验导航、插件列表、详情字段、状态栏和帮助提示的双语文案；3. 防止根 TUI 关键 chrome 回退为硬编码英文。
  * @dependencies I18N: ../lib/i18n.js, Node: assert/test
- * @index_tags 根TUI测试, i18n, 导航文案, 状态栏
+ * @index_tags 根TUI测试, i18n, 导航文案, 插件浏览, 状态栏
  * @author holic512
  */
 
@@ -23,6 +23,11 @@ test('root TUI zh chrome is localized', () => {
     assert.equal(messages.zh.tui.tabs.danger, undefined);
     assert.equal(messages.zh.tui.status.ready, '就绪');
     assert.equal(messages.zh.tui.settings.proxyToggle, '代理开关');
+    assert.equal(messages.zh.tui.run.listTitle, '已安装插件');
+    assert.equal(messages.zh.tui.run.fields.features, '主要能力');
+    assert.equal(messages.zh.tui.install.listTitle, '官方插件');
+    assert.equal(messages.zh.tui.install.fields.package, '包名');
+    assert.equal(messages.zh.tui.pluginBrowser.featureCount, '{count} 项');
     assert.equal(messages.zh.tui.actions.checkUpdates, '检查更新');
     assert.equal(messages.zh.tui.uninstall.action, 'Enter 打开确认并执行卸载');
     assert.equal(messages.zh.tui.title, undefined);
@@ -41,6 +46,11 @@ test('root TUI en chrome stays explicit', () => {
     assert.equal(messages.en.tui.tabs.danger, undefined);
     assert.equal(messages.en.tui.status.ready, 'Ready');
     assert.equal(messages.en.tui.settings.proxyToggle, 'Proxy toggle');
+    assert.equal(messages.en.tui.run.listTitle, 'Installed');
+    assert.equal(messages.en.tui.run.fields.features, 'Capabilities');
+    assert.equal(messages.en.tui.install.listTitle, 'Catalog');
+    assert.equal(messages.en.tui.install.fields.package, 'Package');
+    assert.equal(messages.en.tui.pluginBrowser.featureCount, '{count} items');
     assert.equal(messages.en.tui.actions.checkUpdates, 'Check for updates');
     assert.equal(messages.en.tui.uninstall.action, 'Press Enter to confirm and run the uninstall action');
     assert.equal(messages.en.tui.title, undefined);
