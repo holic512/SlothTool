@@ -76,6 +76,16 @@ test('loc default entry can exit through the TUI smoke hook', () => {
     });
 });
 
+test('loc TUI can render its responsive initial page before exiting', () => {
+    const output = runLoc([], {
+        HOME: createTempHome(),
+        SLOTHTOOL_LOC_TUI_TEST_ACTION: 'render-exit'
+    });
+
+    assert.match(output, /统计概览/u);
+    assert.match(output, /开始统计/u);
+});
+
 test('loc help advertises the default TUI entry', () => {
     const output = runLoc(['--help'], {HOME: createTempHome()});
     assert.match(output, /loc --tui/u);

@@ -153,6 +153,8 @@ loc config exclude dist on
 loc config reset
 ```
 
+`loc` TUI 会根据终端宽高在双栏、上下堆叠和低高度单面板之间切换。统计结果优先展示文件数、总行数、扩展名分布与热点文件；扩展名和排除目录页面则展示当前规则状态、匹配范围与动态分页列表。
+
 ### `image-compress`
 
 ```bash
