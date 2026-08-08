@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-image-compress",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Compress images with a Go backend, Node CLI wrapper, and Ink TUI",
   "main": "lib/service.js",
   "type": "module",

@@ -2,15 +2,16 @@
  * @file PluginTuiI18nTest
  * @project SlothTool
  * @module Test / Plugin TUI
- * @description 验证 loc 与模板插件已经提供各自 TUI 外壳所需的 tab、响应式 footer 和状态栏文案键。
- * @logic 1. 直接读取插件 i18n 消息字典；2. 校验中英文 tab、响应式 footer 与状态栏关键键；3. 防止双语外壳文案缺失。
- * @dependencies I18N: ../plugins/loc/lib/i18n.js, ../plugins/template-basic/lib/i18n.js, Node: assert/test
- * @index_tags 插件i18n测试, loc, template-basic, TUI外壳
+ * @description 验证 loc、image-compress 与模板插件已经提供各自 TUI 外壳所需的 tab、响应式 footer 和状态栏文案键。
+ * @logic 1. 直接读取插件 i18n 消息字典；2. 校验中英文 tab、响应式 footer 与核心页面文案；3. 防止双语外壳文案缺失。
+ * @dependencies I18N: ../plugins/loc/lib/i18n.js, ../plugins/image-compress/lib/i18n.js, ../plugins/template-basic/lib/i18n.js, Node: assert/test
+ * @index_tags 插件i18n测试, loc, image-compress, template-basic, TUI外壳
  * @author holic512
  */
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {messages as imageCompressMessages} from '../plugins/image-compress/lib/i18n.js';
 import {messages as locMessages} from '../plugins/loc/lib/i18n.js';
 import {messages as templateMessages} from '../plugins/template-basic/lib/i18n.js';
 
@@ -25,6 +26,16 @@ test('loc TUI shell keys exist in zh and en', () => {
     assert.match(locMessages.en.tui.help.lines.join('\n'), /\[\/\]/u);
     assert.equal(locMessages.zh.tui.status.ready, '就绪');
     assert.equal(locMessages.en.tui.status.ready, 'Ready');
+});
+
+test('image-compress responsive TUI keys exist in zh and en', () => {
+    assert.equal(imageCompressMessages.zh.tui.tabs.run, '运行');
+    assert.equal(imageCompressMessages.en.tui.tabs.run, 'Run');
+    assert.match(imageCompressMessages.zh.tui.footer.options, /Space/u);
+    assert.match(imageCompressMessages.en.tui.footer.compactRun, /Enter/u);
+    assert.equal(imageCompressMessages.zh.tui.panels.targets, '输入队列');
+    assert.equal(imageCompressMessages.en.tui.result.wouldSave, 'Would save');
+    assert.match(imageCompressMessages.zh.tui.optionDetails.dryRun, /不写入文件/u);
 });
 
 test('template TUI shell keys exist in zh and en', () => {

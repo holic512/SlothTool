@@ -1,15 +1,18 @@
 # Image Compress Plugin Workspace
 
-`plugins/image-compress/` 是 SlothTool 未来图片压缩官方插件的预留工作区。
+`plugins/image-compress/` 是 SlothTool 的官方图片压缩插件工作区。
 
-当前阶段实现了纯 Go 后端、Go CLI，以及一个遵循 SlothTool 插件契约的 Node CLI + Ink TUI 外壳。目录位于 `plugins/image-compress/`，目标是先把可复用的压缩核心、默认交互页和测试打稳。
+插件使用纯 Go 后端处理图片，通过 Node CLI 保持 SlothTool 插件契约，并提供默认全屏 Ink TUI。
 
 当前已提供：
 
 - `pkg/compress` 稳定后端 API
 - `cmd/image-compress` 可执行 CLI
 - `bin/image-compress.js` 默认 TUI / 显式 CLI 入口
-- `lib/tui.js` 全屏 Ink 页面，支持拖拽文件或文件夹路径
+- `lib/tui.js` 响应式全屏 Ink 工作台，支持拖拽文件或文件夹路径
+- 输入队列、执行方案、压缩收益、失败文件和当前会话历史
+- 宽屏双栏、窄屏纵向工作流、低高度精简结果和极小终端提示
+- 选项动态分页、当前参数解释，以及预演/实际写入的高对比状态
 - `.github/workflows/release-image-compress.yml` 多平台 Go 资产打包与发布流程
 - JPEG / PNG 压缩输出
 - WebP 输入解析与受控跳过
@@ -19,14 +22,10 @@
 当前交互形态：
 
 - 直接执行 `node plugins/image-compress/bin/image-compress.js` 默认进入全屏 TUI
-- 在 TUI 的运行页可直接把文件或文件夹拖进终端，自动获取路径
+- 在 TUI 的运行页可直接把文件或文件夹拖进终端，按输入队列批量处理
+- 结果会区分成功、跳过、失败、实际节省和预演预计节省，并优先展示异常或高收益文件
+- 选项页根据终端高度分页，展示 JPEG 质量、尺寸、递归、覆盖、预演和并发等参数的实际作用
 - 显式传参时走 CLI 并转发给 Go 后端
-
-本阶段仍明确不包含：
-
-- SlothTool 根包 `workspaces` 接入
-- `lib/official-plugins.json` 官方插件注册
-- 发布工作流配置
 
 快速体验：
 

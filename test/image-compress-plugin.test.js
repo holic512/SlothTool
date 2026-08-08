@@ -2,8 +2,8 @@
  * @file ImageCompressPluginSmokeTest
  * @project SlothTool
  * @module Test / Image Compress Plugin
- * @description 验证 image-compress 插件的帮助输出、默认 TUI 烟雾路径、拖拽路径解析和后端 CLI 包装是否可用。
- * @logic 1. 通过子进程运行 Node 入口；2. 使用临时 HOME 与临时图片夹具隔离测试；3. 校验帮助、dry-run、JSON 输出和路径解析行为。
+ * @description 验证 image-compress 插件的帮助输出、响应式 TUI 烟雾路径、拖拽路径解析和后端 CLI 包装是否可用。
+ * @logic 1. 通过子进程运行 Node 入口；2. 使用临时 HOME 与临时图片夹具隔离测试；3. 校验默认 TUI 退出和完整首屏渲染；4. 校验帮助、dry-run、JSON 输出和路径解析行为。
  * @dependencies Node: assert/child_process/fs/os/path/test/url, Service: ../plugins/image-compress/lib/service.js
  * @index_tags 图片压缩测试, TUI烟雾测试, CLI包装, 路径解析, Go后端代理
  * @author holic512
@@ -91,6 +91,16 @@ test('image-compress default entry can exit through the TUI smoke hook', () => {
             SLOTHTOOL_IMAGE_COMPRESS_TUI_TEST_ACTION: 'exit'
         });
     });
+});
+
+test('image-compress TUI can render its responsive workspace before exiting', () => {
+    const output = runImageCompress([], {
+        HOME: createTempHome(),
+        SLOTHTOOL_IMAGE_COMPRESS_TUI_TEST_ACTION: 'render-exit'
+    });
+
+    assert.match(output, /压缩工作台/u);
+    assert.match(output, /输入队列/u);
 });
 
 test('image-compress CLI wraps the Go backend dry-run path', () => {
