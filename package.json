@@ -8,6 +8,12 @@
     "slothtool": "bin/slothtool.js"
   },
   "scripts": {
+    "dev": "node bin/slothtool.js",
+    "dev:loc": "node plugins/loc/bin/loc.js",
+    "dev:image-compress": "node plugins/image-compress/bin/image-compress.js",
+    "dev:gstore": "node plugins/gstore/bin/gstore.js",
+    "dev:todo": "node plugins/todo/bin/todo.js",
+    "dev:codex-models": "node plugins/codex-models/bin/codex-models.js",
     "test": "node --test"
   },
   "keywords": [
