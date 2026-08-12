@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module Test / Official Plugin Selection
  * @description 验证官方插件目录包含通用 Node 插件，并确保安装流程会根据当前平台架构选择正确的 image-compress 发布资产。
- * @logic 1. 校验 image-compress、gstore、todo 与 codex-models 已加入官方插件目录；2. 覆盖 macOS/Windows/Linux 目标的资产匹配；3. 校验安装入口会把当前 target 传递给 release 选择器。
+ * @logic 1. 校验 image-compress、gstore 与 codex-models 已加入官方插件目录且 todo 已移除；2. 覆盖 macOS/Windows/Linux 目标的资产匹配；3. 校验安装入口会把当前 target 传递给 release 选择器。
  * @dependencies Node: assert/fs/os/path/test, Service: ../lib/services/plugin-service.js
  * @index_tags 官方插件测试, 平台资产选择, image-compress, codex-models, 安装流程, macos, windows, linux
  * @author holic512
@@ -56,12 +56,9 @@ test('official plugin catalog includes gstore', () => {
     assert.equal(getOfficialPlugin('gstore').packageName, '@holic512/plugin-gstore');
 });
 
-test('official plugin catalog includes todo as a generic Node plugin', () => {
-    const plugin = getOfficialPlugin('todo');
-    assert.ok(getOfficialPluginAliases().includes('todo'));
-    assert.equal(plugin.packageName, '@holic512/plugin-todo');
-    assert.equal(plugin.assetStrategy, undefined);
-    assert.equal(plugin.assetNamePrefix, 'holic512-plugin-todo-');
+test('official plugin catalog no longer exposes todo', () => {
+    assert.equal(getOfficialPluginAliases().includes('todo'), false);
+    assert.equal(getOfficialPlugin('todo'), null);
 });
 
 test('official plugin catalog includes codex-models as a generic Node plugin', () => {

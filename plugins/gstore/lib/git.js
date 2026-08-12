@@ -2,8 +2,8 @@
  * @file GStoreGitService
  * @project SlothTool
  * @module GStore Plugin / Git
- * @description 提供本地数据仓库的 git 初始化、remote、pull、commit、push 和状态检查能力。
- * @logic 1. 固定使用 ~/.slothtool/data 作为工作区；2. 所有 Git 操作委托本机 git 命令；3. 用本地仓库配置避免依赖全局 user.name/user.email。
+ * @description 提供独立缓存仓库的 git 初始化、remote、pull、commit、push 和状态检查能力。
+ * @logic 1. 固定使用 ~/.slothtool/cache/gstore/repository 作为 Git 缓存；2. 所有 Git 操作委托本机 git 命令；3. 用 fast-forward-only 拉取和本地仓库身份配置保证同步行为可预测。
  * @dependencies Node: fs/path, Runner: ./command-runner.js, Config: ./config.js
  * @index_tags gstore git, 数据仓库, git命令, pull, push
  * @author holic512
@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {commandExists, runCommand, tryRunCommand} from './command-runner.js';
-import {ensureDir, getDataDir} from './config.js';
+import {ensureDir, getRepositoryCacheDir} from './config.js';
 
 const GIT_USER_NAME = 'SlothTool GStore';
 const GIT_USER_EMAIL = 'gstore@slothtool.local';
@@ -25,7 +25,7 @@ export function assertGitAvailable(options = {}) {
 
 export function git(args = [], options = {}) {
     return (options.runner || runCommand)('git', args, {
-        cwd: options.cwd || getDataDir(),
+        cwd: options.cwd || getRepositoryCacheDir(),
         env: options.env
     });
 }
@@ -33,53 +33,53 @@ export function git(args = [], options = {}) {
 export function tryGit(args = [], options = {}) {
     if (options.runner) {
         try {
-            return {ok: true, ...options.runner('git', args, {cwd: options.cwd || getDataDir(), env: options.env})};
+            return {ok: true, ...options.runner('git', args, {cwd: options.cwd || getRepositoryCacheDir(), env: options.env})};
         } catch (error) {
             return {ok: false, error, stdout: error.stdout || '', stderr: error.stderr || '', exitCode: error.exitCode || 1};
         }
     }
 
     return tryRunCommand('git', args, {
-        cwd: options.cwd || getDataDir(),
+        cwd: options.cwd || getRepositoryCacheDir(),
         env: options.env
     });
 }
 
-export function isDataRepoInitialized(dataDir = getDataDir()) {
-    return fs.existsSync(path.join(dataDir, '.git'));
+export function isDataRepoInitialized(cacheDir = getRepositoryCacheDir()) {
+    return fs.existsSync(path.join(cacheDir, '.git'));
 }
 
 export function ensureDataRepo(options = {}) {
-    const dataDir = options.dataDir || getDataDir();
-    ensureDir(dataDir);
+    const cacheDir = options.cacheDir || options.dataDir || getRepositoryCacheDir();
+    ensureDir(cacheDir);
     assertGitAvailable(options);
 
-    if (!isDataRepoInitialized(dataDir)) {
+    if (!isDataRepoInitialized(cacheDir)) {
         const initResult = tryGit(['init', '-b', options.defaultBranch || 'main'], {
             ...options,
-            cwd: dataDir
+            cwd: cacheDir
         });
 
         if (!initResult.ok) {
-            git(['init'], {...options, cwd: dataDir});
-            git(['checkout', '-B', options.defaultBranch || 'main'], {...options, cwd: dataDir});
+            git(['init'], {...options, cwd: cacheDir});
+            git(['checkout', '-B', options.defaultBranch || 'main'], {...options, cwd: cacheDir});
         }
     }
 
-    git(['config', 'user.name', GIT_USER_NAME], {...options, cwd: dataDir});
-    git(['config', 'user.email', GIT_USER_EMAIL], {...options, cwd: dataDir});
-    git(['config', 'core.autocrlf', 'false'], {...options, cwd: dataDir});
-    return dataDir;
+    git(['config', 'user.name', GIT_USER_NAME], {...options, cwd: cacheDir});
+    git(['config', 'user.email', GIT_USER_EMAIL], {...options, cwd: cacheDir});
+    git(['config', 'core.autocrlf', 'false'], {...options, cwd: cacheDir});
+    return cacheDir;
 }
 
 export function setRemote(remoteUrl, options = {}) {
-    const dataDir = ensureDataRepo(options);
-    const existing = tryGit(['remote', 'get-url', 'origin'], {...options, cwd: dataDir});
+    const cacheDir = ensureDataRepo(options);
+    const existing = tryGit(['remote', 'get-url', 'origin'], {...options, cwd: cacheDir});
 
     if (existing.ok) {
-        git(['remote', 'set-url', 'origin', remoteUrl], {...options, cwd: dataDir});
+        git(['remote', 'set-url', 'origin', remoteUrl], {...options, cwd: cacheDir});
     } else {
-        git(['remote', 'add', 'origin', remoteUrl], {...options, cwd: dataDir});
+        git(['remote', 'add', 'origin', remoteUrl], {...options, cwd: cacheDir});
     }
 }
 
@@ -95,16 +95,16 @@ export function getCurrentBranch(options = {}) {
 }
 
 export function pullDataRepo(options = {}) {
-    const dataDir = ensureDataRepo(options);
-    const remote = getRemote({...options, cwd: dataDir});
+    const cacheDir = ensureDataRepo(options);
+    const remote = getRemote({...options, cwd: cacheDir});
     if (!remote) {
         return {status: 'no-remote'};
     }
 
-    const branch = getCurrentBranch({...options, cwd: dataDir});
+    const branch = getCurrentBranch({...options, cwd: cacheDir});
     const result = tryGit(['pull', '--ff-only', 'origin', branch], {
         ...options,
-        cwd: dataDir
+        cwd: cacheDir
     });
 
     if (!result.ok) {
@@ -125,27 +125,27 @@ export function hasWorktreeChanges(options = {}) {
 }
 
 export function commitAll(message, options = {}) {
-    const dataDir = ensureDataRepo(options);
-    git(['add', '--all'], {...options, cwd: dataDir});
+    const cacheDir = ensureDataRepo(options);
+    git(['add', '--all'], {...options, cwd: cacheDir});
 
-    if (!hasWorktreeChanges({...options, cwd: dataDir})) {
+    if (!hasWorktreeChanges({...options, cwd: cacheDir})) {
         return {status: 'no-changes', commit: ''};
     }
 
     git(['commit', '-m', message || 'chore: sync gstore data'], {
         ...options,
-        cwd: dataDir
+        cwd: cacheDir
     });
-    const commit = git(['rev-parse', '--short', 'HEAD'], {...options, cwd: dataDir}).stdout.trim();
+    const commit = git(['rev-parse', '--short', 'HEAD'], {...options, cwd: cacheDir}).stdout.trim();
     return {status: 'committed', commit};
 }
 
 export function pushDataRepo(options = {}) {
-    const dataDir = ensureDataRepo(options);
-    const branch = getCurrentBranch({...options, cwd: dataDir});
+    const cacheDir = ensureDataRepo(options);
+    const branch = getCurrentBranch({...options, cwd: cacheDir});
     git(['push', '-u', 'origin', branch], {
         ...options,
-        cwd: dataDir
+        cwd: cacheDir
     });
     return {status: 'pushed', branch};
 }

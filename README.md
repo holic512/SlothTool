@@ -2,7 +2,7 @@
 
 SlothTool 是一个 TUI-first 的插件管理器：日常使用默认进入 Ink 全屏界面，同时保留可脚本化的 CLI 命令。
 
-根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc`、`image-compress`、`gstore`、`todo` 和 `codex-models`。
+根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc`、`image-compress`、`gstore` 和 `codex-models`。
 
 ```bash
 npm install -g @holic512/slothtool
@@ -22,8 +22,7 @@ SlothTool 把“插件管理器”作为默认交互入口：根命令负责安�
 | 官方插件分发 | 内置官方插件清单，支持 GitHub Release 在线安装与经过包名校验的离线 `.tgz` 安装。 |
 | 离线归档 | `slothtool bundle` 可把已安装且运行时依赖完整的官方插件打包为可迁移归档。 |
 | 平台资产选择 | `image-compress` 按当前系统和 CPU 架构选择匹配的预编译后端资产。 |
-| 数据同步 | `gstore` 可把 `~/.slothtool/data` 绑定到 GitHub private repo，并同步插件配置和项目数据。 |
-| TodoList | `todo` 将任务拆成独立 JSON 文件，并通过 `gstore` 手动同步。 |
+| 配置云同步 | `gstore` 通过独立 Git 仓库缓存同步全局设置、插件配置和数据，并提供冲突检测与显式覆盖策略。 |
 | Codex 模型管理 | `codex-models` 诊断自定义 provider，同步跨厂商模型库、上下文与推理等级，并生成 Desktop 离线修复脚本。 |
 | 双语界面 | 根管理器和官方插件支持中文 / English 文案。 |
 | 本地用户数据 | 设置、注册表、插件包、插件配置和同步数据都保存在 `~/.slothtool/`。 |
@@ -60,13 +59,11 @@ slothtool
 slothtool install loc
 slothtool install image-compress
 slothtool install gstore
-slothtool install todo
 slothtool install codex-models
 
 slothtool loc
 slothtool image-compress
 slothtool gstore
-slothtool todo
 slothtool codex-models
 ```
 
@@ -80,12 +77,8 @@ slothtool image-compress ./photo.jpg --dry-run
 slothtool image-compress -r ./album --output-dir ./compressed
 
 slothtool gstore repo set holic512/my-private-data --create
-slothtool gstore bind todo default ~/.slothtool/data/todo/default
-slothtool gstore sync todo default
-
-slothtool todo add "Buy milk" --tag home --due today
-slothtool todo list --due today
-slothtool todo sync
+slothtool gstore status
+slothtool gstore sync
 
 slothtool codex-models doctor
 slothtool codex-models library show gpt-5.6-sol
@@ -134,8 +127,7 @@ Run 页面会把最近运行的插件排在前面，未运行过的插件继续�
 | --- | --- | --- | --- |
 | `loc` | `@holic512/plugin-loc` | 统计目录代码行数、文件类型过滤、排除目录配置、详细模式。 | `slothtool loc` / `loc` |
 | `image-compress` | `@holic512/plugin-image-compress` | JPEG / PNG 图片压缩、目录批处理、拖拽路径 TUI、多平台 Go 后端资产。 | `slothtool image-compress` / `image-compress` |
-| `gstore` | `@holic512/plugin-gstore` | GitHub CLI 登录、私有仓库绑定、数据同步、冲突检测、手动同步 TUI。 | `slothtool gstore` / `gstore` |
-| `todo` | `@holic512/plugin-todo` | 独立 JSON 任务文件、完整任务字段、列表、标签、手动 gstore 同步、默认 TUI。 | `slothtool todo` / `todo` |
+| `gstore` | `@holic512/plugin-gstore` | GitHub CLI 登录、独立 Git 缓存、设置/插件配置/数据全量同步、冲突检测和显式覆盖策略。 | `slothtool gstore` / `gstore` |
 | `codex-models` | `@holic512/plugin-codex-models` | 自定义 provider 诊断、跨厂商模型库、上下文和推理等级切换、目录同步、Desktop 离线修复脚本。 | `slothtool codex-models` / `codex-models` |
 
 ### `loc`
@@ -178,40 +170,16 @@ slothtool install gstore
 slothtool gstore
 slothtool gstore auth
 slothtool gstore repo set holic512/my-private-data --create
-slothtool gstore bind todo default ~/.slothtool/data/todo/default
-slothtool gstore status todo default
-slothtool gstore pull todo default
-slothtool gstore push todo default -m "sync todo"
-slothtool gstore sync todo default
-slothtool gstore conflicts todo default --json
+slothtool gstore status
+slothtool gstore pull
+slothtool gstore push -m "sync SlothTool configuration"
+slothtool gstore sync
+slothtool gstore conflicts --json
 ```
 
-`gstore` 固定使用 `~/.slothtool/data` 作为本地 Git 工作区。它只调用本机 `git` 和 GitHub CLI `gh`，不保存 GitHub token。同一文件在本地和远端都发生变化时，v1 会停止同步并报告冲突文件。
+`gstore` 使用 `~/.slothtool/cache/gstore/repository` 作为独立 Git 工作区，不会在实际数据目录中创建 `.git`。默认同步三个系统范围：`settings.json`、`plugin-configs/`（排除保存远端地址和同步基线的 `gstore.json`）以及 `data/`；`registry.json`、已安装插件和缓存不会跨设备同步。需要附加其他工具目录时，可继续使用 `gstore bind <tool> <name> <localDir>`。
 
-### `todo`
-
-```bash
-slothtool install todo
-
-slothtool todo
-slothtool todo add "Buy milk" --tag home --due today
-slothtool todo list --status todo --sort due
-slothtool todo show <id-prefix>
-slothtool todo edit <id-prefix> --priority high --project personal
-slothtool todo checklist add <id-prefix> "Prepare receipt"
-slothtool todo note add <id-prefix> "Remember coupon"
-slothtool todo done <id-prefix>
-slothtool todo sync
-```
-
-`todo` 固定把数据写入 `~/.slothtool/data/todo/default/`。任务文件按 `tasks/<yyyy>/<mm>/<uuid>.json` 拆分，列表写入 `lists/<id>.json`，插件配置写入 `~/.slothtool/data/plugin-configs/todo.json`。同步命令依赖已安装并已绑定的 `gstore`：
-
-```bash
-slothtool install gstore
-slothtool gstore bind todo default ~/.slothtool/data/todo/default
-slothtool todo sync
-```
-
+它只调用本机 `git` 和 GitHub CLI `gh`，不保存 GitHub token。默认遇到同文件双向修改会停止；确认取舍后使用 `gstore sync --prefer-remote` 或 `gstore sync --prefer-local` 显式解决。新设备已有默认设置文件时，首次恢复使用 `gstore pull --prefer-remote`。TUI 对覆盖动作提供二次确认。
 
 ### `codex-models`
 
@@ -323,23 +291,19 @@ flowchart TD
 ├── settings.json
 ├── registry.json
 ├── data/
-│   ├── .git/
-│   ├── plugin-configs/
-│   │   ├── loc.json
-│   │   └── todo.json
-│   └── todo/
-│       └── default/
-│           ├── lists/
-│           │   └── default.json
-│           └── tasks/
-│               └── <yyyy>/<mm>/<uuid>.json
+│   └── <plugin-data>/
+├── cache/
+│   └── gstore/
+│       └── repository/
+│           ├── .git/
+│           └── system/
 ├── plugins/
 │   ├── image-compress/
 │   ├── gstore/
-│   ├── loc/
-│   └── todo/
+│   └── loc/
 └── plugin-configs/
-    └── gstore.json
+    ├── gstore.json
+    └── <plugin-config>.json
 ```
 
 ## Repository Layout
@@ -352,7 +316,6 @@ SlothTool/
 │   ├── loc/                 Official LOC plugin workspace
 │   ├── image-compress/      Official image compression plugin workspace
 │   ├── gstore/              Official GitHub data sync plugin workspace
-│   ├── todo/                Official JSON TodoList plugin workspace
 │   ├── codex-models/        Official Codex model configuration plugin workspace
 │   └── template-basic/      Plugin scaffold template
 ├── test/                    node:test regression suite
@@ -371,7 +334,6 @@ node bin/slothtool.js --help
 node plugins/loc/bin/loc.js --help
 node plugins/image-compress/bin/image-compress.js --help
 node plugins/gstore/bin/gstore.js --help
-node plugins/todo/bin/todo.js --help
 node plugins/codex-models/bin/codex-models.js --help
 ```
 
@@ -384,7 +346,6 @@ SLOTHTOOL_TUI_TEST_ACTION=exit node bin/slothtool.js
 SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 SLOTHTOOL_IMAGE_COMPRESS_TUI_TEST_ACTION=exit node plugins/image-compress/bin/image-compress.js
 SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
-SLOTHTOOL_TODO_TUI_TEST_ACTION=exit node plugins/todo/bin/todo.js
 SLOTHTOOL_CODEX_MODELS_TUI_TEST_ACTION=exit node plugins/codex-models/bin/codex-models.js
 ```
 

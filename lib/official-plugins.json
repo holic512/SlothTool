@@ -63,49 +63,25 @@
       "packageDir": "plugins/gstore",
       "releaseTagPrefix": "plugin-gstore-v",
       "assetNamePrefix": "holic512-plugin-gstore-",
-      "description": "通过 GitHub private repo 同步 SlothTool 数据和插件配置",
-      "descriptionEn": "Sync SlothTool data and plugin configs through a GitHub private repo",
+      "description": "通过独立 Git 缓存和 GitHub private repo 同步 SlothTool 设置、插件配置与数据",
+      "descriptionEn": "Sync SlothTool settings, plugin configs, and data through an isolated Git cache and a GitHub private repo",
       "version": "latest",
       "author": "holic512",
       "features": [
         "GitHub CLI 登录",
         "私有仓库绑定",
-        "数据目录同步",
-        "冲突检测",
-        "手动同步 TUI"
+        "设置、插件配置与数据同步",
+        "Git 仓库独立缓存",
+        "冲突检测与显式覆盖策略",
+        "响应式同步 TUI"
       ],
       "featuresEn": [
         "GitHub CLI authentication",
         "Private repository binding",
-        "Data directory sync",
-        "Conflict detection",
-        "Manual sync TUI"
-      ]
-    },
-    {
-      "alias": "todo",
-      "packageName": "@holic512/plugin-todo",
-      "repository": "holic512/SlothTool",
-      "packageDir": "plugins/todo",
-      "releaseTagPrefix": "plugin-todo-v",
-      "assetNamePrefix": "holic512-plugin-todo-",
-      "description": "基于独立 JSON 文件的 TodoList，并通过 gstore 手动同步",
-      "descriptionEn": "Manage split JSON todo tasks and manually sync them through gstore",
-      "version": "latest",
-      "author": "holic512",
-      "features": [
-        "拆分 JSON 任务文件",
-        "完整任务字段",
-        "任务列表和标签",
-        "手动 gstore 同步",
-        "默认 TUI"
-      ],
-      "featuresEn": [
-        "Split JSON task files",
-        "Rich task fields",
-        "Lists and tags",
-        "Manual gstore sync",
-        "Default TUI"
+        "Settings, plugin config, and data sync",
+        "Isolated Git repository cache",
+        "Conflict detection with explicit resolution",
+        "Responsive sync TUI"
       ]
     },
     {

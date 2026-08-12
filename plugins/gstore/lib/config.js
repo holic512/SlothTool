@@ -2,8 +2,8 @@
  * @file GStoreConfigStore
  * @project SlothTool
  * @module GStore Plugin / Storage
- * @description 管理 gstore 本机配置、数据仓库路径和 SlothTool 网络代理环境。
- * @logic 1. 固定 ~/.slothtool/data 为 Git 工作区；2. 将 gstore 状态保存到 plugin-configs/gstore.json；3. 读取网络代理配置并生成子进程环境变量。
+ * @description 管理 gstore 本机配置、独立 Git 缓存路径、同步源路径和 SlothTool 网络代理环境。
+ * @logic 1. 将 Git 缓存隔离到 ~/.slothtool/cache/gstore/repository；2. 将 gstore 状态保存到 plugin-configs/gstore.json；3. 暴露设置、插件配置和数据目录作为系统同步源；4. 读取网络代理配置并生成子进程环境变量。
  * @dependencies Node: fs/os/path
  * @index_tags gstore配置, 数据仓库, plugin-configs, proxyEnv, GitHub同步
  * @author holic512
@@ -19,6 +19,10 @@ export function getSlothToolHome() {
 
 export function getDataDir() {
     return path.join(getSlothToolHome(), 'data');
+}
+
+export function getRepositoryCacheDir() {
+    return path.join(getSlothToolHome(), 'cache', 'gstore', 'repository');
 }
 
 export function getPluginConfigsDir() {
@@ -76,6 +80,9 @@ function normalizeBinding(binding = {}) {
         name: String(binding.name || '').trim(),
         localPath: String(binding.localPath || '').trim(),
         repoPath,
+        include: Array.isArray(binding.include) ? binding.include.map(String) : [],
+        exclude: Array.isArray(binding.exclude) ? binding.exclude.map(String) : [],
+        system: binding.system === true,
         createdAt: binding.createdAt || new Date().toISOString(),
         updatedAt: binding.updatedAt || binding.createdAt || new Date().toISOString()
     };
@@ -165,6 +172,10 @@ export default {
     getDataDir,
     getDefaultConfig,
     getGStoreConfigPath,
+    getPluginConfigsDir,
+    getRepositoryCacheDir,
+    getSettingsPath,
+    getSlothToolHome,
     normalizeConfig,
     normalizeRepoPath,
     readConfig,

@@ -21,13 +21,53 @@ function shouldSkip(entryName) {
     return entryName === '.git' || entryName === '.DS_Store';
 }
 
+function normalizePattern(value) {
+    return String(value || '').replace(/\\/gu, '/').replace(/^\.\//u, '').replace(/^\/+|\/+$/gu, '');
+}
+
+function matchesPattern(relativePath, pattern) {
+    const normalized = normalizePattern(pattern);
+    if (!normalized) {
+        return false;
+    }
+
+    if (normalized.endsWith('/**')) {
+        const prefix = normalized.slice(0, -3);
+        return relativePath === prefix || relativePath.startsWith(`${prefix}/`);
+    }
+
+    return relativePath === normalized;
+}
+
+function shouldVisit(relativePath, isDirectory, options = {}) {
+    const include = Array.isArray(options.include) ? options.include : [];
+    const exclude = Array.isArray(options.exclude) ? options.exclude : [];
+
+    if (exclude.some(pattern => matchesPattern(relativePath, pattern))) {
+        return false;
+    }
+
+    if (include.length === 0) {
+        return true;
+    }
+
+    if (isDirectory) {
+        return include.some(pattern => {
+            const normalized = normalizePattern(pattern).replace(/\/\*\*$/u, '');
+            return normalized === relativePath || normalized.startsWith(`${relativePath}/`);
+        });
+    }
+
+    return include.some(pattern => matchesPattern(relativePath, pattern));
+}
+
 function hashFile(filePath) {
     const hash = crypto.createHash('sha256');
     hash.update(fs.readFileSync(filePath));
     return hash.digest('hex');
 }
 
-export function scanDirectory(rootDir) {
+export function scanDirectory(rootDir, options = {}) {
     const snapshot = {};
 
     if (!fs.existsSync(rootDir)) {
@@ -41,6 +81,11 @@ export function scanDirectory(rootDir) {
 
         for (const entry of entries) {
             const currentPath = path.join(currentDir, entry.name);
+            const relativePath = toPortablePath(path.relative(rootDir, currentPath));
+            if (!shouldVisit(relativePath, entry.isDirectory(), options)) {
+                continue;
+            }
+
             if (entry.isDirectory()) {
                 visit(currentPath);
                 continue;
@@ -50,7 +95,6 @@ export function scanDirectory(rootDir) {
                 continue;
             }
 
-            const relativePath = toPortablePath(path.relative(rootDir, currentPath));
             snapshot[relativePath] = hashFile(currentPath);
         }
     }

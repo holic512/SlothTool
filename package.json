@@ -1,6 +1,6 @@
 {
   "name": "@holic512/slothtool",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "description": "A plugin manager and dispatcher for CLI tools",
   "main": "lib/index.js",
   "type": "module",
@@ -12,7 +12,6 @@
     "dev:loc": "node plugins/loc/bin/loc.js",
     "dev:image-compress": "node plugins/image-compress/bin/image-compress.js",
     "dev:gstore": "node plugins/gstore/bin/gstore.js",
-    "dev:todo": "node plugins/todo/bin/todo.js",
     "dev:codex-models": "node plugins/codex-models/bin/codex-models.js",
     "test": "node --test"
   },
@@ -39,7 +38,6 @@
   "workspaces": [
     "plugins/loc",
     "plugins/gstore",
-    "plugins/todo",
     "plugins/codex-models"
   ],
   "engines": {

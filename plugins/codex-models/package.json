@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-codex-models",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Configure Codex custom-provider model catalogs and generate safe offline Desktop model-filter repair scripts",
   "main": "lib/service.js",
   "type": "module",

@@ -2,7 +2,7 @@
  * @file RootCliSmokeTest
  * @project SlothTool
  * @module Test / Root CLI
- * @description 验证根命令的帮助输出、默认 TUI 烟雾路径以及 loc、gstore、todo、codex-models 插件简写 CLI 路径。
+ * @description 验证根命令的帮助输出、默认 TUI 烟雾路径以及 loc、gstore、codex-models 插件简写 CLI 路径。
  * @logic 1. 构造临时 HOME 隔离用户数据；2. 通过 Node 子进程执行根入口；3. 校验默认 TUI 与插件简写行为。
  * @dependencies Node: assert/child_process/fs/os/path/test/url
  * @index_tags 根CLI测试, TUI烟雾测试, 插件简写, node:test
@@ -23,10 +23,9 @@ const rootDir = path.resolve(testDir, '..');
 const rootBin = path.join(rootDir, 'bin', 'slothtool.js');
 const locBin = path.join(rootDir, 'plugins', 'loc', 'bin', 'loc.js');
 const gstoreBin = path.join(rootDir, 'plugins', 'gstore', 'bin', 'gstore.js');
-const todoBin = path.join(rootDir, 'plugins', 'todo', 'bin', 'todo.js');
 const codexModelsBin = path.join(rootDir, 'plugins', 'codex-models', 'bin', 'codex-models.js');
 
-function createTempHome(withLocalLoc = false, withLocalGstore = false, withLocalTodo = false, withLocalCodexModels = false) {
+function createTempHome(withLocalLoc = false, withLocalGstore = false, withLocalCodexModels = false) {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-home-'));
     const slothDir = path.join(homeDir, '.slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
@@ -53,17 +52,6 @@ function createTempHome(withLocalLoc = false, withLocalGstore = false, withLocal
             packageName: '@holic512/plugin-gstore',
             version: 'workspace',
             binPath: gstoreBin,
-            installedAt: '2026-06-11T00:00:00.000Z',
-            sourceType: 'github-release'
-        };
-    }
-
-    if (withLocalTodo) {
-        registry.plugins.todo = {
-            name: '@holic512/plugin-todo',
-            packageName: '@holic512/plugin-todo',
-            version: 'workspace',
-            binPath: todoBin,
             installedAt: '2026-06-11T00:00:00.000Z',
             sourceType: 'github-release'
         };
@@ -184,15 +172,8 @@ test('root shorthand runs the local gstore workspace plugin in CLI mode', () => 
     assert.match(output, /gstore sync/u);
 });
 
-test('root shorthand runs the local todo workspace plugin in CLI mode', () => {
-    const output = runNode(rootBin, ['todo', '--help'], {HOME: createTempHome(false, false, true)});
-    assert.match(output, /todo add <title>/u);
-    assert.match(output, /todo sync/u);
-});
-
-
 test('root shorthand runs the local codex-models workspace plugin in CLI mode', () => {
-    const output = runNode(rootBin, ['codex-models', '--help'], {HOME: createTempHome(false, false, false, true)});
+    const output = runNode(rootBin, ['codex-models', '--help'], {HOME: createTempHome(false, false, true)});
     assert.match(output, /codex-models doctor/u);
     assert.match(output, /reasoning set <effort>/u);
 });

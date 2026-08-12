@@ -5,7 +5,7 @@
  * @project SlothTool
  * @module GStore Plugin / Entry
  * @description gstore 插件命令入口，无参数默认进入 TUI，显式子命令提供 GitHub 数据同步 CLI。
- * @logic 1. 解析 auth、repo、bind、status、pull、push、sync 等命令；2. 将同步业务委托给 service；3. 在终端环境下启动 Ink TUI。
+ * @logic 1. 无 binding 参数时同步系统设置、插件配置和数据；2. 保留带 tool/name 的自定义目录命令；3. 显式冲突策略只在用户指定时生效；4. 在终端环境下启动 Ink TUI。
  * @dependencies Services: ../lib/service.js, TUI: ../lib/tui.js, I18N: ../lib/i18n.js
  * @index_tags gstore入口, GitHub同步, 默认TUI, CLI子命令
  * @author holic512
@@ -22,11 +22,15 @@ import {
     getBindingStatus,
     getConflicts,
     getRepositorySummary,
+    getSystemStatus,
     listBindings,
     pullBinding,
+    pullSystem,
     pushBinding,
+    pushSystem,
     runDoctor,
     syncBinding,
+    syncSystem,
     unbindDataDirectory
 } from '../lib/service.js';
 
@@ -45,11 +49,11 @@ function printHelp() {
     console.log('  gstore bind <tool> <name> <localDir>');
     console.log('  gstore list [--json]');
     console.log('  gstore unbind <tool> <name>');
-    console.log('  gstore status <tool> <name> [--json]');
-    console.log('  gstore pull <tool> <name>');
-    console.log('  gstore push <tool> <name> [-m message]');
-    console.log('  gstore sync <tool> <name> [-m message]');
-    console.log('  gstore conflicts <tool> <name> [--json]');
+    console.log('  gstore status [<tool> <name>] [--json]');
+    console.log('  gstore pull [<tool> <name>] [--prefer-remote]');
+    console.log('  gstore push [<tool> <name>] [-m message] [--prefer-local]');
+    console.log('  gstore sync [<tool> <name>] [-m message] [--prefer-local|--prefer-remote]');
+    console.log('  gstore conflicts [<tool> <name>] [--json]');
     console.log('  gstore doctor [--json]');
     console.log('');
     console.log(t('options'));
@@ -58,12 +62,15 @@ function printHelp() {
     console.log(`  --json            ${t('jsonOption')}`);
     console.log(`  --create          ${t('createOption')}`);
     console.log(`  -m, --message     ${t('messageOption')}`);
+    console.log(`  --prefer-local    ${t('preferLocalOption')}`);
+    console.log(`  --prefer-remote   ${t('preferRemoteOption')}`);
     console.log('');
     console.log(t('examples'));
     console.log(`  gstore auth  # ${t('authExample')}`);
     console.log('  gstore repo set holic512/my-private-data --create');
-    console.log('  gstore bind todo default ~/.slothtool/data/todo/default');
-    console.log('  gstore sync todo default');
+    console.log('  gstore status');
+    console.log('  gstore sync');
+    console.log('  gstore bind mytool default ~/.mytool');
 }
 
 function hasFlag(args, flag) {
@@ -88,7 +95,7 @@ function removeOptions(args) {
     const nextArgs = [];
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
-        if (arg === '--json' || arg === '--create' || arg === '--tui' || arg === '-i' || arg === '--interactive') {
+        if (arg === '--json' || arg === '--create' || arg === '--prefer-local' || arg === '--prefer-remote' || arg === '--tui' || arg === '-i' || arg === '--interactive') {
             continue;
         }
 
@@ -152,6 +159,23 @@ function printStatus(status, json) {
     }
 }
 
+function printSystemStatus(status, json) {
+    if (json) {
+        printJson(status);
+        return;
+    }
+
+    console.log(t('systemStatusTitle'));
+    if (status.clean) {
+        console.log(t('clean'));
+        return;
+    }
+    console.log(t('bindingsCount', {count: status.bindings.length}));
+    console.log(t('localChanges', {count: status.localChanges.length}));
+    console.log(t('remoteChanges', {count: status.remoteChanges.length}));
+    console.log(t('conflicts', {count: status.conflicts.length}));
+}
+
 function printDoctor(result, json) {
     if (json) {
         printJson(result);
@@ -163,6 +187,7 @@ function printDoctor(result, json) {
     console.log(`  gh: ${result.gh ? t('installed') : t('missing')}`);
     console.log(`  auth: ${result.authenticated ? t('ok') : t('notLoggedIn')}`);
     console.log(`  ${t('dataDir', {dir: result.dataDir})}`);
+    console.log(`  ${t('cacheDir', {dir: result.cacheDir})}`);
     console.log(`  ${t('remote', {remote: result.remote || t('noRemote')})}`);
     console.log(`  bindings: ${result.bindings.length}`);
     if (result.ghInstaller) {
@@ -177,6 +202,7 @@ function printRepositorySummary(summary, json) {
     }
 
     console.log(t('dataDir', {dir: summary.dataDir}));
+    console.log(t('cacheDir', {dir: summary.cacheDir}));
     console.log(t('remote', {remote: summary.remote || t('noRemote')}));
     console.log(`bindings: ${summary.bindings.length}`);
 }
@@ -220,6 +246,15 @@ async function runCli(args) {
     const json = hasFlag(args, '--json');
     const commandArgs = removeOptions(args);
     const command = commandArgs[0];
+    const conflictStrategy = hasFlag(args, '--prefer-local')
+        ? 'local'
+        : hasFlag(args, '--prefer-remote')
+            ? 'remote'
+            : '';
+
+    if (hasFlag(args, '--prefer-local') && hasFlag(args, '--prefer-remote')) {
+        throw new Error(t('conflictStrategyExclusive'));
+    }
 
     if (command === 'auth') {
         const result = await ensureAuth();
@@ -291,17 +326,25 @@ async function runCli(args) {
 
     if (['status', 'pull', 'push', 'sync', 'conflicts'].includes(command)) {
         const [, tool, name] = commandArgs;
-        if (!tool || !name) {
+        if ((tool && !name) || (!tool && name)) {
             throw new Error(t('bindingRequired'));
         }
 
+        const systemMode = !tool && !name;
+
         if (command === 'status') {
-            printStatus(getBindingStatus(tool, name), json);
+            if (systemMode) {
+                printSystemStatus(getSystemStatus(), json);
+            } else {
+                printStatus(getBindingStatus(tool, name), json);
+            }
             return;
         }
 
         if (command === 'pull') {
-            const result = pullBinding(tool, name);
+            const result = systemMode
+                ? pullSystem({conflictStrategy})
+                : pullBinding(tool, name);
             if (json) {
                 printJson(result);
             } else {
@@ -311,7 +354,8 @@ async function runCli(args) {
         }
 
         if (command === 'push') {
-            const result = pushBinding(tool, name, {message: readOption(args, '-m', '--message')});
+            const options = {message: readOption(args, '-m', '--message'), conflictStrategy};
+            const result = systemMode ? pushSystem(options) : pushBinding(tool, name, options);
             if (json) {
                 printJson(result);
             } else if (result.status === 'no-changes') {
@@ -323,7 +367,8 @@ async function runCli(args) {
         }
 
         if (command === 'sync') {
-            const result = syncBinding(tool, name, {message: readOption(args, '-m', '--message')});
+            const options = {message: readOption(args, '-m', '--message'), conflictStrategy};
+            const result = systemMode ? syncSystem(options) : syncBinding(tool, name, options);
             if (json) {
                 printJson(result);
             } else {
@@ -333,7 +378,7 @@ async function runCli(args) {
         }
 
         if (command === 'conflicts') {
-            const conflicts = getConflicts(tool, name);
+            const conflicts = systemMode ? getSystemStatus().conflicts : getConflicts(tool, name);
             if (json) {
                 printJson(conflicts);
             } else {

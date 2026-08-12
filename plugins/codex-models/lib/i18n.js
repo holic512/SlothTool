@@ -2,14 +2,18 @@
  * @file CodexModelsI18n
  * @project SlothTool
  * @module Codex Models Plugin / Internationalization
- * @description 提供 Codex Models 插件 CLI 与 TUI 的中英文文案。
- * @logic 根据 LANG 环境选择中文或英文，并替换消息中的命名参数。
- * @dependencies Node.js process
+ * @description 提供 Codex Models 插件 CLI 与 TUI 的中英文文案，并与 SlothTool 全局语言设置保持一致。
+ * @logic 优先读取显式语言覆盖与 ~/.slothtool/settings.json，缺失时回退 LANG，并替换消息中的命名参数。
+ * @dependencies Node: fs/os/path
  * @index_tags i18n, codex, model catalog, reasoning effort, model library, bilingual
  * @author holic512
  */
 
-const messages = {
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+export const messages = {
     zh: {
         title: 'Codex 模型配置、模型库与 Desktop 修复',
         usage: '用法：',
@@ -63,7 +67,17 @@ const messages = {
         librarySearch: '联网搜索：{value}',
         libraryModalities: '输入模态：{value}',
         librarySource: '元数据来源：{value}',
-        libraryVerified: '元数据已核验：{value}'
+        libraryVerified: '元数据已核验：{value}',
+        tui: {
+            tabs: {models: '模型', diagnosis: '诊断'},
+            panels: {models: '模型库'},
+            empty: '等待模型数据。',
+            resize: {title: '终端空间不足', description: '请至少调整到 30 列 × 14 行。'},
+            footer: {
+                models: 'Tab 切页  Up/Down 选择  Left/Right 推理等级  Enter 设置  c 同步目录  r 修复脚本  q 退出',
+                diagnosis: 'Tab 切页  d 刷新  Esc 返回  q 退出'
+            }
+        }
     },
     en: {
         title: 'Codex Model Configuration, Library & Desktop Repair',
@@ -118,16 +132,42 @@ const messages = {
         librarySearch: 'Web search: {value}',
         libraryModalities: 'Input modalities: {value}',
         librarySource: 'Metadata source: {value}',
-        libraryVerified: 'Metadata verified: {value}'
+        libraryVerified: 'Metadata verified: {value}',
+        tui: {
+            tabs: {models: 'Models', diagnosis: 'Diagnosis'},
+            panels: {models: 'Model library'},
+            empty: 'Waiting for model data.',
+            resize: {title: 'Terminal is too small', description: 'Resize it to at least 30 columns × 14 rows.'},
+            footer: {
+                models: 'Tab page  Up/Down select  Left/Right effort  Enter set  c catalog  r repair  q quit',
+                diagnosis: 'Tab page  d refresh  Esc back  q quit'
+            }
+        }
     }
 };
 
-function locale() {
+export function getLanguage() {
+    if (['zh', 'en'].includes(process.env.SLOTHTOOL_LANGUAGE)) {
+        return process.env.SLOTHTOOL_LANGUAGE;
+    }
+
+    try {
+        const settingsPath = path.join(os.homedir(), '.slothtool', 'settings.json');
+        if (fs.existsSync(settingsPath)) {
+            const language = JSON.parse(fs.readFileSync(settingsPath, 'utf8')).language;
+            if (['zh', 'en'].includes(language)) {
+                return language;
+            }
+        }
+    } catch {
+        // Fall through to the terminal locale when the shared setting is unavailable.
+    }
+
     return process.env.LANG?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 }
 
 export function t(key, values = {}) {
-    const value = key.split('.').reduce((current, part) => current?.[part], messages[locale()])
+    const value = key.split('.').reduce((current, part) => current?.[part], messages[getLanguage()])
         ?? key.split('.').reduce((current, part) => current?.[part], messages.en);
     if (typeof value !== 'string') {
         return value;

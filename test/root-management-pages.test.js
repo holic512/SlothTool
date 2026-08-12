@@ -74,7 +74,7 @@ test('settings items preview current and next values before execution', () => {
 
 test('run items put the most recently launched plugin first without mutating the source list', () => {
     const items = [
-        {alias: 'todo', lastRunAt: null},
+        {alias: 'image-compress', lastRunAt: null},
         {alias: 'loc', lastRunAt: '2026-08-08T10:00:00.000Z'},
         {alias: 'gstore', lastRunAt: '2026-08-08T11:00:00.000Z'},
         {alias: 'codex-models', lastRunAt: 'invalid'}
@@ -85,10 +85,10 @@ test('run items put the most recently launched plugin first without mutating the
         'gstore',
         'loc',
         'codex-models',
-        'todo'
+        'image-compress'
     ]);
     assert.deepEqual(items.map(item => item.alias), [
-        'todo',
+        'image-compress',
         'loc',
         'gstore',
         'codex-models'

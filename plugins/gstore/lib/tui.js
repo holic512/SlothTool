@@ -2,408 +2,478 @@
  * @file GStoreTui
  * @project SlothTool
  * @module GStore Plugin / TUI
- * @description 提供 gstore 全屏 TUI，用于查看登录、仓库、绑定、同步和冲突状态并执行手动同步操作。
- * @logic 1. 维护 Overview/Auth/Repository/Bindings/Sync/Conflicts/Settings 页面；2. 通过键盘触发 auth、pull、push、sync、conflict 检查；3. Repository 页支持输入仓库并绑定 remote。
+ * @description 提供与 loc/脚手架一致的响应式全屏 TUI，覆盖仓库配置、系统云同步、自定义绑定、冲突策略和环境诊断。
+ * @logic 1. 同步页用操作列表和状态洞察组成主从布局；2. 仓库页完成登录、地址输入和私有仓库创建；3. 绑定与诊断页提供只读核验；4. 危险的冲突覆盖动作要求二次确认。
  * @dependencies Libraries: react/ink, Services: ./service.js, I18N: ./i18n.js
- * @index_tags gstore TUI, 手动同步, GitHub登录, 数据仓库, 冲突查看
+ * @index_tags gstore TUI, Git缓存, 云同步, 冲突策略, 响应式布局, 统一插件外壳
  * @author holic512
  */
 
-import React, {useEffect, useMemo, useState} from 'react';
-import {Box, Text, render, useApp, useInput, useWindowSize} from 'ink';
+import React, {useEffect, useRef, useState} from 'react';
+import {Box, Spacer, Text, render, useApp, useInput, useWindowSize} from 'ink';
+import pluginPackage from '../package.json' with {type: 'json'};
 import {t} from './i18n.js';
 import {
-    bindDataDirectory,
     configureRepository,
     ensureAuth,
-    getBindingStatus,
-    getConflicts,
     getRepositorySummary,
-    pullBinding,
-    pushBinding,
+    getSystemStatus,
+    pullSystem,
+    pushSystem,
     runDoctor,
-    syncBinding
+    syncSystem
 } from './service.js';
 
 const h = React.createElement;
-const TAB_ORDER = ['overview', 'auth', 'repository', 'bindings', 'sync', 'conflicts', 'settings'];
+const TABS = ['sync', 'repository', 'bindings', 'doctor'];
+const ACTIONS = ['status', 'pull', 'push', 'sync', 'preferRemote', 'preferLocal', 'exit'];
+const COLORS = {
+    accent: 'cyanBright',
+    secondary: 'magentaBright',
+    success: 'greenBright',
+    warning: 'yellowBright',
+    danger: 'redBright',
+    muted: 'gray',
+    border: 'gray'
+};
+const RESULT_DISPLAY_MS = 1800;
 
-function clamp(value, max) {
-    if (max <= 0) {
-        return 0;
+export function resolveGStoreTuiLayout(columns = 80, rows = 24) {
+    const safeColumns = Math.max(1, Number(columns) || 80);
+    const safeRows = Math.max(1, Number(rows) || 24);
+    return {
+        columns: safeColumns,
+        rows: safeRows,
+        contentWidth: Math.max(1, safeColumns - 4),
+        compact: safeColumns < 78,
+        short: safeRows < 20,
+        tooSmall: safeColumns < 30 || safeRows < 14,
+        sidebarWidth: Math.max(30, Math.min(42, Math.floor((safeColumns - 5) * 0.42))),
+        bindingLimit: safeRows < 20 ? 4 : 8
+    };
+}
+
+function displayWidth(value) {
+    return Array.from(String(value || '')).reduce((width, character) => (
+        width + (character.codePointAt(0) > 0xFF ? 2 : 1)
+    ), 0);
+}
+
+function truncateLeft(value, maxWidth) {
+    const text = String(value || '');
+    if (displayWidth(text) <= maxWidth) {
+        return text;
     }
-
-    return Math.max(0, Math.min(value, max - 1));
-}
-
-function Section({title, children}) {
-    return h(
-        Box,
-        {flexDirection: 'column', marginBottom: 1},
-        h(Text, {bold: true}, title),
-        children
-    );
-}
-
-function Header({activeTab}) {
-    return h(
-        Box,
-        {gap: 2, marginBottom: 1},
-        ...TAB_ORDER.map(tab => h(
-            Text,
-            {key: tab, inverse: tab === activeTab, color: tab === activeTab ? 'cyan' : undefined},
-            ` ${t(`tui.tabs.${tab}`)} `
-        ))
-    );
-}
-
-function Footer({status}) {
-    return h(
-        Box,
-        {flexDirection: 'column'},
-        h(Text, {color: 'gray'}, t('tui.footer')),
-        h(Text, {color: status.tone || 'green'}, status.message)
-    );
-}
-
-function BindingList({bindings, selectedIndex}) {
-    if (bindings.length === 0) {
-        return h(Text, {color: 'yellow'}, t('noBindings'));
+    let result = '';
+    let width = 3;
+    for (const character of Array.from(text).reverse()) {
+        const characterWidth = displayWidth(character);
+        if (width + characterWidth > maxWidth) {
+            break;
+        }
+        result = `${character}${result}`;
+        width += characterWidth;
     }
+    return `...${result}`;
+}
 
+function PanelHeader({title, summary, badge, badgeColor = COLORS.accent}) {
     return h(
         Box,
-        {flexDirection: 'column'},
-        ...bindings.map((binding, index) => h(
-            Text,
-            {key: `${binding.tool}/${binding.name}`, color: index === selectedIndex ? 'cyan' : undefined},
-            `${index === selectedIndex ? '>' : ' '} ${binding.tool}/${binding.name}  ${binding.localPath}`
-        ))
+        {},
+        h(Text, {bold: true, color: COLORS.accent}, title),
+        badge ? h(Text, {bold: true, color: badgeColor}, `  [${badge}]`) : null,
+        h(Spacer, {}),
+        summary ? h(Text, {dimColor: true}, summary) : null
     );
 }
 
-function OverviewPage({summary, doctor}) {
+function Field({label, value, color, dimColor = false}) {
     return h(
         Box,
-        {flexDirection: 'column'},
-        h(Section, {title: t('tui.tabs.overview')},
-            h(Text, null, t('dataDir', {dir: summary.dataDir})),
-            h(Text, null, t('remote', {remote: summary.remote || t('noRemote')})),
-            h(Text, null, `bindings: ${summary.bindings.length}`)
-        ),
-        h(Section, {title: t('doctorTitle')},
-            h(Text, null, `git: ${doctor.git ? t('ok') : t('missing')}`),
-            h(Text, null, `gh: ${doctor.gh ? t('installed') : t('missing')}`),
-            h(Text, null, `auth: ${doctor.authenticated ? t('ok') : t('notLoggedIn')}`)
-        )
+        {},
+        h(Text, {color: COLORS.accent}, `${label}  `),
+        h(Text, {color, dimColor}, value || '-')
     );
 }
 
-function AuthPage({doctor, manualAuth}) {
+function Header({activeTab, layout}) {
+    const tabs = TABS.flatMap((tab, index) => [
+        index > 0 ? h(Text, {key: `${tab}-separator`, color: COLORS.muted, dimColor: true}, ' | ') : null,
+        h(Text, {
+            key: tab,
+            bold: tab === activeTab,
+            color: tab === activeTab ? COLORS.accent : COLORS.muted
+        }, tab === activeTab ? `[${t(`tui.tabs.${tab}`)}]` : t(`tui.tabs.${tab}`))
+    ]).filter(Boolean);
+    const meta = `「v${pluginPackage.version}」`;
+
     return h(
         Box,
-        {flexDirection: 'column'},
-        h(Text, null, `gh: ${doctor.gh ? t('installed') : t('missing')}`),
-        h(Text, null, `auth: ${doctor.authenticated ? t('ok') : t('notLoggedIn')}`),
-        h(Text, {color: 'gray'}, 'a: manual gh auth login'),
-        manualAuth
-            ? h(Box, {flexDirection: 'column', marginTop: 1},
-                h(Text, {color: 'cyan'}, t('manualAuthUrl', {url: manualAuth.url})),
-                manualAuth.code ? h(Text, {color: 'cyan'}, t('manualAuthCode', {code: manualAuth.code})) : null,
-                h(Text, {color: 'gray'}, t('manualAuthWaiting'))
+        {},
+        h(Box, {}, ...tabs),
+        h(Spacer, {}),
+        layout.contentWidth > 58 ? h(Text, {dimColor: true}, `${meta}  「${truncateLeft(process.cwd(), 28)}」`) : null
+    );
+}
+
+function ActionPanel({selectedIndex, status, layout}) {
+    const badges = {
+        status: 'SCAN',
+        pull: 'REMOTE → LOCAL',
+        push: 'LOCAL → REMOTE',
+        sync: 'TWO-WAY',
+        preferRemote: 'OVERWRITE LOCAL',
+        preferLocal: 'OVERWRITE REMOTE',
+        exit: 'QUIT'
+    };
+
+    return h(
+        Box,
+        {borderStyle: 'round', borderColor: COLORS.border, paddingX: 1, flexDirection: 'column'},
+        h(PanelHeader, {title: t('tui.panels.actions'), summary: `${selectedIndex + 1}/${ACTIONS.length}`}),
+        ...ACTIONS.map((action, index) => {
+            const selected = index === selectedIndex;
+            const destructive = action === 'preferLocal' || action === 'preferRemote';
+            const badgeColor = action === 'exit'
+                ? COLORS.danger
+                : destructive
+                    ? COLORS.warning
+                    : action === 'sync'
+                        ? COLORS.success
+                        : COLORS.secondary;
+            return h(
+                Box,
+                {key: action},
+                h(Text, {bold: selected, color: selected ? COLORS.accent : COLORS.muted}, selected ? '› ' : '  '),
+                h(Text, {bold: selected, color: selected ? COLORS.accent : 'white', dimColor: !selected}, t(`tui.actions.${action}`)),
+                h(Spacer, {}),
+                layout.compact ? null : h(Text, {color: badgeColor, dimColor: !selected}, badges[action])
+            );
+        }),
+        layout.short && status
+            ? h(Text, {dimColor: true}, t('tui.status.compactSummary', {
+                local: status.localChanges.length,
+                remote: status.remoteChanges.length,
+                conflicts: status.conflicts.length
+            }))
+            : null
+    );
+}
+
+function StatusPanel({status, summary, busy, pending}) {
+    const clean = status?.clean;
+    const badge = busy
+        ? t('tui.status.loading')
+        : clean
+            ? t('tui.status.clean')
+            : t('tui.status.pending');
+    const badgeColor = busy ? COLORS.warning : clean ? COLORS.success : COLORS.secondary;
+
+    return h(
+        Box,
+        {borderStyle: 'round', borderColor: pending ? COLORS.warning : COLORS.border, paddingX: 1, flexDirection: 'column', flexGrow: 1},
+        h(PanelHeader, {title: t('tui.panels.status'), badge, badgeColor}),
+        h(Field, {label: t('tui.fields.repository'), value: summary.remote || t('noRemote'), dimColor: !summary.remote}),
+        h(Field, {label: t('tui.fields.scope'), value: t('bindingsCount', {count: summary.bindings.length}), color: COLORS.secondary}),
+        h(Field, {label: t('tui.fields.local'), value: String(status?.localChanges.length || 0), color: status?.localChanges.length ? COLORS.warning : COLORS.success}),
+        h(Field, {label: t('tui.fields.remote'), value: String(status?.remoteChanges.length || 0), color: status?.remoteChanges.length ? COLORS.secondary : COLORS.success}),
+        h(Field, {label: t('tui.fields.conflicts'), value: String(status?.conflicts.length || 0), color: status?.conflicts.length ? COLORS.danger : COLORS.success}),
+        pending
+            ? h(Box, {marginTop: 1, flexDirection: 'column'},
+                h(Text, {bold: true, color: COLORS.warning}, t('tui.confirm.title')),
+                h(Text, {}, t(`tui.confirm.${pending}`)),
+                h(Text, {dimColor: true}, t('tui.confirm.footer'))
             )
             : null
     );
 }
 
-function RepositoryPage({summary, inputMode, repoInput, repoCreate}) {
-    const editing = inputMode === 'repository';
-    const repositoryValue = editing ? repoInput : summary.repository || '';
+function ResponsivePanels({left, right, layout}) {
+    if (layout.compact) {
+        return h(Box, {flexDirection: 'column', flexGrow: 1},
+            h(Box, {marginBottom: 1, flexDirection: 'column'}, left),
+            h(Box, {flexGrow: 1, flexDirection: 'column'}, right)
+        );
+    }
+    return h(Box, {flexDirection: 'row', flexGrow: 1},
+        h(Box, {width: layout.sidebarWidth, marginRight: 1, flexDirection: 'column'}, left),
+        h(Box, {flexGrow: 1, flexDirection: 'column'}, right)
+    );
+}
 
+function RepositoryPage({summary, doctor, editing, repoInput, createPrivate}) {
     return h(
         Box,
-        {flexDirection: 'column'},
-        h(Section, {title: t('tui.repository.title')},
-            h(Text, null, t('dataDir', {dir: summary.dataDir})),
-            h(Text, null, t('remote', {remote: summary.remote || t('noRemote')})),
-            h(Text, null, `${t('tui.repository.repository')}: ${repositoryValue || t('tui.repository.placeholder')}`),
-            h(Text, null, `${t('tui.repository.createPrivate')}: ${repoCreate ? t('yes') : t('no')}`),
-            editing
-                ? h(Text, {color: 'cyan'}, t('tui.repository.editing'))
-                : h(Text, {color: summary.remote ? 'gray' : 'yellow'}, t('tui.repository.ready'))
+        {borderStyle: 'round', borderColor: editing ? COLORS.accent : COLORS.border, paddingX: 1, flexDirection: 'column', flexGrow: 1},
+        h(PanelHeader, {
+            title: t('tui.panels.repository'),
+            badge: doctor.authenticated ? t('ok') : t('notLoggedIn'),
+            badgeColor: doctor.authenticated ? COLORS.success : COLORS.warning
+        }),
+        h(Field, {label: t('tui.fields.repository'), value: editing ? repoInput : (summary.repository || t('noRemote')), color: editing ? COLORS.accent : undefined}),
+        h(Field, {label: t('tui.fields.remoteUrl'), value: truncateLeft(summary.remote || '-', 72), dimColor: true}),
+        h(Field, {label: t('tui.fields.cache'), value: truncateLeft(summary.cacheDir, 72), dimColor: true}),
+        h(Field, {label: t('tui.fields.privateRepo'), value: createPrivate ? t('yes') : t('no'), color: createPrivate ? COLORS.warning : COLORS.muted}),
+        h(Box, {marginTop: 1, flexDirection: 'column'},
+            h(Text, {color: editing ? COLORS.accent : COLORS.muted}, editing ? t('tui.repository.editing') : t('tui.repository.ready')),
+            h(Text, {dimColor: true}, t('tui.repository.authHint'))
         )
     );
 }
 
-function SyncPage({bindings, selectedIndex, status}) {
-    const selected = bindings[selectedIndex];
+function BindingsPage({bindings, selectedIndex, layout}) {
+    const visible = bindings.slice(0, layout.bindingLimit);
+    const selected = bindings[selectedIndex] || bindings[0];
+    const list = h(
+        Box,
+        {borderStyle: 'round', borderColor: COLORS.border, paddingX: 1, flexDirection: 'column'},
+        h(PanelHeader, {title: t('tui.panels.bindings'), summary: String(bindings.length)}),
+        ...visible.map((binding, index) => h(
+            Box,
+            {key: `${binding.tool}/${binding.name}`},
+            h(Text, {bold: index === selectedIndex, color: index === selectedIndex ? COLORS.accent : COLORS.muted}, index === selectedIndex ? '› ' : '  '),
+            h(Text, {color: binding.system ? COLORS.success : 'white'}, `${binding.tool}/${binding.name}`),
+            h(Spacer, {}),
+            h(Text, {dimColor: true}, binding.system ? 'SYSTEM' : 'CUSTOM')
+        ))
+    );
+    const detail = h(
+        Box,
+        {borderStyle: 'round', borderColor: COLORS.border, paddingX: 1, flexDirection: 'column', flexGrow: 1},
+        h(PanelHeader, {title: selected ? `${selected.tool}/${selected.name}` : t('noBindings')}),
+        selected ? h(React.Fragment, {},
+            h(Field, {label: t('tui.fields.localPath'), value: truncateLeft(selected.localPath, 72), dimColor: true}),
+            h(Field, {label: t('tui.fields.repoPath'), value: selected.repoPath, color: COLORS.secondary}),
+            h(Field, {label: t('tui.fields.type'), value: selected.system ? t('tui.binding.system') : t('tui.binding.custom'), color: selected.system ? COLORS.success : COLORS.warning}),
+            h(Text, {dimColor: true}, t('tui.binding.hint'))
+        ) : null
+    );
+    return h(ResponsivePanels, {left: list, right: detail, layout});
+}
+
+function DoctorPage({doctor, summary}) {
+    const checks = [
+        ['git', doctor.git, t('tui.doctor.git')],
+        ['gh', doctor.gh, t('tui.doctor.gh')],
+        ['auth', doctor.authenticated, t('tui.doctor.auth')],
+        ['repo', doctor.dataRepoInitialized, t('tui.doctor.cache')],
+        ['remote', Boolean(summary.remote), t('tui.doctor.remote')]
+    ];
     return h(
         Box,
-        {flexDirection: 'column'},
-        h(BindingList, {bindings, selectedIndex}),
-        selected && status
-            ? h(Section, {title: t('statusTitle', {tool: selected.tool, name: selected.name})},
-                h(Text, null, t('localChanges', {count: status.localChanges.length})),
-                h(Text, null, t('remoteChanges', {count: status.remoteChanges.length})),
-                h(Text, null, t('conflicts', {count: status.conflicts.length}))
-            )
+        {borderStyle: 'round', borderColor: COLORS.border, paddingX: 1, flexDirection: 'column', flexGrow: 1},
+        h(PanelHeader, {title: t('doctorTitle'), summary: `${checks.filter(([, ok]) => ok).length}/${checks.length}`}),
+        ...checks.map(([id, ok, label]) => h(
+            Box,
+            {key: id},
+            h(Text, {bold: true, color: ok ? COLORS.success : COLORS.danger}, ok ? '● ' : '○ '),
+            h(Text, {}, label),
+            h(Spacer, {}),
+            h(Text, {color: ok ? COLORS.success : COLORS.warning}, ok ? t('ok') : t('missing'))
+        )),
+        doctor.legacyDataRepo
+            ? h(Text, {color: COLORS.warning}, t('tui.doctor.legacyRepo'))
             : null
     );
 }
 
-function ConflictsPage({conflicts}) {
-    if (conflicts.length === 0) {
-        return h(Text, {color: 'green'}, t('conflicts', {count: 0}));
-    }
-
-    return h(
-        Box,
-        {flexDirection: 'column'},
-        h(Text, {color: 'red'}, t('conflicts', {count: conflicts.length})),
-        ...conflicts.map(filePath => h(Text, {key: filePath}, `  ! ${filePath}`))
-    );
-}
-
-function SettingsPage() {
-    return h(
-        Box,
-        {flexDirection: 'column'},
-        h(Text, null, '~/.slothtool/data'),
-        h(Text, null, '~/.slothtool/plugin-configs/gstore.json'),
-        h(Text, {color: 'gray'}, 'CLI: gstore bind <tool> <name> <localDir>')
-    );
-}
-
-function GStoreTuiApp() {
-    const {exit} = useApp();
+export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) {
+    const app = useApp();
     const {columns, rows} = useWindowSize();
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [selectedIndex, setSelectedIndex] = useState(0);
+    const layout = layoutOverride || resolveGStoreTuiLayout(columns, rows);
+    const [activeTab, setActiveTab] = useState(TABS.includes(initialTab) ? initialTab : 'sync');
+    const [selectedAction, setSelectedAction] = useState(0);
+    const [selectedBinding, setSelectedBinding] = useState(0);
     const [summary, setSummary] = useState(() => getRepositorySummary());
     const [doctor, setDoctor] = useState(() => runDoctor());
-    const [selectedStatus, setSelectedStatus] = useState(null);
-    const [conflicts, setConflicts] = useState([]);
-    const [status, setStatus] = useState({message: t('tui.status.ready'), tone: 'green'});
-    const [inputMode, setInputMode] = useState(null);
-    const [repoInput, setRepoInput] = useState('');
-    const [repoCreate, setRepoCreate] = useState(false);
-    const [manualAuth, setManualAuth] = useState(null);
-    const activeTab = TAB_ORDER[activeIndex];
-    const selectedBinding = summary.bindings[selectedIndex];
+    const [syncStatus, setSyncStatus] = useState(() => getSystemStatus({refresh: false}));
+    const [statusState, setStatusState] = useState({tone: 'success', message: t('tui.status.ready')});
+    const [busy, setBusy] = useState(false);
+    const [pending, setPending] = useState('');
+    const [editingRepository, setEditingRepository] = useState(false);
+    const [repositoryInput, setRepositoryInput] = useState(summary.repository || '');
+    const [createPrivate, setCreatePrivate] = useState(false);
+    const statusTimer = useRef(null);
 
-    function refresh(nextStatus = {message: t('tui.status.refreshed'), tone: 'green'}) {
+    useEffect(() => () => clearTimeout(statusTimer.current), []);
+
+    function refreshLocal(message = t('tui.status.refreshed')) {
         const nextSummary = getRepositorySummary();
         setSummary(nextSummary);
         setDoctor(runDoctor());
-        setSelectedIndex(current => clamp(current, nextSummary.bindings.length));
-        setStatus(nextStatus);
+        setSyncStatus(getSystemStatus({refresh: false}));
+        setSelectedBinding(index => Math.max(0, Math.min(index, nextSummary.bindings.length - 1)));
+        setStatusState({tone: 'success', message});
     }
 
-    async function runAction(action, getSuccessStatus) {
+    function showResult(tone, message) {
+        clearTimeout(statusTimer.current);
+        setStatusState({tone, message});
+        statusTimer.current = setTimeout(() => setStatusState({tone: 'success', message: t('tui.status.ready')}), RESULT_DISPLAY_MS);
+    }
+
+    async function execute(action) {
+        setBusy(true);
+        setStatusState({tone: 'warn', message: t('tui.status.loading')});
         try {
-            setStatus({message: t('tui.status.loading'), tone: 'yellow'});
-            const result = await Promise.resolve(action());
-            const nextStatus = typeof getSuccessStatus === 'function'
-                ? getSuccessStatus(result)
-                : {message: t('tui.status.refreshed'), tone: 'green'};
-            refresh(nextStatus);
+            await new Promise(resolve => setTimeout(resolve, 16));
+            if (action === 'status') {
+                setSyncStatus(getSystemStatus());
+            } else if (action === 'pull') {
+                pullSystem();
+            } else if (action === 'push') {
+                pushSystem();
+            } else if (action === 'sync') {
+                syncSystem();
+            } else if (action === 'preferRemote') {
+                syncSystem({conflictStrategy: 'remote'});
+            } else if (action === 'preferLocal') {
+                syncSystem({conflictStrategy: 'local'});
+            }
+            refreshLocal(t(`tui.status.${action}Done`));
         } catch (error) {
-            setStatus({message: error.message, tone: 'red'});
+            showResult('error', error.message);
+        } finally {
+            setBusy(false);
+            setPending('');
         }
     }
-
-    function runSelected(action) {
-        if (!selectedBinding) {
-            setStatus({message: t('tui.status.noBinding'), tone: 'yellow'});
-            return;
-        }
-
-        runAction(() => action(selectedBinding));
-    }
-
-    useEffect(() => {
-        refresh();
-    }, []);
 
     useInput((input, key) => {
-        if (inputMode === 'repository') {
+        if (busy) {
+            return;
+        }
+
+        if (editingRepository) {
             if (key.escape) {
-                setInputMode(null);
-                setRepoInput('');
-                setStatus({message: t('tui.status.ready'), tone: 'green'});
-                return;
-            }
-
-            if (key.return) {
-                const value = repoInput.trim();
-                if (!value) {
-                    setStatus({message: t('tui.status.inputRepo'), tone: 'yellow'});
-                    return;
+                setEditingRepository(false);
+                setRepositoryInput(summary.repository || '');
+            } else if (key.return) {
+                try {
+                    configureRepository(repositoryInput, {create: createPrivate});
+                    setEditingRepository(false);
+                    refreshLocal(t('repoSet', {repo: repositoryInput}));
+                } catch (error) {
+                    showResult('error', error.message);
                 }
-
-                setInputMode(null);
-                setRepoInput('');
-                runAction(
-                    () => {
-                        const result = configureRepository(value, {create: repoCreate});
-                        setRepoCreate(false);
-                        return result;
-                    },
-                    result => ({message: t('repoSet', {repo: result.repository}), tone: 'green'})
-                );
-                return;
-            }
-
-            if (key.backspace || key.delete) {
-                setRepoInput(current => current.slice(0, -1));
-                return;
-            }
-
-            if (input) {
-                setRepoInput(current => `${current}${input}`);
+            } else if (key.backspace || key.delete) {
+                setRepositoryInput(value => value.slice(0, -1));
+            } else if (input && !key.ctrl && !key.meta) {
+                setRepositoryInput(value => value + input);
             }
             return;
         }
 
-        if (input === 'q') {
-            exit();
+        if (pending) {
+            if (input.toLowerCase() === 'y' || key.return) {
+                execute(pending);
+            } else if (input.toLowerCase() === 'n' || key.escape) {
+                setPending('');
+                showResult('warn', t('tui.status.cancelled'));
+            }
             return;
         }
 
+        if (input.toLowerCase() === 'q') {
+            app.exit();
+            return;
+        }
         if (key.tab) {
-            setActiveIndex(current => (current + 1) % TAB_ORDER.length);
+            const index = TABS.indexOf(activeTab);
+            setActiveTab(TABS[(index + 1) % TABS.length]);
+            return;
+        }
+        if (key.escape) {
+            setActiveTab('sync');
+            return;
+        }
+        if (input.toLowerCase() === 'r') {
+            refreshLocal();
             return;
         }
 
+        if (activeTab === 'repository') {
+            if (input.toLowerCase() === 'a') {
+                setBusy(true);
+                ensureAuth().then(() => refreshLocal(t('authReady'))).catch(error => showResult('error', error.message)).finally(() => setBusy(false));
+            } else if (input === ' ') {
+                setCreatePrivate(value => !value);
+            } else if (key.return) {
+                setRepositoryInput(summary.repository || '');
+                setEditingRepository(true);
+            }
+            return;
+        }
+
+        if (activeTab === 'bindings') {
+            if (key.upArrow) {
+                setSelectedBinding(index => (index - 1 + summary.bindings.length) % Math.max(1, summary.bindings.length));
+            } else if (key.downArrow) {
+                setSelectedBinding(index => (index + 1) % Math.max(1, summary.bindings.length));
+            }
+            return;
+        }
+
+        if (activeTab !== 'sync') {
+            return;
+        }
         if (key.upArrow) {
-            setSelectedIndex(current => clamp(current - 1, summary.bindings.length));
-            return;
-        }
-
-        if (key.downArrow) {
-            setSelectedIndex(current => clamp(current + 1, summary.bindings.length));
-            return;
-        }
-
-        if (input === 'r') {
-            refresh();
-            return;
-        }
-
-        if (input === 'a') {
-            setActiveIndex(TAB_ORDER.indexOf('auth'));
-            setManualAuth(null);
-            runAction(async () => {
-                await ensureAuth({
-                    silent: true,
-                    onManualLogin: login => {
-                        setManualAuth(login);
-                        setStatus({message: t('tui.status.manualAuth'), tone: 'cyan'});
-                    }
-                });
-                setManualAuth(null);
-            });
-            return;
-        }
-
-        if (activeTab === 'repository' && key.return) {
-            setInputMode('repository');
-            setRepoInput(summary.repository || '');
-            setStatus({message: t('tui.status.inputRepo'), tone: 'cyan'});
-            return;
-        }
-
-        if (activeTab === 'repository' && input === ' ') {
-            setRepoCreate(current => !current);
-            return;
-        }
-
-        if (input === 'l') {
-            runSelected(binding => pullBinding(binding.tool, binding.name));
-            return;
-        }
-
-        if (input === 'p') {
-            runSelected(binding => pushBinding(binding.tool, binding.name));
-            return;
-        }
-
-        if (input === 's') {
-            runSelected(binding => syncBinding(binding.tool, binding.name));
-            return;
-        }
-
-        if (input === 'c') {
-            runSelected(binding => {
-                const nextConflicts = getConflicts(binding.tool, binding.name);
-                setConflicts(nextConflicts);
-                setActiveIndex(TAB_ORDER.indexOf('conflicts'));
-            });
-            return;
-        }
-
-        if (input === 'b' && activeTab === 'settings') {
-            const defaultPath = `${summary.dataDir}/todo/default`;
-            runAction(() => bindDataDirectory('todo', 'default', defaultPath));
+            setSelectedAction(index => (index - 1 + ACTIONS.length) % ACTIONS.length);
+        } else if (key.downArrow) {
+            setSelectedAction(index => (index + 1) % ACTIONS.length);
+        } else if (key.return) {
+            const action = ACTIONS[selectedAction];
+            if (action === 'exit') {
+                app.exit();
+            } else if (action === 'preferLocal' || action === 'preferRemote') {
+                setPending(action);
+            } else {
+                execute(action);
+            }
         }
     });
 
-    useEffect(() => {
-        if (!selectedBinding || activeTab !== 'sync') {
-            return;
-        }
-
-        try {
-            setSelectedStatus(getBindingStatus(selectedBinding.tool, selectedBinding.name));
-        } catch (error) {
-            setSelectedStatus(null);
-            setStatus({message: error.message, tone: 'red'});
-        }
-    }, [activeTab, selectedBinding?.tool, selectedBinding?.name]);
-
-    const divider = useMemo(() => '─'.repeat(Math.max(10, columns - 2)), [columns]);
-    let content = null;
-
-    if (activeTab === 'overview') {
-        content = h(OverviewPage, {summary, doctor});
-    } else if (activeTab === 'auth') {
-        content = h(AuthPage, {doctor, manualAuth});
-    } else if (activeTab === 'repository') {
-        content = h(RepositoryPage, {summary, inputMode, repoInput, repoCreate});
-    } else if (activeTab === 'bindings') {
-        content = h(BindingList, {bindings: summary.bindings, selectedIndex});
-    } else if (activeTab === 'sync') {
-        content = h(SyncPage, {bindings: summary.bindings, selectedIndex, status: selectedStatus});
-    } else if (activeTab === 'conflicts') {
-        content = h(ConflictsPage, {conflicts});
-    } else {
-        content = h(SettingsPage);
+    if (layout.tooSmall) {
+        return h(Box, {borderStyle: 'round', borderColor: COLORS.warning, paddingX: 1, flexDirection: 'column'},
+            h(Text, {bold: true, color: COLORS.warning}, t('tui.resize.title')),
+            h(Text, {}, t('tui.resize.description'))
+        );
     }
+
+    const content = activeTab === 'sync'
+        ? h(ResponsivePanels, {
+            layout,
+            left: h(ActionPanel, {selectedIndex: selectedAction, status: syncStatus, layout}),
+            right: h(StatusPanel, {status: syncStatus, summary, busy, pending})
+        })
+        : activeTab === 'repository'
+            ? h(RepositoryPage, {summary, doctor, editing: editingRepository, repoInput: repositoryInput, createPrivate})
+            : activeTab === 'bindings'
+                ? h(BindingsPage, {bindings: summary.bindings, selectedIndex: selectedBinding, layout})
+                : h(DoctorPage, {doctor, summary});
+    const toneColor = statusState.tone === 'error' ? COLORS.danger : statusState.tone === 'warn' ? COLORS.warning : COLORS.success;
 
     return h(
         Box,
-        {flexDirection: 'column', height: Math.max(12, rows), paddingX: 1, paddingY: 1},
-        h(Header, {activeTab}),
-        h(Text, {color: 'gray'}, divider),
-        h(Box, {flexGrow: 1, flexDirection: 'column', marginY: 1}, content),
-        h(Footer, {status})
+        {flexDirection: 'column', flexGrow: 1, paddingX: 1, paddingY: 1},
+        h(Header, {activeTab, layout}),
+        h(Box, {marginY: 1}, h(Text, {color: COLORS.muted}, '─'.repeat(layout.contentWidth))),
+        h(Box, {flexGrow: 1}, content),
+        h(Box, {marginTop: 1},
+            h(Text, {color: toneColor}, statusState.message),
+            h(Spacer, {}),
+            h(Text, {dimColor: true}, editingRepository ? t('tui.footer.input') : t(`tui.footer.${activeTab}`))
+        )
     );
 }
 
 export async function startGStoreTui() {
     if (process.env.SLOTHTOOL_GSTORE_TUI_TEST_ACTION === 'exit') {
-        return {type: 'exit'};
+        return;
     }
-
-    const ink = render(h(GStoreTuiApp), {
-        alternateScreen: true,
-        exitOnCtrlC: true
-    });
-
+    const ink = render(h(GStoreTuiApp), {alternateScreen: true, exitOnCtrlC: true});
     await ink.waitUntilExit();
-    return {type: 'exit'};
 }
 
-export default {
-    startGStoreTui
-};
+export default {GStoreTuiApp, resolveGStoreTuiLayout, startGStoreTui};
