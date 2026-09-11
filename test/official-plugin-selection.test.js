@@ -25,7 +25,7 @@ import {
 
 function createTempHome() {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-official-plugin-home-'));
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
     fs.writeFileSync(path.join(slothDir, 'settings.json'), JSON.stringify({language: 'zh'}, null, 2));
     return homeDir;

@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module GStore Plugin / Git
  * @description 提供独立缓存仓库的 git 初始化、remote、pull、commit、push 和状态检查能力。
- * @logic 1. 固定使用 ~/.slothtool/cache/gstore/repository 作为 Git 缓存；2. 所有 Git 操作委托本机 git 命令；3. 用 fast-forward-only 拉取和本地仓库身份配置保证同步行为可预测。
+ * @logic 1. 固定使用 ~/.pipker/slothtool/cache/gstore/repository 作为 Git 缓存；2. 所有 Git 操作委托本机 git 命令；3. 用 fast-forward-only 拉取和本地仓库身份配置保证同步行为可预测。
  * @dependencies Node: fs/path, Runner: ./command-runner.js, Config: ./config.js
  * @index_tags gstore git, 数据仓库, git命令, pull, push
  * @author holic512

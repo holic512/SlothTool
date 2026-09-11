@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module GStore Plugin / Storage
  * @description 管理 gstore 本机配置、独立 Git 缓存路径、同步源路径和 SlothTool 网络代理环境。
- * @logic 1. 将 Git 缓存隔离到 ~/.slothtool/cache/gstore/repository；2. 将 gstore 状态保存到 plugin-configs/gstore.json；3. 暴露设置、插件配置和数据目录作为系统同步源；4. 读取网络代理配置并生成子进程环境变量。
+ * @logic 1. 将 Git 缓存隔离到 ~/.pipker/slothtool/cache/gstore/repository；2. 将 gstore 状态保存到 plugin-configs/gstore.json；3. 暴露设置、插件配置和数据目录作为系统同步源；4. 读取网络代理配置并生成子进程环境变量。
  * @dependencies Node: fs/os/path
  * @index_tags gstore配置, 数据仓库, plugin-configs, proxyEnv, GitHub同步
  * @author holic512
@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 export function getSlothToolHome() {
-    return path.join(os.homedir(), '.slothtool');
+    return path.join(os.homedir(), '.pipker', 'slothtool');
 }
 
 export function getDataDir() {

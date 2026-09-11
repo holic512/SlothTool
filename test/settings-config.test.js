@@ -24,7 +24,7 @@ const rootBin = path.join(rootDir, 'bin', 'slothtool.js');
 
 function createTempHome(initialSettings = {language: 'zh'}) {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-config-home-'));
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
     fs.writeFileSync(path.join(slothDir, 'settings.json'), JSON.stringify(initialSettings, null, 2));
     fs.writeFileSync(path.join(slothDir, 'registry.json'), JSON.stringify({plugins: {}}, null, 2));
@@ -81,7 +81,7 @@ test('config proxy commands update persisted network settings', () => {
     runCli(['config', 'proxy', 'github-url', 'https://proxy.example.com'], homeDir);
 
     const savedSettings = JSON.parse(
-        fs.readFileSync(path.join(homeDir, '.slothtool', 'settings.json'), 'utf8')
+        fs.readFileSync(path.join(homeDir, '.pipker', 'slothtool', 'settings.json'), 'utf8')
     );
 
     assert.equal(savedSettings.network.proxy.enabled, true);
@@ -89,6 +89,27 @@ test('config proxy commands update persisted network settings', () => {
     assert.equal(savedSettings.network.proxy.port, 7890);
     assert.equal(savedSettings.network.github.preset, 'custom');
     assert.equal(savedSettings.network.github.customBaseUrl, 'https://proxy.example.com');
+});
+
+test('first settings write creates only the Pipker SlothTool home', () => {
+    const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-fresh-home-'));
+
+    runCli(['config', 'language', 'en'], homeDir);
+
+    assert.equal(fs.existsSync(path.join(homeDir, '.pipker', 'slothtool', 'settings.json')), true);
+    assert.equal(fs.existsSync(path.join(homeDir, '.slothtool')), false);
+});
+
+test('settings commands do not read the former SlothTool home', () => {
+    const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-legacy-home-'));
+    const legacyDir = path.join(homeDir, '.slothtool');
+    fs.mkdirSync(legacyDir, {recursive: true});
+    fs.writeFileSync(path.join(legacyDir, 'settings.json'), JSON.stringify({language: 'en'}, null, 2));
+
+    const output = runCli(['config', 'proxy', 'show'], homeDir);
+
+    assert.match(output, /当前语言：zh/u);
+    assert.equal(fs.existsSync(path.join(homeDir, '.pipker', 'slothtool')), false);
 });
 
 test('config proxy commands reject invalid values', () => {

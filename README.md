@@ -25,7 +25,7 @@ SlothTool 把“插件管理器”作为默认交互入口：根命令负责安�
 | 配置云同步 | `gstore` 通过独立 Git 仓库缓存同步全局设置、插件配置和数据，并提供冲突检测与显式覆盖策略。 |
 | Codex 模型管理 | `codex-models` 诊断自定义 provider，同步跨厂商模型库、上下文与推理等级，并生成 Desktop 离线修复脚本。 |
 | 双语界面 | 根管理器和官方插件支持中文 / English 文案。 |
-| 本地用户数据 | 设置、注册表、插件包、插件配置和同步数据都保存在 `~/.slothtool/`。 |
+| 本地用户数据 | 设置、注册表、插件包、插件配置和同步数据都保存在 `~/.pipker/slothtool/`。 |
 
 ## Requirements
 
@@ -177,7 +177,7 @@ slothtool gstore sync
 slothtool gstore conflicts --json
 ```
 
-`gstore` 使用 `~/.slothtool/cache/gstore/repository` 作为独立 Git 工作区，不会在实际数据目录中创建 `.git`。默认同步三个系统范围：`settings.json`、`plugin-configs/`（排除保存远端地址和同步基线的 `gstore.json`）以及 `data/`；`registry.json`、已安装插件和缓存不会跨设备同步。需要附加其他工具目录时，可继续使用 `gstore bind <tool> <name> <localDir>`。
+`gstore` 使用 `~/.pipker/slothtool/cache/gstore/repository` 作为独立 Git 工作区，不会在实际数据目录中创建 `.git`。默认同步三个系统范围：`settings.json`、`plugin-configs/`（排除保存远端地址和同步基线的 `gstore.json`）以及 `data/`；`registry.json`、已安装插件和缓存不会跨设备同步。需要附加其他工具目录时，可继续使用 `gstore bind <tool> <name> <localDir>`。
 
 它只调用本机 `git` 和 GitHub CLI `gh`，不保存 GitHub token。默认遇到同文件双向修改会停止；确认取舍后使用 `gstore sync --prefer-remote` 或 `gstore sync --prefer-local` 显式解决。新设备已有默认设置文件时，首次恢复使用 `gstore pull --prefer-remote`。TUI 对覆盖动作提供二次确认。
 
@@ -218,7 +218,7 @@ slothtool bundle codex-models --output ./codex-models-offline.tgz
 
 ## Configuration
 
-全局设置默认保存在 `~/.slothtool/settings.json`：
+全局设置默认保存在 `~/.pipker/slothtool/settings.json`：
 
 ```json
 {
@@ -267,8 +267,8 @@ flowchart TD
     D --> F["Plugin service"]
     F --> G["official-plugins.json"]
     F --> H["GitHub Release or offline .tgz"]
-    F --> I["~/.slothtool/registry.json"]
-    F --> J["~/.slothtool/plugins/<alias>/"]
+    F --> I["~/.pipker/slothtool/registry.json"]
+    F --> J["~/.pipker/slothtool/plugins/<alias>/"]
     E --> I
     E --> K["Plugin bin"]
     K --> L{"No args / --tui?"}
@@ -280,14 +280,14 @@ flowchart TD
 
 1. `slothtool install <alias>` 或 `install <alias> --file <archive.tgz>` 从 `lib/official-plugins.json` 查找内置官方插件。
 2. 在线安装按插件策略、当前平台和 CPU 架构选择 GitHub Release `.tgz`；离线安装校验本地归档包名。
-3. 资产被解包并部署到 `~/.slothtool/plugins/<alias>/`；缺少运行时依赖时只允许使用 npm 离线缓存补齐。
-4. 插件入口、版本和来源类型写入 `~/.slothtool/registry.json`。
+3. 资产被解包并部署到 `~/.pipker/slothtool/plugins/<alias>/`；缺少运行时依赖时只允许使用 npm 离线缓存补齐。
+4. 插件入口、版本和来源类型写入 `~/.pipker/slothtool/registry.json`。
 5. `slothtool <plugin>` 从注册表解析插件入口；无额外参数时优先进入插件默认 TUI。
 
 ## Data Layout
 
 ```text
-~/.slothtool/
+~/.pipker/slothtool/
 ├── settings.json
 ├── registry.json
 ├── data/

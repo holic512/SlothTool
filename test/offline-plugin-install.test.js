@@ -22,8 +22,8 @@ import {createOfflinePluginBundle, installPluginFromArchive} from '../lib/servic
 
 function createHome() {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-offline-home-'));
-    fs.mkdirSync(path.join(home, '.slothtool'), {recursive: true});
-    fs.writeFileSync(path.join(home, '.slothtool', 'settings.json'), JSON.stringify({language: 'en'}, null, 2));
+    fs.mkdirSync(path.join(home, '.pipker', 'slothtool'), {recursive: true});
+    fs.writeFileSync(path.join(home, '.pipker', 'slothtool', 'settings.json'), JSON.stringify({language: 'en'}, null, 2));
     return home;
 }
 
@@ -120,7 +120,7 @@ test('offline archive installs an official plugin and records its source', async
         assert.equal(installed.assetName, path.basename(archivePath));
         assert.equal(fs.statSync(installed.binPath).mode & 0o100, 0o100);
         assert.equal(execFileSync(process.execPath, [installed.binPath], {encoding: 'utf8'}).trim(), 'OFFLINE_PLUGIN_OK');
-        assert.ok(installed.binPath.startsWith(path.join(home, '.slothtool', 'plugins', 'codex-models')));
+        assert.ok(installed.binPath.startsWith(path.join(home, '.pipker', 'slothtool', 'plugins', 'codex-models')));
     });
 });
 

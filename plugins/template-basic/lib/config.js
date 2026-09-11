@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 function getSlothToolHome() {
-    return path.join(os.homedir(), '.slothtool');
+    return path.join(os.homedir(), '.pipker', 'slothtool');
 }
 
 function getPluginConfigsDir() {

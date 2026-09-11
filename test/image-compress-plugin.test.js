@@ -30,7 +30,7 @@ const prepareBundleScript = path.join(rootDir, 'plugins', 'image-compress', 'scr
 
 function createTempHome() {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-image-compress-home-'));
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
     fs.writeFileSync(path.join(slothDir, 'settings.json'), JSON.stringify({language: 'zh'}, null, 2));
     return homeDir;

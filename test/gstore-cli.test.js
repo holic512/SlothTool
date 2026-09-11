@@ -30,7 +30,7 @@ const gstoreBin = path.join(rootDir, 'plugins', 'gstore', 'bin', 'gstore.js');
 
 function createTempHome() {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-gstore-home-'));
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
     fs.writeFileSync(path.join(slothDir, 'settings.json'), JSON.stringify({language: 'zh'}, null, 2));
     return homeDir;
@@ -176,7 +176,7 @@ test('gstore detects same-file local and remote conflicts without overwriting lo
 test('gstore system sync caches settings, plugin configs, and data without leaking gstore state', () => {
     const homeDir = createTempHome();
     const remotePath = createBareRemote();
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     const pluginConfigsDir = path.join(slothDir, 'plugin-configs');
     const dataDir = path.join(slothDir, 'data', 'sample');
     fs.mkdirSync(pluginConfigsDir, {recursive: true});
@@ -201,7 +201,7 @@ test('gstore system sync caches settings, plugin configs, and data without leaki
 test('gstore system sync requires an explicit strategy before resolving conflicts', () => {
     const homeDir = createTempHome();
     const remotePath = createBareRemote();
-    const settingsPath = path.join(homeDir, '.slothtool', 'settings.json');
+    const settingsPath = path.join(homeDir, '.pipker', 'slothtool', 'settings.json');
     runGstore(['repo', 'set', remotePath], {HOME: homeDir});
     runGstore(['sync'], {HOME: homeDir});
 
@@ -221,7 +221,7 @@ test('gstore system sync requires an explicit strategy before resolving conflict
 test('prefer-local resolves conflicts without discarding unrelated remote changes', () => {
     const homeDir = createTempHome();
     const remotePath = createBareRemote();
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     const settingsPath = path.join(slothDir, 'settings.json');
     const localDataPath = path.join(slothDir, 'data', 'remote-only.json');
     runGstore(['repo', 'set', remotePath], {HOME: homeDir});
@@ -248,7 +248,7 @@ test('prefer-local resolves conflicts without discarding unrelated remote change
 test('gstore restores system configuration into a fresh second device', () => {
     const sourceHome = createTempHome();
     const remotePath = createBareRemote();
-    const sourceSlothDir = path.join(sourceHome, '.slothtool');
+    const sourceSlothDir = path.join(sourceHome, '.pipker', 'slothtool');
     fs.mkdirSync(path.join(sourceSlothDir, 'plugin-configs'), {recursive: true});
     fs.mkdirSync(path.join(sourceSlothDir, 'data', 'sample'), {recursive: true});
     fs.writeFileSync(path.join(sourceSlothDir, 'settings.json'), JSON.stringify({language: 'en'}, null, 2));
@@ -261,9 +261,9 @@ test('gstore restores system configuration into a fresh second device', () => {
     runGstore(['repo', 'set', remotePath], {HOME: targetHome});
     const pull = JSON.parse(runGstore(['pull', '--prefer-remote', '--json'], {HOME: targetHome}));
     assert.equal(pull.status, 'pulled');
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(targetHome, '.slothtool', 'settings.json'), 'utf8')), {language: 'en'});
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(targetHome, '.slothtool', 'plugin-configs', 'loc.json'), 'utf8')), {verbose: true});
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(targetHome, '.slothtool', 'data', 'sample', 'state.json'), 'utf8')), {synced: true});
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(targetHome, '.pipker', 'slothtool', 'settings.json'), 'utf8')), {language: 'en'});
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(targetHome, '.pipker', 'slothtool', 'plugin-configs', 'loc.json'), 'utf8')), {verbose: true});
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(targetHome, '.pipker', 'slothtool', 'data', 'sample', 'state.json'), 'utf8')), {synced: true});
 });
 
 test('gstore never restores its own machine-specific state from a remote archive', () => {
@@ -283,7 +283,7 @@ test('gstore never restores its own machine-specific state from a remote archive
     const targetHome = createTempHome();
     runGstore(['repo', 'set', remotePath], {HOME: targetHome});
     runGstore(['pull', '--prefer-remote'], {HOME: targetHome});
-    const localState = JSON.parse(fs.readFileSync(path.join(targetHome, '.slothtool', 'plugin-configs', 'gstore.json'), 'utf8'));
+    const localState = JSON.parse(fs.readFileSync(path.join(targetHome, '.pipker', 'slothtool', 'plugin-configs', 'gstore.json'), 'utf8'));
     assert.equal(localState.remote, remotePath);
 });
 

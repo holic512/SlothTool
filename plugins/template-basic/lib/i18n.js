@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 function getSettingsPath() {
-    return path.join(os.homedir(), '.slothtool', 'settings.json');
+    return path.join(os.homedir(), '.pipker', 'slothtool', 'settings.json');
 }
 
 export function getLanguage() {

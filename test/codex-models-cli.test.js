@@ -291,3 +291,23 @@ test('repair generator creates an executable, syntax-valid, offline-only guarded
     assert.match(result.repairCommand, /--freeze-statsig-cache/u);
     assert.ok(result.command.includes(result.nodeExecutable));
 });
+
+test('repair generator defaults to the Pipker SlothTool data directory', () => {
+    const previousHome = process.env.HOME;
+    const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-codex-models-home-'));
+    process.env.HOME = homeDir;
+
+    try {
+        const result = createDesktopRepairScript('gpt-5.6-sol');
+        assert.equal(
+            result.outputPath,
+            path.join(homeDir, '.pipker', 'slothtool', 'data', 'codex-models', 'repair-codex-desktop-model-filter.mjs')
+        );
+    } finally {
+        if (previousHome === undefined) {
+            delete process.env.HOME;
+        } else {
+            process.env.HOME = previousHome;
+        }
+    }
+});

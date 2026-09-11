@@ -16,7 +16,7 @@ import path from 'node:path';
 import {listBuiltInProfiles, resolveModelMetadata} from './model-library.js';
 
 const DEFAULT_CATALOG_NAME = 'slothtool-model-catalog.json';
-const DEFAULT_REPAIR_DIR = path.join('.slothtool', 'data', 'codex-models');
+const DEFAULT_REPAIR_DIR = path.join('.pipker', 'slothtool', 'data', 'codex-models');
 const STATSIG_CONFIG_ID = '107580212';
 
 function removeTomlComment(value) {

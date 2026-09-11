@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module LOC Plugin / Storage
  * @description 管理 loc 插件配置，包括文件扩展名过滤与排除目录规则，并兼容迁移旧配置路径。
- * @logic 1. 统一定位 ~/.slothtool/data/plugin-configs/loc.json；2. 首次读取时迁移旧 plugin-configs 配置；3. 读取时合并默认配置并提供切换与重置辅助方法。
+ * @logic 1. 统一定位 ~/.pipker/slothtool/data/plugin-configs/loc.json；2. 首次读取时迁移同目录下旧 plugin-configs 配置；3. 读取时合并默认配置并提供切换与重置辅助方法。
  * @dependencies Node: fs/os/path
  * @index_tags loc配置, 文件扩展名, 排除目录, plugin-configs
  * @author holic512
@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 function getSlothToolHome() {
-    return path.join(os.homedir(), '.slothtool');
+    return path.join(os.homedir(), '.pipker', 'slothtool');
 }
 
 function getSlothToolDataDir() {

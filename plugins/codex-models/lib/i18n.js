@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module Codex Models Plugin / Internationalization
  * @description 提供 Codex Models 插件 CLI 与 TUI 的中英文文案，并与 SlothTool 全局语言设置保持一致。
- * @logic 优先读取显式语言覆盖与 ~/.slothtool/settings.json，缺失时回退 LANG，并替换消息中的命名参数。
+ * @logic 优先读取显式语言覆盖与 ~/.pipker/slothtool/settings.json，缺失时回退 LANG，并替换消息中的命名参数。
  * @dependencies Node: fs/os/path
  * @index_tags i18n, codex, model catalog, reasoning effort, model library, bilingual
  * @author holic512
@@ -152,7 +152,7 @@ export function getLanguage() {
     }
 
     try {
-        const settingsPath = path.join(os.homedir(), '.slothtool', 'settings.json');
+        const settingsPath = path.join(os.homedir(), '.pipker', 'slothtool', 'settings.json');
         if (fs.existsSync(settingsPath)) {
             const language = JSON.parse(fs.readFileSync(settingsPath, 'utf8')).language;
             if (['zh', 'en'].includes(language)) {

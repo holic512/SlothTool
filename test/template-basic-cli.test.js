@@ -23,7 +23,7 @@ const templateBin = path.join(rootDir, 'plugins', 'template-basic', 'bin', 'myto
 
 function createTempHome() {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-template-home-'));
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
     fs.writeFileSync(path.join(slothDir, 'settings.json'), JSON.stringify({language: 'zh'}, null, 2));
     return homeDir;

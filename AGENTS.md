@@ -19,11 +19,11 @@ Concise repo rules for Codex working on SlothTool.
   - ESM only
   - Root and plugin TUIs use `ink`
 - User data:
-  - `~/.slothtool/settings.json`
-  - `~/.slothtool/registry.json`
-  - `~/.slothtool/data/`
-  - `~/.slothtool/plugins/`
-  - `~/.slothtool/plugin-configs/`
+- `~/.pipker/slothtool/settings.json`
+- `~/.pipker/slothtool/registry.json`
+- `~/.pipker/slothtool/data/`
+- `~/.pipker/slothtool/plugins/`
+- `~/.pipker/slothtool/plugin-configs/`
 
 ## 2. Product Invariants
 

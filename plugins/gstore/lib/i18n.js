@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module GStore Plugin / Internationalization
  * @description 提供 gstore CLI 与 TUI 的中英文文案，并读取 SlothTool 全局语言设置。
- * @logic 1. 从 ~/.slothtool/settings.json 读取语言；2. 维护 CLI/TUI 文案字典；3. 支持点路径访问和模板变量替换。
+ * @logic 1. 从 ~/.pipker/slothtool/settings.json 读取语言；2. 维护 CLI/TUI 文案字典；3. 支持点路径访问和模板变量替换。
  * @dependencies Node: fs/os/path
  * @index_tags gstore i18n, 数据同步, GitHub, CLI文案, TUI文案
  * @author holic512
@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 function getSettingsPath() {
-    return path.join(os.homedir(), '.slothtool', 'settings.json');
+    return path.join(os.homedir(), '.pipker', 'slothtool', 'settings.json');
 }
 
 export function getLanguage() {
@@ -133,7 +133,7 @@ export const messages = {
             },
             doctor: {
                 git: 'Git 命令', gh: 'GitHub CLI', auth: 'GitHub 登录', cache: '本地仓库缓存', remote: '远端仓库',
-                legacyRepo: '检测到旧版 ~/.slothtool/data/.git；gstore 已停止使用它，可在确认数据安全后手动清理。'
+                legacyRepo: '检测到旧版 ~/.pipker/slothtool/data/.git；gstore 已停止使用它，可在确认数据安全后手动清理。'
             },
             confirm: {
                 title: '确认覆盖冲突文件',
@@ -252,7 +252,7 @@ export const messages = {
             binding: {system: 'System default', custom: 'Custom', hint: 'Add a custom scope with: gstore bind <tool> <name> <localDir>'},
             doctor: {
                 git: 'Git command', gh: 'GitHub CLI', auth: 'GitHub authentication', cache: 'Local repository cache', remote: 'Remote repository',
-                legacyRepo: 'A legacy ~/.slothtool/data/.git was found. gstore no longer uses it; remove it manually only after verifying the data.'
+                legacyRepo: 'A legacy ~/.pipker/slothtool/data/.git was found. gstore no longer uses it; remove it manually only after verifying the data.'
             },
             confirm: {
                 title: 'Confirm conflict overwrite', preferRemote: 'Cloud versions will overwrite conflicting local files.',

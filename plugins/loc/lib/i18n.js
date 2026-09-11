@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module LOC Plugin / Internationalization
  * @description 提供 loc 插件 CLI 与默认 TUI 所需的双语文案。
- * @logic 1. 读取 ~/.slothtool/settings.json 的语言设置；2. 输出 loc CLI/TUI 文案；3. 支持模板变量替换。
+ * @logic 1. 读取 ~/.pipker/slothtool/settings.json 的语言设置；2. 输出 loc CLI/TUI 文案；3. 支持模板变量替换。
  * @dependencies Node: fs/os/path
  * @index_tags loc i18n, 双语, TUI文案, CLI文案
  * @author holic512
@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 function getSettingsPath() {
-    return path.join(os.homedir(), '.slothtool', 'settings.json');
+    return path.join(os.homedir(), '.pipker', 'slothtool', 'settings.json');
 }
 
 export function getLanguage() {

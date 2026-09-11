@@ -27,7 +27,7 @@ const codexModelsBin = path.join(rootDir, 'plugins', 'codex-models', 'bin', 'cod
 
 function createTempHome(withLocalLoc = false, withLocalGstore = false, withLocalCodexModels = false) {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-home-'));
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
     fs.writeFileSync(path.join(slothDir, 'settings.json'), JSON.stringify({language: 'zh'}, null, 2));
 
@@ -150,7 +150,7 @@ test('root manager records the run and focuses the recent plugin after returning
         SLOTHTOOL_LOC_TUI_TEST_ACTION: 'exit'
     });
     const persistedRegistry = JSON.parse(fs.readFileSync(
-        path.join(homeDir, '.slothtool', 'registry.json'),
+        path.join(homeDir, '.pipker', 'slothtool', 'registry.json'),
         'utf8'
     ));
 

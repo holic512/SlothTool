@@ -124,7 +124,7 @@ my-plugin/
 - 插件配置落盘
 - 双语输出
 
-`gstore` 是需要 CLI + TUI 但核心逻辑仍独立于 Ink 的参考实现；其独立 Git 缓存位于 `~/.slothtool/cache/gstore/repository`，默认同步全局设置、插件配置和数据目录。
+`gstore` 是需要 CLI + TUI 但核心逻辑仍独立于 Ink 的参考实现；其独立 Git 缓存位于 `~/.pipker/slothtool/cache/gstore/repository`，默认同步全局设置、插件配置和数据目录。
 
 `codex-models` 是“service 负责配置解析、provider 请求、模型元数据和安全脚本生成，Ink 只负责渲染与确认流程”的参考实现；其模型库演示了 provider 显式元数据、已核验画像、厂商兼容画像和保守 fallback 的分层合并。
 
@@ -189,10 +189,10 @@ SlothTool 当前只安装内置官方插件：
 
 ## Config & I18N
 
-- 全局语言配置：`~/.slothtool/settings.json`
-- gstore Git 缓存：`~/.slothtool/cache/gstore/repository`
-- 默认同步数据目录：`~/.slothtool/data`
-- 默认同步插件配置目录：`~/.slothtool/plugin-configs`（排除 `gstore.json`）
+- 全局语言配置：`~/.pipker/slothtool/settings.json`
+- gstore Git 缓存：`~/.pipker/slothtool/cache/gstore/repository`
+- 默认同步数据目录：`~/.pipker/slothtool/data`
+- 默认同步插件配置目录：`~/.pipker/slothtool/plugin-configs`（排除 `gstore.json`）
 
 ## Publishing Model
 

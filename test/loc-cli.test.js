@@ -23,7 +23,7 @@ const locBin = path.join(rootDir, 'plugins', 'loc', 'bin', 'loc.js');
 
 function createTempHome() {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-loc-home-'));
-    const slothDir = path.join(homeDir, '.slothtool');
+    const slothDir = path.join(homeDir, '.pipker', 'slothtool');
     fs.mkdirSync(slothDir, {recursive: true});
     fs.writeFileSync(path.join(slothDir, 'settings.json'), JSON.stringify({language: 'zh'}, null, 2));
     return homeDir;
@@ -44,16 +44,16 @@ test('loc config commands update the saved config state', () => {
     const homeDir = createTempHome();
     runLoc(['config', 'ext', 'md', 'off'], {HOME: homeDir});
     const output = runLoc(['--config'], {HOME: homeDir});
-    const migratedConfigPath = path.join(homeDir, '.slothtool', 'data', 'plugin-configs', 'loc.json');
+    const migratedConfigPath = path.join(homeDir, '.pipker', 'slothtool', 'data', 'plugin-configs', 'loc.json');
     assert.match(output, /"md": false/u);
     assert.equal(fs.existsSync(migratedConfigPath), true);
 });
 
 test('loc config migrates the legacy plugin-configs path into data', () => {
     const homeDir = createTempHome();
-    const legacyConfigDir = path.join(homeDir, '.slothtool', 'plugin-configs');
+    const legacyConfigDir = path.join(homeDir, '.pipker', 'slothtool', 'plugin-configs');
     const legacyConfigPath = path.join(legacyConfigDir, 'loc.json');
-    const migratedConfigPath = path.join(homeDir, '.slothtool', 'data', 'plugin-configs', 'loc.json');
+    const migratedConfigPath = path.join(homeDir, '.pipker', 'slothtool', 'data', 'plugin-configs', 'loc.json');
 
     fs.mkdirSync(legacyConfigDir, {recursive: true});
     fs.writeFileSync(legacyConfigPath, JSON.stringify({

@@ -1,6 +1,6 @@
 # gstore
 
-`gstore` syncs SlothTool settings, plugin configuration, and data through a GitHub private repository. It uses an isolated cache at `~/.slothtool/cache/gstore/repository`, calls the local `git` and `gh` commands, and never stores a GitHub token.
+`gstore` syncs SlothTool settings, plugin configuration, and data through a GitHub private repository. It uses an isolated cache at `~/.pipker/slothtool/cache/gstore/repository`, calls the local `git` and `gh` commands, and never stores a GitHub token.
 
 ## Usage
 
