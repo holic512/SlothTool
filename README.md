@@ -2,7 +2,7 @@
 
 SlothTool 是一个 TUI-first 的插件管理器：日常使用默认进入 Ink 全屏界面，同时保留可脚本化的 CLI 命令。
 
-根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc`、`image-compress`、`gstore` 和 `codex-models`。
+根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc`、`image-compress`、`gstore`、`codex-models` 和 `pzip`。
 
 ```bash
 npm install -g @holic512/slothtool
@@ -24,6 +24,7 @@ SlothTool 把“插件管理器”作为默认交互入口：根命令负责安�
 | 平台资产选择 | `image-compress` 按当前系统和 CPU 架构选择匹配的预编译后端资产。 |
 | 配置云同步 | `gstore` 通过独立 Git 仓库缓存同步全局设置、插件配置和数据，并提供冲突检测与显式覆盖策略。 |
 | Codex 模型管理 | `codex-models` 诊断自定义 provider，同步跨厂商模型库、上下文与推理等级，并生成 Desktop 离线修复脚本。 |
+| 项目 ZIP 压缩 | `pzip` 递归创建 ZIP，默认过滤 macOS、构建产物与 Git 元数据，并应用嵌套 `.gitignore`。 |
 | 双语界面 | 根管理器和官方插件支持中文 / English 文案。 |
 | 本地用户数据 | 设置、注册表、插件包、插件配置和同步数据都保存在 `~/.pipker/slothtool/`。 |
 
@@ -60,11 +61,13 @@ slothtool install loc
 slothtool install image-compress
 slothtool install gstore
 slothtool install codex-models
+slothtool install pzip
 
 slothtool loc
 slothtool image-compress
 slothtool gstore
 slothtool codex-models
+slothtool pzip
 ```
 
 使用显式 CLI：
@@ -83,6 +86,9 @@ slothtool gstore sync
 slothtool codex-models doctor
 slothtool codex-models library show gpt-5.6-sol
 slothtool codex-models model set gpt-5.6-sol --reasoning ultra
+
+slothtool pzip ./my-project
+slothtool pzip ./my-project --exclude "logs/" --dry-run
 ```
 
 ## TUI Pages
@@ -129,6 +135,7 @@ Run 页面会把最近运行的插件排在前面，未运行过的插件继续�
 | `image-compress` | `@holic512/plugin-image-compress` | JPEG / PNG 图片压缩、目录批处理、拖拽路径 TUI、多平台 Go 后端资产。 | `slothtool image-compress` / `image-compress` |
 | `gstore` | `@holic512/plugin-gstore` | GitHub CLI 登录、独立 Git 缓存、设置/插件配置/数据全量同步、冲突检测和显式覆盖策略。 | `slothtool gstore` / `gstore` |
 | `codex-models` | `@holic512/plugin-codex-models` | 自定义 provider 诊断、跨厂商模型库、上下文和推理等级切换、目录同步、Desktop 离线修复脚本。 | `slothtool codex-models` / `codex-models` |
+| `pzip` | `@holic512/plugin-pzip` | ZIP 目录压缩、递归过滤 `.DS_Store`/`__MACOSX`/`dist`/`target`/`.git`、嵌套 `.gitignore` 与规则配置。 | `slothtool pzip` / `pzip` |
 
 ### `loc`
 
@@ -146,6 +153,21 @@ loc config reset
 ```
 
 `loc` TUI 会根据终端宽高在双栏、上下堆叠和低高度单面板之间切换。统计结果优先展示文件数、总行数、扩展名分布与热点文件；扩展名和排除目录页面则展示当前规则状态、匹配范围与动态分页列表。
+
+### `pzip`
+
+```bash
+slothtool install pzip
+
+slothtool pzip
+slothtool pzip ./my-project
+slothtool pzip ./my-project --output ./releases/my-project
+slothtool pzip ./my-project --exclude "logs/" --exclude "*.log" --dry-run
+pzip config rule target off
+pzip config add "reports/"
+```
+
+`pzip` 默认把目录递归写入 ZIP，并将源目录名作为压缩包最外层目录。任意层级中的 `.DS_Store`、`__MACOSX`、`dist`、Java 构建 `target` 和 `.git` 默认过滤；根目录和每个子目录中的 `.gitignore` 都会按各自相对路径生效。启用的默认规则优先于 `.gitignore` 的否定规则。配置保存在 `~/.pipker/slothtool/plugin-configs/pzip.json`，同名 ZIP 会自动改用时间戳文件名，避免覆盖已有归档。
 
 ### `image-compress`
 
@@ -317,6 +339,7 @@ SlothTool/
 │   ├── image-compress/      Official image compression plugin workspace
 │   ├── gstore/              Official GitHub data sync plugin workspace
 │   ├── codex-models/        Official Codex model configuration plugin workspace
+│   ├── pzip/                Official filtered ZIP archive plugin workspace
 │   └── template-basic/      Plugin scaffold template
 ├── test/                    node:test regression suite
 ├── PLUGIN_DEVELOPMENT.md    Plugin contract and development notes
@@ -335,6 +358,7 @@ node plugins/loc/bin/loc.js --help
 node plugins/image-compress/bin/image-compress.js --help
 node plugins/gstore/bin/gstore.js --help
 node plugins/codex-models/bin/codex-models.js --help
+node plugins/pzip/bin/pzip.js --help
 ```
 
 Focused checks:
@@ -347,6 +371,7 @@ SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 SLOTHTOOL_IMAGE_COMPRESS_TUI_TEST_ACTION=exit node plugins/image-compress/bin/image-compress.js
 SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 SLOTHTOOL_CODEX_MODELS_TUI_TEST_ACTION=exit node plugins/codex-models/bin/codex-models.js
+SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 ```
 
 Full regression:

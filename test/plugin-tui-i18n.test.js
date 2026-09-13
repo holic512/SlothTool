@@ -4,8 +4,8 @@
  * @module Test / Plugin TUI
  * @description 验证官方插件与模板已经提供统一 TUI 外壳所需的 tab、响应式 footer 和状态栏文案键。
  * @logic 1. 直接读取插件 i18n 消息字典；2. 校验中英文 tab、响应式 footer 与核心页面文案；3. 防止双语外壳文案缺失。
- * @dependencies I18N: loc/image-compress/gstore/codex-models/template-basic, Node: assert/test
- * @index_tags 插件i18n测试, loc, image-compress, template-basic, TUI外壳
+ * @dependencies I18N: loc/image-compress/gstore/codex-models/pzip/template-basic, Node: assert/test
+ * @index_tags 插件i18n测试, loc, image-compress, pzip, template-basic, TUI外壳
  * @author holic512
  */
 
@@ -15,6 +15,7 @@ import {messages as imageCompressMessages} from '../plugins/image-compress/lib/i
 import {messages as gstoreMessages} from '../plugins/gstore/lib/i18n.js';
 import {messages as codexModelsMessages} from '../plugins/codex-models/lib/i18n.js';
 import {messages as locMessages} from '../plugins/loc/lib/i18n.js';
+import {messages as pzipMessages} from '../plugins/pzip/lib/i18n.js';
 import {messages as templateMessages} from '../plugins/template-basic/lib/i18n.js';
 
 test('loc TUI shell keys exist in zh and en', () => {
@@ -46,6 +47,15 @@ test('template TUI shell keys exist in zh and en', () => {
     assert.match(templateMessages.en.tui.footer, /Tab/u);
     assert.equal(templateMessages.zh.tui.status.ready, '就绪');
     assert.equal(templateMessages.en.tui.status.ready, 'Ready');
+});
+
+test('pzip TUI shell keys exist in zh and en', () => {
+    assert.equal(pzipMessages.zh.tui.tabs.compress, '压缩');
+    assert.equal(pzipMessages.en.tui.tabs.filters, 'Filters');
+    assert.match(pzipMessages.zh.tui.footer.compress, /Tab/u);
+    assert.match(pzipMessages.en.tui.footer.filters, /Space/u);
+    assert.equal(pzipMessages.zh.tui.status.ready, '就绪：按 Enter 将当前设置压缩为 ZIP。');
+    assert.equal(pzipMessages.en.tui.actions.addPattern, 'Add pattern');
 });
 
 test('gstore and codex-models expose the shared tab and footer shell in both languages', () => {

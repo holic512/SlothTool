@@ -1,6 +1,6 @@
 {
   "name": "@holic512/slothtool",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "A plugin manager and dispatcher for CLI tools",
   "main": "lib/index.js",
   "type": "module",
@@ -13,6 +13,7 @@
     "dev:image-compress": "node plugins/image-compress/bin/image-compress.js",
     "dev:gstore": "node plugins/gstore/bin/gstore.js",
     "dev:codex-models": "node plugins/codex-models/bin/codex-models.js",
+    "dev:pzip": "node plugins/pzip/bin/pzip.js",
     "test": "node --test"
   },
   "keywords": [
@@ -38,7 +39,8 @@
   "workspaces": [
     "plugins/loc",
     "plugins/gstore",
-    "plugins/codex-models"
+    "plugins/codex-models",
+    "plugins/pzip"
   ],
   "engines": {
     "node": ">=22.0.0"

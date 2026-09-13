@@ -1,0 +1,47 @@
+{
+  "name": "@holic512/plugin-pzip",
+  "version": "1.0.0",
+  "description": "Create filtered ZIP archives for project directories",
+  "main": "lib/service.js",
+  "type": "module",
+  "bin": {
+    "pzip": "bin/pzip.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i",
+    "ui": {
+      "cli": true,
+      "tui": true,
+      "defaultMode": "tui",
+      "tuiFlag": "--tui",
+      "compatFlags": [
+        "-i",
+        "--interactive"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "zip",
+    "archive",
+    "gitignore"
+  ],
+  "author": "holic512",
+  "license": "ISC",
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "ignore": "^7.0.9",
+    "ink": "^7.0.4",
+    "react": "^19.2.0"
+  }
+}

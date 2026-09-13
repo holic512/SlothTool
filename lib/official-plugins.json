@@ -111,6 +111,32 @@
         "Complete model_catalog_json sync",
         "One-time offline Desktop LevelDB repair script"
       ]
+    },
+    {
+      "alias": "pzip",
+      "packageName": "@holic512/plugin-pzip",
+      "repository": "holic512/SlothTool",
+      "packageDir": "plugins/pzip",
+      "releaseTagPrefix": "plugin-pzip-v",
+      "assetNamePrefix": "holic512-plugin-pzip-",
+      "description": "递归创建 ZIP 压缩包，默认过滤 macOS、构建产物与 Git 元数据，并应用嵌套 .gitignore",
+      "descriptionEn": "Create recursive ZIP archives with default macOS, build-output, and Git metadata filters plus nested .gitignore support",
+      "version": "latest",
+      "author": "holic512",
+      "features": [
+        "ZIP 目录压缩",
+        "递归过滤 .DS_Store、__MACOSX、dist、target 与 .git",
+        "根目录和子目录 .gitignore",
+        "可配置默认规则与自定义模式",
+        "全屏压缩与过滤规则 TUI"
+      ],
+      "featuresEn": [
+        "ZIP directory archiving",
+        "Recursive .DS_Store, __MACOSX, dist, target, and .git filtering",
+        "Root and nested .gitignore support",
+        "Configurable defaults and custom patterns",
+        "Full-screen archive and filter-rule TUI"
+      ]
     }
   ]
 }

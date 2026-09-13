@@ -1,6 +1,6 @@
 # Plugin Development Guide
 
-本仓库当前保留四个官方插件工作区 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`、`plugins/codex-models`，以及一个脚手架目录 `plugins/template-basic`。
+本仓库当前保留五个官方插件工作区 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`、`plugins/codex-models`、`plugins/pzip`，以及一个脚手架目录 `plugins/template-basic`。
 
 ## Design Rule
 
@@ -117,7 +117,7 @@ my-plugin/
 
 ## Current Reference Package
 
-优先参考 `plugins/loc`、`plugins/image-compress`、`plugins/gstore` 或 `plugins/codex-models` 来实现：
+优先参考 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`、`plugins/codex-models` 或 `plugins/pzip` 来实现：
 
 - 默认 TUI 入口
 - 显式 CLI 统计/配置命令
@@ -127,6 +127,8 @@ my-plugin/
 `gstore` 是需要 CLI + TUI 但核心逻辑仍独立于 Ink 的参考实现；其独立 Git 缓存位于 `~/.pipker/slothtool/cache/gstore/repository`，默认同步全局设置、插件配置和数据目录。
 
 `codex-models` 是“service 负责配置解析、provider 请求、模型元数据和安全脚本生成，Ink 只负责渲染与确认流程”的参考实现；其模型库演示了 provider 显式元数据、已核验画像、厂商兼容画像和保守 fallback 的分层合并。
+
+`pzip` 是“递归扫描和路径过滤完全位于 service 层，CLI/TUI 只复用归档结果”的参考实现。它也演示了任意深度默认目录过滤、分层 `.gitignore`、持久化模式配置与不覆盖已有输出的安全写入策略。
 
 ## TUI Shell Standard
 
@@ -173,11 +175,20 @@ node plugins/codex-models/bin/codex-models.js library list
 node --test test/codex-models-cli.test.js
 ```
 
+`pzip` 参考命令：
+
+```bash
+node plugins/pzip/bin/pzip.js --help
+node plugins/pzip/bin/pzip.js ./example --dry-run
+SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
+node --test test/pzip-plugin.test.js
+```
+
 ## Integration Notes
 
 SlothTool 当前只安装内置官方插件：
 
-- `slothtool install loc`、`slothtool install image-compress`、`slothtool install gstore`、`slothtool install codex-models` 可用，因为它们定义在 `lib/official-plugins.json`
+- `slothtool install loc`、`slothtool install image-compress`、`slothtool install gstore`、`slothtool install codex-models`、`slothtool install pzip` 可用，因为它们定义在 `lib/official-plugins.json`
 - 相同 alias 可通过 `slothtool install <alias> --file <archive.tgz>` 离线安装，但归档包名仍必须与官方目录一致
 - 任意第三方插件安装暂不属于当前产品范围
 
@@ -197,6 +208,6 @@ SlothTool 当前只安装内置官方插件：
 ## Publishing Model
 
 - 根包 `@holic512/slothtool` 从仓库根目录发布
-- 官方纯 Node 插件 `@holic512/plugin-loc`、`@holic512/plugin-gstore`、`@holic512/plugin-codex-models` 通过 `npm pack` 生成 GitHub Release 资产
+- 官方纯 Node 插件 `@holic512/plugin-loc`、`@holic512/plugin-gstore`、`@holic512/plugin-codex-models`、`@holic512/plugin-pzip` 通过 `npm pack` 生成 GitHub Release 资产
 - `@holic512/plugin-image-compress` 使用专用多平台 release workflow
 - `plugins/template-basic` 不发布

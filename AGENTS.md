@@ -6,11 +6,12 @@ Concise repo rules for Codex working on SlothTool.
 
 - SlothTool is a TUI-first plugin manager.
 - Root package: `@holic512/slothtool`
-- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, and `@holic512/plugin-codex-models`.
+- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, `@holic512/plugin-codex-models`, and `@holic512/plugin-pzip`.
 - `plugins/image-compress` ships as an official plugin workspace with a dedicated multi-platform release workflow and target-aware asset installation.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing SlothTool settings, plugin configs, and data through an isolated Git repository cache and a GitHub private repository via local `git` and `gh`.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/codex-models` ships as an official CLI + TUI plugin workspace for Codex custom-provider diagnostics, cross-vendor model metadata, reasoning-level switching, catalog sync, and safe Desktop offline repair-script generation.
+- `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
 - Runtime baseline:
@@ -108,6 +109,7 @@ Cross-platform official plugin rules:
 - `image-compress` plugin: `plugins/image-compress/bin/image-compress.js`, `plugins/image-compress/lib/*`, `plugins/image-compress/backend/**`, `test/image-compress-plugin.test.js`
 - `gstore` plugin: `plugins/gstore/bin/gstore.js`, `plugins/gstore/lib/*`, `test/gstore-cli.test.js`
 - `codex-models` plugin: `plugins/codex-models/bin/codex-models.js`, `plugins/codex-models/lib/*`, `test/codex-models-cli.test.js`
+- `pzip` plugin: `plugins/pzip/bin/pzip.js`, `plugins/pzip/lib/*`, `test/pzip-plugin.test.js`
 - Offline install/bundle: `lib/commands/install.js`, `lib/commands/bundle.js`, `lib/services/plugin-service.js`, `test/offline-plugin-install.test.js`
 - `plugins/template-basic/**` is scaffold-only, not a published workspace package.
 
@@ -154,6 +156,15 @@ node --test test/codex-models-cli.test.js
 node --test test/offline-plugin-install.test.js
 ```
 
+`pzip` plugin:
+
+```bash
+node plugins/pzip/bin/pzip.js --help
+node --check plugins/pzip/lib/service.js
+SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
+node --test test/pzip-plugin.test.js
+```
+
 Packaging:
 
 ```bash
@@ -161,6 +172,7 @@ npm pack --dry-run
 cd plugins/loc && npm pack --dry-run
 cd plugins/gstore && npm pack --dry-run
 cd plugins/codex-models && npm pack --dry-run
+cd plugins/pzip && npm pack --dry-run
 cd plugins/image-compress/backend && GOCACHE=$(mktemp -d) go test ./...
 node --test test/image-compress-plugin.test.js
 node --test test/official-plugin-selection.test.js
@@ -186,6 +198,7 @@ Testing conventions:
 - `plugins/loc` shipped behavior changes require bumping `plugins/loc/package.json` and its workspace lock entry.
 - `plugins/gstore` shipped behavior changes require bumping `plugins/gstore/package.json` and its workspace lock entry.
 - `plugins/codex-models` shipped behavior changes require bumping `plugins/codex-models/package.json` and its workspace lock entry.
+- `plugins/pzip` shipped behavior changes require bumping `plugins/pzip/package.json` and its workspace lock entry.
 - If a change ships both core and the official plugin, bump both in the same change set.
 - Before any commit that changes a shipped package version, confirm the intended version increment with the user. Do not choose the bump unilaterally.
 - Before finishing shipped code changes, verify release tags are still free:
@@ -194,6 +207,7 @@ Testing conventions:
   - image-compress plugin: `plugin-image-compress-v<plugin-version>`
   - gstore plugin: `plugin-gstore-v<plugin-version>`
   - codex-models plugin: `plugin-codex-models-v<plugin-version>`
+  - pzip plugin: `plugin-pzip-v<plugin-version>`
 - Release workflows:
   - core: `.github/workflows/release-core.yml`
   - plugins: `.github/workflows/release-plugins.yml`
@@ -212,4 +226,5 @@ Testing conventions:
   - `plugins/loc/bin/loc.js`
   - `plugins/gstore/bin/gstore.js`
   - `plugins/codex-models/bin/codex-models.js`
+  - `plugins/pzip/bin/pzip.js`
   - `plugins/template-basic/bin/mytool.js`

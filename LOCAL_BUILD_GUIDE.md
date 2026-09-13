@@ -12,7 +12,7 @@
 npm install
 ```
 
-根包依赖和 `plugins/loc`、`plugins/gstore`、`plugins/codex-models` workspace 依赖会一起安装。
+根包依赖和 `plugins/loc`、`plugins/gstore`、`plugins/codex-models`、`plugins/pzip` workspace 依赖会一起安装。
 
 ## Link SlothTool Locally
 
@@ -65,6 +65,17 @@ SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 node plugins/gstore/bin/gstore.js repo status
 ```
 
+## `pzip` Plugin Development
+
+`pzip` 只依赖 Node 运行时包，不调用系统 `zip` 命令；测试会直接验证生成 ZIP 的条目。
+
+```bash
+node plugins/pzip/bin/pzip.js --help
+node plugins/pzip/bin/pzip.js ./example --dry-run
+SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
+node --test test/pzip-plugin.test.js
+```
+
 ## Testing
 
 ```bash
@@ -79,6 +90,7 @@ SLOTHTOOL_TUI_TEST_ACTION=exit node bin/slothtool.js
 SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 SLOTHTOOL_CODEX_MODELS_TUI_TEST_ACTION=exit node plugins/codex-models/bin/codex-models.js
+SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 ```
 
 ## Package Validation
@@ -97,6 +109,9 @@ cd ../gstore
 npm pack --dry-run
 
 cd ../codex-models
+npm pack --dry-run
+
+cd ../pzip
 npm pack --dry-run
 ```
 
