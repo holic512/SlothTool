@@ -2,8 +2,11 @@
  * @file SlothVaultMcpTui
  * @project SlothTool
  * @module SlothVault MCP Plugin / TUI
- * @description Ink interface for read-only MCP inspection and local connection profile management.
- * @author MengJiaXu
+ * @description Ink interface for read-only MCP inspection plus local profile and Codex Skill management.
+ * @logic 1. 展示远端只读发现与脱敏历史；2. 管理不加载原始 Key 的本地 Profile；3. 管理用户级 SlothVault Skill 链接并对覆盖和卸载二次确认。
+ * @dependencies React/Ink, Config/History/Service/Skill Manager/I18N
+ * @index_tags slothvault,mcp,tui,profile,skill,read-only
+ * @author holic512
  */
 
 import React, {useEffect, useMemo, useRef, useState} from 'react';
@@ -18,10 +21,11 @@ import {
 } from './config.js';
 import {listHistory} from './history.js';
 import {inspectServer} from './service.js';
+import {getSkillStatus, installSkill, uninstallSkill} from './skill-manager.js';
 import {formatSlothVaultError, t} from './i18n.js';
 
 const h = React.createElement;
-const TABS = ['status', 'capabilities', 'history', 'profiles'];
+const TABS = ['status', 'capabilities', 'history', 'profiles', 'skill'];
 const PROFILE_FORM_FIELDS = {
     add: ['name', 'endpoint', 'timeoutMs', 'apiKey', 'makeDefault'],
     edit: ['endpoint', 'timeoutMs', 'apiKey', 'makeDefault']
@@ -331,7 +335,43 @@ function ProfilesPage({config, selectedIndex, layout, mode, form, fieldIndex}) {
     );
 }
 
-/** Provide read-only remote inspection and local profile-management state. */
+/** Render local Skill state and explicit replacement/uninstall confirmations. */
+function SkillPage({skill, mode, layout}) {
+    const confirming = mode === 'replace' || mode === 'uninstall';
+    const title = mode === 'replace'
+        ? t('tui.panels.skillReplace')
+        : mode === 'uninstall'
+            ? t('tui.panels.skillUninstall')
+            : t('tui.panels.skill');
+    const stateColor = skill.state === 'installed'
+        ? COLORS.success
+        : skill.state === 'conflict'
+            ? COLORS.danger
+            : COLORS.warning;
+    return h(
+        Box,
+        {flexDirection: 'column'},
+        h(
+            Panel,
+            {title, color: confirming ? COLORS.danger : stateColor},
+            h(Field, {label: t('tui.labels.name'), value: skill.name}),
+            h(Field, {label: t('tui.labels.status'), value: t(`skillStates.${skill.state}`), color: stateColor}),
+            h(Field, {label: t('tui.labels.source'), value: truncate(skill.sourcePath, layout.columns - 18)}),
+            h(Field, {label: t('tui.labels.target'), value: truncate(skill.targetPath, layout.columns - 18)}),
+            skill.state === 'conflict'
+                ? h(Text, {color: COLORS.danger}, t('tui.skill.conflictWarning'))
+                : null,
+            mode === 'replace'
+                ? h(Text, {color: COLORS.danger}, t('tui.skill.replacePrompt'))
+                : mode === 'uninstall'
+                    ? h(Text, {color: COLORS.danger}, t('tui.skill.uninstallPrompt'))
+                    : null
+        ),
+        h(Text, {dimColor: true}, confirming ? t('tui.skill.confirmHelp') : t('tui.skill.browseHelp'))
+    );
+}
+
+/** Provide read-only remote inspection plus local profile and Skill management state. */
 export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null} = {}) {
     const app = useApp();
     const windowSize = useWindowSize();
@@ -348,6 +388,8 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     const [profileMode, setProfileMode] = useState('browse');
     const [profileForm, setProfileForm] = useState(null);
     const [profileFieldIndex, setProfileFieldIndex] = useState(0);
+    const [skill, setSkill] = useState(() => getSkillStatus());
+    const [skillMode, setSkillMode] = useState('browse');
     const refreshGeneration = useRef(0);
 
     /** Refresh local display data and perform exactly one remote discovery connection. */
@@ -540,6 +582,101 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         }
     }
 
+    /** Refresh only the local Skill link state without contacting the MCP server. */
+    function refreshSkill() {
+        try {
+            setSkill(getSkillStatus());
+            setStatus(t('tui.status.skillRefreshed'));
+            setStatusTone('success');
+        } catch (skillError) {
+            setStatus(t('tui.status.skillOperationFailed', {message: formatSlothVaultError(skillError)}));
+            setStatusTone('danger');
+        }
+    }
+
+    /** Install the Skill immediately or enter confirmation for an unmanaged conflict. */
+    function requestSkillInstall() {
+        try {
+            const current = getSkillStatus();
+            setSkill(current);
+            if (current.state === 'conflict') {
+                setSkillMode('replace');
+                setStatus(t('tui.status.skillReplaceReady'));
+                setStatusTone('warning');
+                return;
+            }
+            performSkillInstall(false);
+        } catch (skillError) {
+            setStatus(t('tui.status.skillOperationFailed', {message: formatSlothVaultError(skillError)}));
+            setStatusTone('danger');
+        }
+    }
+
+    /** Apply one authorized Skill install and refresh its local status. */
+    function performSkillInstall(replace) {
+        try {
+            const result = installSkill({replace});
+            setSkill(result);
+            setSkillMode('browse');
+            const messageKey = {
+                installed: 'tui.status.skillInstalled',
+                'already-installed': 'tui.status.skillAlreadyInstalled',
+                replaced: 'tui.status.skillReplaced'
+            }[result.action];
+            setStatus(t(messageKey || 'tui.status.skillInstalled'));
+            setStatusTone('success');
+        } catch (skillError) {
+            setSkillMode('browse');
+            setStatus(t('tui.status.skillOperationFailed', {message: formatSlothVaultError(skillError)}));
+            setStatusTone('danger');
+            try {
+                setSkill(getSkillStatus());
+            } catch {
+                // Retain the last visible status when even inspection is unavailable.
+            }
+        }
+    }
+
+    /** Request confirmation only for a link that belongs to this plugin. */
+    function requestSkillUninstall() {
+        try {
+            const current = getSkillStatus();
+            setSkill(current);
+            if (current.state === 'installed') {
+                setSkillMode('uninstall');
+                setStatus(t('tui.status.skillUninstallReady'));
+                setStatusTone('warning');
+                return;
+            }
+            performSkillUninstall();
+        } catch (skillError) {
+            setStatus(t('tui.status.skillOperationFailed', {message: formatSlothVaultError(skillError)}));
+            setStatusTone('danger');
+        }
+    }
+
+    /** Remove the managed Skill link and never delete conflicting content. */
+    function performSkillUninstall() {
+        try {
+            const result = uninstallSkill();
+            setSkill(result);
+            setSkillMode('browse');
+            setStatus(t(result.action === 'uninstalled'
+                ? 'tui.status.skillUninstalled'
+                : 'tui.status.skillAlreadyAbsent'));
+            setStatusTone('success');
+        } catch (skillError) {
+            setSkillMode('browse');
+            setStatus(t('tui.status.skillOperationFailed', {message: formatSlothVaultError(skillError)}));
+            setStatusTone('danger');
+            try {
+                setSkill(getSkillStatus());
+            } catch {
+                // Retain the last visible status when even inspection is unavailable.
+            }
+        }
+    }
+
     /** Handle navigation and secret-safe editing while a profile form is open. */
     function handleProfileFormInput(input, key) {
         const fields = profileFormFields(profileMode);
@@ -626,12 +763,30 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             handleProfileFormInput(input, key);
             return;
         }
+        if (activeTab === 'skill' && skillMode !== 'browse') {
+            if (input.toLowerCase() === 'y') {
+                if (skillMode === 'replace') {
+                    performSkillInstall(true);
+                } else {
+                    performSkillUninstall();
+                }
+            } else if (input.toLowerCase() === 'n' || key.escape) {
+                setSkillMode('browse');
+                setStatus(t('tui.status.skillCancelled'));
+                setStatusTone('warning');
+            }
+            return;
+        }
         if (input === 'q') {
             app.exit();
             return;
         }
         if (input === 'r' && !loading) {
-            void refresh();
+            if (activeTab === 'skill') {
+                refreshSkill();
+            } else {
+                void refresh();
+            }
             return;
         }
         if (key.tab || key.rightArrow) {
@@ -660,7 +815,17 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
                 return;
             }
         }
-        if ((key.upArrow || key.downArrow) && activeTab !== 'status') {
+        if (activeTab === 'skill') {
+            if (input === 'i' || key.return) {
+                requestSkillInstall();
+                return;
+            }
+            if (input === 'u') {
+                requestSkillUninstall();
+                return;
+            }
+        }
+        if ((key.upArrow || key.downArrow) && !['status', 'skill'].includes(activeTab)) {
             setSelectedIndices(current => {
                 const count = itemCounts[activeTab] || 0;
                 const delta = key.upArrow ? -1 : 1;
@@ -675,22 +840,26 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             ? h(CapabilitiesPage, {discovery, selectedIndex: selectedIndices.capabilities, layout})
             : activeTab === 'history'
                 ? h(HistoryPage, {history, selectedIndex: selectedIndices.history, layout})
-                : h(ProfilesPage, {
-                    config,
-                    selectedIndex: selectedIndices.profiles,
-                    layout,
-                    mode: profileMode,
-                    form: profileForm,
-                    fieldIndex: profileFieldIndex
-                });
+                : activeTab === 'profiles'
+                    ? h(ProfilesPage, {
+                        config,
+                        selectedIndex: selectedIndices.profiles,
+                        layout,
+                        mode: profileMode,
+                        form: profileForm,
+                        fieldIndex: profileFieldIndex
+                    })
+                    : h(SkillPage, {skill, mode: skillMode, layout});
 
-    const footerKey = activeTab !== 'profiles'
-        ? 'tui.footer'
-        : profileMode === 'delete'
+    const footerKey = activeTab === 'profiles'
+        ? profileMode === 'delete'
             ? 'tui.profile.deleteFooter'
             : profileMode === 'browse'
                 ? 'tui.profile.browseFooter'
-                : 'tui.profile.formFooter';
+                : 'tui.profile.formFooter'
+        : activeTab === 'skill'
+            ? skillMode === 'browse' ? 'tui.skill.browseFooter' : 'tui.skill.confirmFooter'
+            : 'tui.footer';
 
     return h(
         Box,

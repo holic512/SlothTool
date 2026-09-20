@@ -12,7 +12,7 @@ Concise repo rules for Codex working on SlothTool.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/codex-models` ships as an official CLI + TUI plugin workspace for Codex custom-provider diagnostics, cross-vendor model metadata, reasoning-level switching, catalog sync, and safe Desktop offline repair-script generation.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
-- `plugins/slothvault-mcp` ships as an official CLI + TUI plugin workspace for dynamically discovering and safely invoking the SlothVault admin MCP; its TUI manages local profiles but keeps remote business operations read-only.
+- `plugins/slothvault-mcp` ships as an official CLI + TUI plugin workspace for dynamically discovering and safely invoking the SlothVault admin MCP; it bundles a user-installable Codex Skill, and its TUI manages local profiles and that Skill while keeping remote business operations read-only.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
 - Runtime baseline:
@@ -26,6 +26,7 @@ Concise repo rules for Codex working on SlothTool.
 - `~/.pipker/slothtool/data/`
 - `~/.pipker/slothtool/plugins/`
 - `~/.pipker/slothtool/plugin-configs/`
+- `~/.agents/skills/slothvault-mcp` (optional link installed explicitly by the SlothVault MCP plugin)
 
 ## 2. Product Invariants
 
@@ -105,6 +106,8 @@ SlothVault MCP client rules:
 - Discover Tools, Prompts, and Resource Templates from the live MCP server; do not hardcode the SlothVault business catalog.
 - Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require write confirmation, and non-interactive calls require `--yes`.
 - Keep remote business operations read-only in the TUI. Local Profile add/update/default/remove operations are allowed, while Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
+- Keep the bundled Skill under `plugins/slothvault-mcp/skills/slothvault-mcp`; install it only through an explicit CLI/TUI action at `~/.agents/skills/slothvault-mcp`.
+- Skill conflict replacement requires explicit confirmation and may delete only the fixed Skill target. Skill uninstall may remove only a link that resolves to the current bundled Skill.
 - Never load a stored raw MCP Key into TUI state or render typed Key content; clear transient Key input after save, cancellation, or validation failure.
 - Never print or persist complete credentials, request arguments, results, or Resource payloads outside their explicit output file.
 
@@ -119,7 +122,7 @@ SlothVault MCP client rules:
 - `gstore` plugin: `plugins/gstore/bin/gstore.js`, `plugins/gstore/lib/*`, `test/gstore-cli.test.js`
 - `codex-models` plugin: `plugins/codex-models/bin/codex-models.js`, `plugins/codex-models/lib/*`, `test/codex-models-cli.test.js`
 - `pzip` plugin: `plugins/pzip/bin/pzip.js`, `plugins/pzip/lib/*`, `test/pzip-plugin.test.js`
-- `slothvault-mcp` plugin: `plugins/slothvault-mcp/bin/slothvault-mcp.js`, `plugins/slothvault-mcp/lib/*`, `test/slothvault-mcp-plugin.test.js`
+- `slothvault-mcp` plugin: `plugins/slothvault-mcp/bin/slothvault-mcp.js`, `plugins/slothvault-mcp/lib/*`, `plugins/slothvault-mcp/skills/slothvault-mcp/*`, `test/slothvault-mcp-plugin.test.js`
 - Offline install/bundle: `lib/commands/install.js`, `lib/commands/bundle.js`, `lib/services/plugin-service.js`, `test/offline-plugin-install.test.js`
 - `plugins/template-basic/**` is scaffold-only, not a published workspace package.
 
@@ -180,6 +183,8 @@ node --test test/pzip-plugin.test.js
 ```bash
 node plugins/slothvault-mcp/bin/slothvault-mcp.js --help
 node --check plugins/slothvault-mcp/lib/service.js
+node --check plugins/slothvault-mcp/lib/skill-manager.js
+python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py plugins/slothvault-mcp/skills/slothvault-mcp
 SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION=exit node plugins/slothvault-mcp/bin/slothvault-mcp.js
 node --test test/slothvault-mcp-plugin.test.js
 ```

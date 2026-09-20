@@ -246,13 +246,18 @@ slothtool slothvault-mcp prompts get PROMPT_NAME --args '{}' --profile productio
 slothtool slothvault-mcp resources list --profile production
 slothtool slothvault-mcp resources read RESOURCE_URI --output ./artifact.bin --profile production
 slothtool slothvault-mcp history list
+slothtool slothvault-mcp skill status
+slothtool slothvault-mcp skill install
+slothtool slothvault-mcp skill uninstall
 ```
 
-CLI 命令组包括 `profile add|update|list|show|use|remove`、`doctor`、`tools list|show|call`、`prompts list|get`、`resources list|read` 和 `history list|show|clear`。JSON 参数可由 `--args` 或 `--args-file <path|->` 提供；凭据只通过隐藏输入、`--key-stdin` 或 `--key-env` 接收，不提供会泄漏到进程参数和 shell 历史中的 `--key`。
+CLI 命令组包括 `profile add|update|list|show|use|remove`、`doctor`、`tools list|show|call`、`prompts list|get`、`resources list|read`、`history list|show|clear` 和 `skill status|install|uninstall`。JSON 参数可由 `--args` 或 `--args-file <path|->` 提供；凭据只通过隐藏输入、`--key-stdin` 或 `--key-env` 接收，不提供会泄漏到进程参数和 shell 历史中的 `--key`。
 
 `--json` 成功时只输出一个 JSON 文档，警告写入 stderr。稳定退出码为：`0` 成功、`2` 用法/配置/缺少确认、`3` 认证失败、`4` 网络/超时/服务或协议失败、`5` MCP 业务失败、`1` 其他内部错误。
 
-插件通过 MCP 初始化与实时发现读取 SlothVault 暴露的 Tool、Prompt 和 Resource Template，不在客户端硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。TUI 可查看连接状态、能力与脱敏历史，并在“配置”页新增、编辑、设为默认或删除本地 Profile；它不执行 Tool、获取 Prompt 内容或读取 Resource。
+插件通过 MCP 初始化与实时发现读取 SlothVault 暴露的 Tool、Prompt 和 Resource Template，不在客户端硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。TUI 可查看连接状态、能力与脱敏历史，在“配置”页管理本地 Profile，并在“技能”页管理用户级 Codex Skill；它不执行 Tool、获取 Prompt 内容或读取 Resource。
+
+发行包内置 `slothvault-mcp` Skill。`skill install` 会在 `~/.agents/skills/slothvault-mcp` 创建指向当前插件 Skill 的目录链接（Windows 使用 junction），因此插件更新后 Skill 会自动同步。若目标存在其他内容，交互模式会询问是否永久删除且不备份，非交互或 `--json` 模式只有显式 `--yes` 才能覆盖；`skill uninstall` 只删除准确指向当前插件 Skill 的受管链接。Codex 通常会自动发现新 Skill，未出现时请重启 Codex。
 
 TUI 的 Profile 表单不会载入现有明文 Key，也不会显示本次输入的新 Key；编辑时 Key 留空会保留原值。配置变更不会自动连接服务端，默认 Profile 或连接参数变化后需按 `r` 重新发现能力。
 
@@ -260,7 +265,7 @@ TUI 的 Profile 表单不会载入现有明文 Key，也不会显示本次输入
 
 读取 Resource 时必须显式指定 `--output`，目标文件已存在则拒绝覆盖。插件只接受 SlothVault 受保护的 Resource URI，校验 MIME、Base64、大小及 `_meta["slothvault/file-name"]` 文件名后再原子落盘，并兼容旧服务端的顶层 `name` 字段；托管文件上限为 10 MiB，合同附件上限为 25 MiB，Resource Base64 不会打印到终端。
 
-`slothtool uninstall slothvault-mcp` 会删除插件包和 profile 配置，但保留脱敏历史；需要删除历史时先执行 `slothvault-mcp history clear --yes`。
+卸载插件前应先执行 `slothtool slothvault-mcp skill uninstall`。`slothtool uninstall slothvault-mcp` 会删除插件包和 profile 配置，但不会自动删除用户级 Skill 链接，并会保留脱敏历史；需要删除历史时先执行 `slothvault-mcp history clear --yes`。
 
 ## Offline Plugin Archives
 
@@ -371,6 +376,8 @@ flowchart TD
     ├── slothvault-mcp.json
     └── <plugin-config>.json
 ```
+
+SlothVault Codex Skill 安装在 SlothTool 数据目录之外的 `~/.agents/skills/slothvault-mcp`，并链接到 `~/.pipker/slothtool/plugins/slothvault-mcp/skills/slothvault-mcp`。
 
 ## Repository Layout
 

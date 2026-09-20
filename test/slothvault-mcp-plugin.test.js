@@ -2,8 +2,8 @@
  * @file SlothVaultMcpPluginTest
  * @project SlothTool
  * @module Test / SlothVault MCP Plugin
- * @description 验证 SlothVault MCP 插件的配置、脱敏历史、动态协议发现、安全调用、Resource 落盘及 CLI/TUI 契约。
- * @logic 1. 使用隔离目录验证本地状态；2. 注入 fake MCP client 验证协议行为且不联网；3. 以子进程验证稳定 CLI 退出码与远端只读、本地 Profile 可管理的 TUI smoke。
+ * @description 验证 SlothVault MCP 插件的配置、Skill 安装、脱敏历史、动态协议发现、安全调用、Resource 落盘及 CLI/TUI 契约。
+ * @logic 1. 使用隔离目录验证本地状态与受管 Skill 链接；2. 注入 fake MCP client 验证协议行为且不联网；3. 以子进程验证稳定 CLI 退出码与远端只读、本地 Profile/Skill 可管理的 TUI smoke。
  * @dependencies Node: assert/child_process/fs/os/path/test/url, Plugin: ../plugins/slothvault-mcp
  * @index_tags slothvault,mcp,client,config,history,resource,cli,tui
  * @author MengJiaXu
@@ -55,6 +55,12 @@ import {
     readResource,
     SlothVaultMcpBusinessError
 } from '../plugins/slothvault-mcp/lib/service.js';
+import {
+    getSkillPaths,
+    getSkillStatus,
+    installSkill,
+    uninstallSkill
+} from '../plugins/slothvault-mcp/lib/skill-manager.js';
 import {resolveSlothVaultTuiLayout} from '../plugins/slothvault-mcp/lib/tui.js';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -287,6 +293,99 @@ test('profile configuration rejects unsafe names, keys, URLs, timeouts, and corr
         assert.equal(error.exitCode, 2);
         return true;
     });
+});
+
+test('Skill manager installs an idempotent user link, supports paths with spaces, and uninstalls only that link', () => {
+    const homeDirectory = makeTemporaryDirectory('skill home');
+    const initial = getSkillStatus({homeDir: homeDirectory});
+    assert.deepEqual(Object.keys(initial), ['name', 'state', 'sourcePath', 'targetPath']);
+    assert.equal(initial.name, 'slothvault-mcp');
+    assert.equal(initial.state, 'not-installed');
+    assert.match(initial.targetPath, /\.agents[\\/]skills[\\/]slothvault-mcp$/u);
+
+    let requestedLinkType = '';
+    const installed = installSkill({
+        homeDir: homeDirectory,
+        platform: 'win32',
+        createLink(sourcePath, targetPath, linkType) {
+            requestedLinkType = linkType;
+            fs.symlinkSync(sourcePath, targetPath, 'dir');
+        }
+    });
+    assert.equal(requestedLinkType, 'junction');
+    assert.equal(installed.state, 'installed');
+    assert.equal(installed.action, 'installed');
+    assert.equal(fs.lstatSync(installed.targetPath).isSymbolicLink(), true);
+    assert.equal(
+        path.resolve(path.dirname(installed.targetPath), fs.readlinkSync(installed.targetPath)),
+        installed.sourcePath
+    );
+
+    const repeated = installSkill({homeDir: homeDirectory});
+    assert.equal(repeated.action, 'already-installed');
+    const removed = uninstallSkill({homeDir: homeDirectory});
+    assert.equal(removed.state, 'not-installed');
+    assert.equal(removed.action, 'uninstalled');
+    assert.equal(uninstallSkill({homeDir: homeDirectory}).action, 'already-absent');
+});
+
+test('Skill conflict replacement requires authorization and preserves the old target when preflight link creation fails', () => {
+    const homeDirectory = makeTemporaryDirectory('skill-conflict');
+    const {skillsDirectory, targetPath} = getSkillPaths({homeDir: homeDirectory});
+    fs.mkdirSync(targetPath, {recursive: true});
+    const markerPath = path.join(targetPath, 'keep.txt');
+    fs.writeFileSync(markerPath, 'keep', 'utf8');
+
+    assert.throws(
+        () => installSkill({homeDir: homeDirectory}),
+        error => error.code === 'SKILL_INSTALL_CONFIRMATION_REQUIRED' && error.exitCode === 2
+    );
+    assert.equal(fs.readFileSync(markerPath, 'utf8'), 'keep');
+
+    assert.throws(
+        () => installSkill({
+            homeDir: homeDirectory,
+            replace: true,
+            createLink() {
+                const error = new Error('simulated link failure');
+                error.code = 'EACCES';
+                throw error;
+            }
+        }),
+        error => error.code === 'SKILL_FILESYSTEM_ERROR' && error.exitCode === 1
+    );
+    assert.equal(fs.readFileSync(markerPath, 'utf8'), 'keep');
+    assert.equal(fs.readdirSync(skillsDirectory).some(name => name.startsWith('.slothvault-mcp.link.')), false);
+
+    const replaced = installSkill({homeDir: homeDirectory, replace: true});
+    assert.equal(replaced.action, 'replaced');
+    assert.equal(replaced.state, 'installed');
+    assert.equal(fs.existsSync(markerPath), false);
+});
+
+test('Skill manager classifies files, unrelated links, and dangling links as conflicts and never uninstalls them', () => {
+    const homeDirectory = makeTemporaryDirectory('skill-unmanaged');
+    const {skillsDirectory, targetPath} = getSkillPaths({homeDir: homeDirectory});
+    fs.mkdirSync(skillsDirectory, {recursive: true});
+
+    fs.writeFileSync(targetPath, 'unmanaged', 'utf8');
+    assert.equal(getSkillStatus({homeDir: homeDirectory}).state, 'conflict');
+    assert.throws(() => uninstallSkill({homeDir: homeDirectory}), /unmanaged SlothVault Skill target/u);
+    assert.equal(fs.readFileSync(targetPath, 'utf8'), 'unmanaged');
+
+    fs.unlinkSync(targetPath);
+    const unrelatedDirectory = path.join(homeDirectory, 'unrelated-skill');
+    fs.mkdirSync(unrelatedDirectory);
+    fs.symlinkSync(unrelatedDirectory, targetPath, 'dir');
+    assert.equal(getSkillStatus({homeDir: homeDirectory}).state, 'conflict');
+    assert.throws(() => uninstallSkill({homeDir: homeDirectory}), /unmanaged SlothVault Skill target/u);
+    assert.equal(fs.lstatSync(targetPath).isSymbolicLink(), true);
+
+    fs.unlinkSync(targetPath);
+    fs.symlinkSync(path.join(homeDirectory, 'missing-skill'), targetPath, 'dir');
+    assert.equal(getSkillStatus({homeDir: homeDirectory}).state, 'conflict');
+    assert.throws(() => uninstallSkill({homeDir: homeDirectory}), /unmanaged SlothVault Skill target/u);
+    assert.equal(fs.lstatSync(targetPath).isSymbolicLink(), true);
 });
 
 test('history recursively redacts sensitive values, truncates summaries, rotates, recovers, and clears', () => {
@@ -651,6 +750,7 @@ test('CLI help, JSON errors, input-source exclusivity, key handling, and exit co
     assert.match(help.stdout, /tools call <tool>/u);
     assert.match(help.stdout, /resources list \[--profile/u);
     assert.match(help.stdout, /resources read <uri> --output <path>/u);
+    assert.match(help.stdout, /skill status\|install\|uninstall/u);
     assert.match(help.stdout, /--args-file <path>/u);
 
     const unknown = runCli(['unknown', '--json']);
@@ -696,6 +796,46 @@ test('CLI help, JSON errors, input-source exclusivity, key handling, and exit co
     assert.equal(JSON.parse(cleared.stdout).cleared, 0);
 });
 
+test('CLI exposes stable Skill status, install, conflict replacement, and uninstall contracts', context => {
+    const homeDirectory = makeTemporaryDirectory('skill-cli');
+    const status = runCli(['skill', 'status', '--json'], {homeDirectory});
+    if (skipIfProcessCreationIsBlocked(context, status)) return;
+    assert.equal(status.status, 0, status.stderr);
+    assert.equal(JSON.parse(status.stdout).state, 'not-installed');
+
+    const installed = runCli(['skill', 'install', '--json'], {homeDirectory});
+    assert.equal(installed.status, 0, installed.stderr);
+    const installedResult = JSON.parse(installed.stdout);
+    assert.equal(installedResult.state, 'installed');
+    assert.equal(installedResult.action, 'installed');
+
+    const repeated = runCli(['skill', 'install', '--json'], {homeDirectory});
+    assert.equal(repeated.status, 0, repeated.stderr);
+    assert.equal(JSON.parse(repeated.stdout).action, 'already-installed');
+
+    const uninstalled = runCli(['skill', 'uninstall', '--json'], {homeDirectory});
+    assert.equal(uninstalled.status, 0, uninstalled.stderr);
+    assert.equal(JSON.parse(uninstalled.stdout).action, 'uninstalled');
+
+    const conflictHome = makeTemporaryDirectory('skill-cli-conflict');
+    const conflictTarget = getSkillPaths({homeDir: conflictHome}).targetPath;
+    fs.mkdirSync(conflictTarget, {recursive: true});
+    const markerPath = path.join(conflictTarget, 'keep.txt');
+    fs.writeFileSync(markerPath, 'keep', 'utf8');
+
+    const denied = runCli(['skill', 'install', '--json'], {homeDirectory: conflictHome});
+    assert.equal(denied.status, 2);
+    const deniedResult = JSON.parse(denied.stdout);
+    assert.equal(deniedResult.error.code, 'SKILL_INSTALL_CONFIRMATION_REQUIRED');
+    assert.equal(deniedResult.error.category, 'confirmation');
+    assert.equal(fs.readFileSync(markerPath, 'utf8'), 'keep');
+
+    const replaced = runCli(['skill', 'install', '--yes', '--json'], {homeDirectory: conflictHome});
+    assert.equal(replaced.status, 0, replaced.stderr);
+    assert.equal(JSON.parse(replaced.stdout).action, 'replaced');
+    assert.equal(fs.existsSync(markerPath), false);
+});
+
 test('CLI validates inline, file, and stdin JSON object sources before any network operation', context => {
     const root = makeTemporaryDirectory('cli-args');
     const invalidJsonPath = path.join(root, 'invalid.json');
@@ -721,10 +861,13 @@ test('CLI validates inline, file, and stdin JSON object sources before any netwo
     assert.match(JSON.parse(fileObject.stdout).error.message, /JSON object/iu);
 });
 
-test('TUI entry has a smoke exit, stable narrow layout, local profile management, and no remote operation APIs', context => {
+test('TUI entry has a smoke exit, stable narrow layout, local Profile/Skill management, and no remote operation APIs', context => {
     const smoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'exit'}});
     if (skipIfProcessCreationIsBlocked(context, smoke)) return;
     assert.equal(smoke.status, 0, smoke.stderr);
+    const renderSmoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'render-exit'}});
+    assert.equal(renderSmoke.status, 0, renderSmoke.stderr);
+    assert.match(renderSmoke.stdout, /SlothVault MCP 1\.2\.0/u);
 
     const narrow = resolveSlothVaultTuiLayout(30, 10);
     assert.equal(narrow.columns, 40);
@@ -740,6 +883,9 @@ test('TUI entry has a smoke exit, stable narrow layout, local profile management
     const source = fs.readFileSync(tuiSourcePath, 'utf8');
     assert.match(source, /import \{inspectServer\} from '.\/service\.js'/u);
     assert.match(source, /addProfile[\s\S]*removeProfile[\s\S]*updateProfile[\s\S]*useProfile/u);
+    assert.match(source, /getSkillStatus[\s\S]*installSkill[\s\S]*uninstallSkill/u);
+    assert.match(source, /const TABS = \[[^\]]*'skill'/u);
+    assert.match(source, /skillMode === 'replace'[\s\S]*performSkillInstall\(true\)/u);
     assert.match(source, /keyEntered/u);
     assert.doesNotMatch(source, /\bcallTool\b|\bgetPrompt\b|\breadResource\b/u);
 });

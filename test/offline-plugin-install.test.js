@@ -52,8 +52,10 @@ function createSlothVaultMcpArchive() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-slothvault-mcp-archive-'));
     const packageDir = path.join(root, 'package');
     const binDir = path.join(packageDir, 'bin');
+    const skillDir = path.join(packageDir, 'skills', 'slothvault-mcp');
     const sdkDir = path.join(packageDir, 'node_modules', '@modelcontextprotocol', 'sdk');
     fs.mkdirSync(binDir, {recursive: true});
+    fs.mkdirSync(skillDir, {recursive: true});
     fs.mkdirSync(sdkDir, {recursive: true});
     fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({
         name: '@holic512/plugin-slothvault-mcp',
@@ -69,6 +71,7 @@ function createSlothVaultMcpArchive() {
     const binPath = path.join(binDir, 'slothvault-mcp.js');
     fs.writeFileSync(binPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MCP_OFFLINE_OK");\n');
     fs.chmodSync(binPath, 0o755);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: slothvault-mcp\ndescription: Test Skill.\n---\n');
     const archivePath = path.join(root, 'slothvault-mcp-offline.tgz');
     execFileSync('tar', ['-czf', archivePath, '-C', root, 'package']);
     return archivePath;
@@ -192,6 +195,7 @@ test('slothvault-mcp offline bundle retains its MCP SDK runtime dependency', asy
 
         assert.equal(bundle.packageName, '@holic512/plugin-slothvault-mcp');
         assert.match(listing, /package\/bin\/slothvault-mcp\.js/u);
+        assert.match(listing, /package\/skills\/slothvault-mcp\/SKILL\.md/u);
         assert.match(listing, /package\/node_modules\/@modelcontextprotocol\/sdk\/package\.json/u);
     });
 });

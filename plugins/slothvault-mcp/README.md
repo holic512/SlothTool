@@ -2,7 +2,7 @@
 
 SlothVault administrator MCP client for SlothTool. The plugin discovers tools, prompts, and resource templates from the server at runtime; it does not embed a fixed SlothVault tool catalog.
 
-The CLI is the only remote MCP execution surface. The full-screen TUI displays connection state, live capabilities, and redacted local call history, and it can add, edit, select, and remove local connection profiles. It never calls Tools, fetches Prompt content, or reads Resources.
+The CLI is the only remote MCP execution surface. The full-screen TUI displays connection state, live capabilities, and redacted local call history, and it can manage local connection profiles and the bundled Codex Skill. It never calls Tools, fetches Prompt content, or reads Resources.
 
 ## Requirements
 
@@ -51,6 +51,22 @@ slothvault-mcp resources read 'slothvault://managed-file/...' --output ./artifac
 
 Tool calls are not automatically retried. Resource downloads validate the SlothVault URI family, MIME type, Base64 payload, size limit, and the server-provided `_meta["slothvault/file-name"]`, then write a new output file without replacing an existing path. The client retains a legacy fallback for the former top-level `name` field.
 
+## Codex Skill
+
+The release includes a `slothvault-mcp` Skill that directs Codex to use this CLI, inspect the live MCP catalog, protect credentials, and confirm every Tool that is not explicitly annotated as read-only.
+
+```bash
+slothvault-mcp skill status
+slothvault-mcp skill install
+slothvault-mcp skill uninstall
+```
+
+Installation creates a directory link at `~/.agents/skills/slothvault-mcp` pointing to the Skill inside the installed plugin. This keeps the Skill synchronized when SlothTool updates the plugin in place. On Windows, the equivalent directory junction is used. Codex normally detects a newly installed Skill automatically; restart Codex if it does not appear.
+
+If another file, directory, or link already occupies the target, interactive installation asks before permanently deleting it without a backup. Non-interactive and `--json` replacement require `--yes`. Uninstall removes only a link that points to this plugin's current Skill and refuses to delete any unmanaged target.
+
+Run `slothvault-mcp skill uninstall` before uninstalling the SlothTool plugin. `slothtool uninstall slothvault-mcp` does not remove the user-level Skill link automatically.
+
 ## History and TUI
 
 ```bash
@@ -62,7 +78,7 @@ slothvault-mcp
 
 History is stored in `~/.pipker/slothtool/data/slothvault-mcp/history.json`, capped at 200 redacted summaries. Full arguments, full results, Bearer keys, and resource payloads are never retained. Uninstalling the plugin keeps this history until it is explicitly cleared.
 
-In the TUI, use `Tab` to switch among Status, Capabilities, History, and Profiles; use the arrow keys to inspect items, `r` to refresh discovery, and `q` to exit. On the Profiles page, use `a` to add, `e` or `Enter` to edit, `u` to select the default, and `d` to delete after confirmation. Profile forms use `Up`/`Down` to move between fields, `Enter` to advance or save, `Ctrl+U` to clear the current field, `Space` to toggle the default setting, and `Esc` to cancel.
+In the TUI, use `Tab` to switch among Status, Capabilities, History, Profiles, and Skill; use the arrow keys to inspect items, `r` to refresh the active remote page or the local Skill status, and `q` to exit. On the Profiles page, use `a` to add, `e` or `Enter` to edit, `u` to select the default, and `d` to delete after confirmation. Profile forms use `Up`/`Down` to move between fields, `Enter` to advance or save, `Ctrl+U` to clear the current field, `Space` to toggle the default setting, and `Esc` to cancel. On the Skill page, use `i` or `Enter` to install and `u` to uninstall; replacement and uninstall require `y/n` confirmation.
 
 The TUI never loads an existing raw key into an edit form and never renders a newly typed key. Leaving the key field empty while editing preserves the stored value. Profile changes are local and do not connect automatically; press `r` after changing the default profile or its connection settings to refresh remote capabilities. The TUI still never calls Tools, fetches Prompt content, reads Resources, or clears history.
 
@@ -73,7 +89,7 @@ With `--json`, stdout contains one JSON document and warnings are written to std
 | Code | Meaning |
 | ---: | --- |
 | 0 | Success |
-| 1 | Unexpected internal error |
+| 1 | Unexpected internal or filesystem error |
 | 2 | Usage, configuration, or confirmation error |
 | 3 | Authentication failure |
 | 4 | Network, timeout, unavailable server, or MCP protocol failure |

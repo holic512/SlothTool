@@ -2,8 +2,11 @@
  * @file SlothVaultMcpI18n
  * @project SlothTool
  * @module SlothVault MCP Plugin / Internationalization
- * @description Provides bilingual CLI and profile-management TUI copy for the SlothVault MCP client.
- * @author MengJiaXu
+ * @description Provides bilingual CLI, profile, and Skill-management TUI copy for the SlothVault MCP client.
+ * @logic 1. 读取 SlothTool 语言设置；2. 提供中英文稳定消息键；3. 对用户可见错误进行翻译和敏感信息脱敏。
+ * @dependencies Node: fs/os/path, SlothTool settings.json
+ * @index_tags slothvault,mcp,i18n,cli,tui,skill
+ * @author holic512
  */
 
 import fs from 'node:fs';
@@ -34,10 +37,10 @@ export const messages = {
         title: 'slothvault-mcp - SlothVault MCP 客户端',
         usage: '用法：',
         help: '显示帮助信息',
-        tuiOption: '启动全屏 TUI（远端业务操作只读，本地配置档案可管理）',
+        tuiOption: '启动全屏 TUI（远端业务操作只读，本地配置档案与 Skill 可管理）',
         jsonOption: '以单个 JSON 文档输出',
         profileOption: '选择连接配置档案',
-        yesOption: '确认执行可能修改数据的工具',
+        yesOption: '显式确认远端写操作、本地清理或 Skill 冲突覆盖',
         argsOption: '将 JSON 对象作为工具或 Prompt 参数',
         argsFileOption: '从文件或 -（标准输入）读取 JSON 参数',
         outputOption: 'Resource 输出文件（不会覆盖已有文件）',
@@ -117,8 +120,28 @@ export const messages = {
         invalidId: '无效的历史记录 ID：{id}',
         httpWarning: '当前端点使用 HTTP，Bearer Key 将以明文传输。',
         plaintextConfigWarning: 'MCP Key 将以明文保存在本地 SlothTool 插件配置中。',
+        skillTitle: 'SlothVault MCP Codex Skill',
+        skillName: '名称',
+        skillState: '状态',
+        skillSource: '来源',
+        skillTarget: '安装位置',
+        skillAction: '操作',
+        skillReplaceRequired: 'Skill 安装位置已存在其他内容；非交互或 JSON 模式覆盖时必须使用 --yes：{path}',
+        skillReplaceConfirm: 'Skill 安装位置已存在其他内容。确认永久删除且不备份后安装吗？\n{path}\n输入 yes 或 y 确认，其他输入取消：',
+        skillStates: {
+            installed: '已安装',
+            'not-installed': '未安装',
+            conflict: '存在冲突'
+        },
+        skillActions: {
+            installed: '已安装',
+            'already-installed': '已是最新受管链接',
+            replaced: '已删除冲突目标并安装',
+            uninstalled: '已卸载',
+            'already-absent': '原本未安装'
+        },
         tui: {
-            tabs: {status: '状态', capabilities: '能力', history: '历史', profiles: '配置'},
+            tabs: {status: '状态', capabilities: '能力', history: '历史', profiles: '配置', skill: '技能'},
             panels: {
                 connection: '连接状态',
                 tools: '工具',
@@ -129,7 +152,10 @@ export const messages = {
                 profile: '配置详情',
                 profileAdd: '新增配置档案',
                 profileEdit: '编辑配置档案',
-                profileDelete: '删除配置档案'
+                profileDelete: '删除配置档案',
+                skill: 'Codex Skill',
+                skillReplace: '覆盖 Skill 安装',
+                skillUninstall: '卸载 Skill'
             },
             labels: {
                 profile: '档案',
@@ -148,7 +174,9 @@ export const messages = {
                 newKey: '新 MCP Key',
                 timeout: '超时',
                 default: '默认',
-                makeDefault: '设为默认'
+                makeDefault: '设为默认',
+                source: '来源',
+                target: '安装位置'
             },
             status: {
                 ready: '就绪。按 r 刷新远端能力，q 退出。',
@@ -164,11 +192,21 @@ export const messages = {
                 profileRemoved: '已删除配置档案：{name}。',
                 profileOperationFailed: '配置档案操作失败：{message}',
                 profileCancelled: '已取消配置档案操作。',
-                refreshRequired: '连接配置已变化；按 r 重新发现远端能力。'
+                refreshRequired: '连接配置已变化；按 r 重新发现远端能力。',
+                skillRefreshed: 'Skill 安装状态已刷新。',
+                skillInstalled: 'Skill 已安装。',
+                skillAlreadyInstalled: 'Skill 已通过当前插件链接安装。',
+                skillReplaced: '已删除冲突目标并安装 Skill。',
+                skillUninstalled: 'Skill 已卸载。',
+                skillAlreadyAbsent: 'Skill 尚未安装。',
+                skillReplaceReady: 'Skill 目标存在冲突；请确认永久删除且不备份。',
+                skillUninstallReady: '请确认卸载当前插件管理的 Skill 链接。',
+                skillOperationFailed: 'Skill 操作失败：{message}',
+                skillCancelled: '已取消 Skill 操作。'
             },
             footer: 'Tab 切换页面 | ↑↓ 选择 | r 刷新 | q 退出',
             empty: '暂无数据。',
-            help: 'TUI 可查看状态、能力和脱敏历史，并管理本地配置档案；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
+            help: 'TUI 可查看状态、能力和脱敏历史，并管理本地配置档案与 Codex Skill；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
             profile: {
                 keyEntered: '[已输入，内容已隐藏]',
                 keyUnchanged: '留空以保留现有 Key',
@@ -185,6 +223,15 @@ export const messages = {
                 browseFooter: '↑↓ 选择 | a 新增 | e/Enter 编辑 | u 设为默认 | d 删除 | r 刷新 | q 退出',
                 formFooter: '↑↓ 字段 | Enter 下一项/保存 | Ctrl+U 清空 | Space 切换 | Esc 取消',
                 deleteFooter: 'y 确认删除 | n/Esc 取消'
+            },
+            skill: {
+                browseHelp: '安装会在用户级 .agents/skills 中建立指向当前插件 Skill 的目录链接。',
+                conflictWarning: '现有目标不受当前插件管理；覆盖会永久删除且不保留备份。',
+                replacePrompt: '确认删除冲突目标并安装 Skill 吗？',
+                uninstallPrompt: '确认卸载当前插件管理的 Skill 链接吗？',
+                confirmHelp: '按 y 确认；按 n 或 Esc 取消。',
+                browseFooter: 'i/Enter 安装 | u 卸载 | r 刷新状态 | q 退出',
+                confirmFooter: 'y 确认 | n/Esc 取消'
             }
         },
         errors: {
@@ -220,17 +267,24 @@ export const messages = {
             OUTPUT_DIRECTORY_NOT_FOUND: 'Resource 输出目录不存在。',
             OUTPUT_EXISTS: 'Resource 输出文件已存在，拒绝覆盖。',
             OUTPUT_REQUIRED: '读取 Resource 必须指定输出文件。',
-            RESOURCE_WRITE_FAILED: 'Resource 文件落盘失败。'
+            RESOURCE_WRITE_FAILED: 'Resource 文件落盘失败。',
+            SKILL_SOURCE_INVALID: '插件内置 SlothVault Skill 缺失或无效。',
+            SKILL_TARGET_INVALID: 'SlothVault Skill 安装目标无效。',
+            SKILL_INSTALL_CONFIRMATION_REQUIRED: 'Skill 安装目标存在冲突，覆盖前必须明确确认。',
+            SKILL_CONFIRMATION_DECLINED: 'Skill 冲突覆盖未获确认。',
+            SKILL_UNINSTALL_CONFLICT: '目标不是当前插件管理的 Skill 链接，拒绝删除。',
+            SKILL_LINK_INVALID: 'Skill 目录链接创建后无法验证。',
+            SKILL_FILESYSTEM_ERROR: 'Skill 文件操作失败。'
         }
     },
     en: {
         title: 'slothvault-mcp - SlothVault MCP client',
         usage: 'Usage:',
         help: 'Show help',
-        tuiOption: 'Launch the full-screen TUI (read-only remote operations, local profile management)',
+        tuiOption: 'Launch the full-screen TUI (read-only remote operations, local profile and Skill management)',
         jsonOption: 'Print one JSON document',
         profileOption: 'Select a connection profile',
-        yesOption: 'Confirm a tool that may mutate remote data',
+        yesOption: 'Explicitly confirm remote writes, local cleanup, or Skill conflict replacement',
         argsOption: 'Pass a JSON object as tool or prompt arguments',
         argsFileOption: 'Read a JSON object from a file or - (stdin)',
         outputOption: 'Resource output file (existing files are never replaced)',
@@ -310,8 +364,28 @@ export const messages = {
         invalidId: 'Invalid history record ID: {id}',
         httpWarning: 'This endpoint uses HTTP; the Bearer key will be sent in clear text.',
         plaintextConfigWarning: 'The MCP key is stored as plain text in the local SlothTool plugin configuration.',
+        skillTitle: 'SlothVault MCP Codex Skill',
+        skillName: 'Name',
+        skillState: 'State',
+        skillSource: 'Source',
+        skillTarget: 'Install target',
+        skillAction: 'Action',
+        skillReplaceRequired: 'Another item exists at the Skill target; non-interactive or JSON replacement requires --yes: {path}',
+        skillReplaceConfirm: 'Another item exists at the Skill target. Permanently delete it without a backup and install?\n{path}\nType yes or y to confirm; anything else cancels: ',
+        skillStates: {
+            installed: 'installed',
+            'not-installed': 'not installed',
+            conflict: 'conflict'
+        },
+        skillActions: {
+            installed: 'installed',
+            'already-installed': 'already linked to this plugin',
+            replaced: 'conflict removed and Skill installed',
+            uninstalled: 'uninstalled',
+            'already-absent': 'already absent'
+        },
         tui: {
-            tabs: {status: 'Status', capabilities: 'Capabilities', history: 'History', profiles: 'Profiles'},
+            tabs: {status: 'Status', capabilities: 'Capabilities', history: 'History', profiles: 'Profiles', skill: 'Skill'},
             panels: {
                 connection: 'Connection',
                 tools: 'Tools',
@@ -322,7 +396,10 @@ export const messages = {
                 profile: 'Profile details',
                 profileAdd: 'Add profile',
                 profileEdit: 'Edit profile',
-                profileDelete: 'Delete profile'
+                profileDelete: 'Delete profile',
+                skill: 'Codex Skill',
+                skillReplace: 'Replace Skill target',
+                skillUninstall: 'Uninstall Skill'
             },
             labels: {
                 profile: 'Profile',
@@ -341,7 +418,9 @@ export const messages = {
                 newKey: 'New MCP key',
                 timeout: 'Timeout',
                 default: 'Default',
-                makeDefault: 'Make default'
+                makeDefault: 'Make default',
+                source: 'Source',
+                target: 'Install target'
             },
             status: {
                 ready: 'Ready. Press r to refresh capabilities or q to quit.',
@@ -357,11 +436,21 @@ export const messages = {
                 profileRemoved: 'Profile removed: {name}.',
                 profileOperationFailed: 'Profile operation failed: {message}',
                 profileCancelled: 'Profile operation cancelled.',
-                refreshRequired: 'Connection settings changed; press r to discover remote capabilities again.'
+                refreshRequired: 'Connection settings changed; press r to discover remote capabilities again.',
+                skillRefreshed: 'Skill installation status refreshed.',
+                skillInstalled: 'Skill installed.',
+                skillAlreadyInstalled: 'Skill is already linked to this plugin.',
+                skillReplaced: 'Conflicting target removed and Skill installed.',
+                skillUninstalled: 'Skill uninstalled.',
+                skillAlreadyAbsent: 'Skill is not installed.',
+                skillReplaceReady: 'The Skill target conflicts; confirm permanent deletion without a backup.',
+                skillUninstallReady: 'Confirm removal of the Skill link managed by this plugin.',
+                skillOperationFailed: 'Skill operation failed: {message}',
+                skillCancelled: 'Skill operation cancelled.'
             },
             footer: 'Tab switch page | Up/Down select | r refresh | q quit',
             empty: 'No data.',
-            help: 'The TUI displays status, capabilities, and redacted history and manages local profiles; it never calls Tools, fetches Prompt content, or reads Resources.',
+            help: 'The TUI displays status, capabilities, and redacted history and manages local profiles and the Codex Skill; it never calls Tools, fetches Prompt content, or reads Resources.',
             profile: {
                 keyEntered: '[entered; content hidden]',
                 keyUnchanged: 'leave empty to keep the existing key',
@@ -378,6 +467,15 @@ export const messages = {
                 browseFooter: 'Up/Down select | a add | e/Enter edit | u default | d delete | r refresh | q quit',
                 formFooter: 'Up/Down fields | Enter next/save | Ctrl+U clear | Space toggle | Esc cancel',
                 deleteFooter: 'y confirm delete | n/Esc cancel'
+            },
+            skill: {
+                browseHelp: 'Installation creates a directory link in the user-level .agents/skills directory to this plugin Skill.',
+                conflictWarning: 'The existing target is unmanaged; replacement permanently deletes it without a backup.',
+                replacePrompt: 'Delete the conflicting target and install the Skill?',
+                uninstallPrompt: 'Uninstall the Skill link managed by this plugin?',
+                confirmHelp: 'Press y to confirm; press n or Esc to cancel.',
+                browseFooter: 'i/Enter install | u uninstall | r refresh status | q quit',
+                confirmFooter: 'y confirm | n/Esc cancel'
             }
         },
         errors: {
@@ -413,7 +511,14 @@ export const messages = {
             OUTPUT_DIRECTORY_NOT_FOUND: 'The Resource output directory does not exist.',
             OUTPUT_EXISTS: 'The Resource output file already exists; refusing to overwrite it.',
             OUTPUT_REQUIRED: 'Reading a Resource requires an output file.',
-            RESOURCE_WRITE_FAILED: 'Unable to save the Resource file.'
+            RESOURCE_WRITE_FAILED: 'Unable to save the Resource file.',
+            SKILL_SOURCE_INVALID: 'The bundled SlothVault Skill is missing or invalid.',
+            SKILL_TARGET_INVALID: 'The SlothVault Skill install target is invalid.',
+            SKILL_INSTALL_CONFIRMATION_REQUIRED: 'The Skill target conflicts and requires explicit confirmation before replacement.',
+            SKILL_CONFIRMATION_DECLINED: 'Skill conflict replacement was not confirmed.',
+            SKILL_UNINSTALL_CONFLICT: 'The target is not a Skill link managed by this plugin and will not be removed.',
+            SKILL_LINK_INVALID: 'The Skill directory link could not be verified after creation.',
+            SKILL_FILESYSTEM_ERROR: 'The Skill filesystem operation failed.'
         }
     }
 };
