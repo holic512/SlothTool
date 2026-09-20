@@ -120,8 +120,11 @@ export const messages = {
         invalidId: '无效的历史记录 ID：{id}',
         httpWarning: '当前端点使用 HTTP，Bearer Key 将以明文传输。',
         plaintextConfigWarning: 'MCP Key 将以明文保存在本地 SlothTool 插件配置中。',
-        skillTitle: 'SlothVault MCP Codex Skill',
+        skillTitle: 'SlothVault MCP 智能体 Skill',
         skillName: '名称',
+        skillAgent: '智能体',
+        skillDetected: '已检测',
+        skillNotDetected: '未检测',
         skillState: '状态',
         skillSource: '来源',
         skillTarget: '安装位置',
@@ -153,7 +156,7 @@ export const messages = {
                 profileAdd: '新增配置档案',
                 profileEdit: '编辑配置档案',
                 profileDelete: '删除配置档案',
-                skill: 'Codex Skill',
+                skill: '智能体 Skill',
                 skillReplace: '覆盖 Skill 安装',
                 skillUninstall: '卸载 Skill'
             },
@@ -175,6 +178,7 @@ export const messages = {
                 timeout: '超时',
                 default: '默认',
                 makeDefault: '设为默认',
+                agent: '智能体',
                 source: '来源',
                 target: '安装位置'
             },
@@ -206,7 +210,7 @@ export const messages = {
             },
             footer: 'Tab 切换页面 | ↑↓ 选择 | r 刷新 | q 退出',
             empty: '暂无数据。',
-            help: 'TUI 可查看状态、能力和脱敏历史，并管理本地配置档案与 Codex Skill；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
+            help: 'TUI 可查看状态、能力和脱敏历史，并管理本地配置档案与智能体 Skill；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
             profile: {
                 keyEntered: '[已输入，内容已隐藏]',
                 keyUnchanged: '留空以保留现有 Key',
@@ -225,7 +229,7 @@ export const messages = {
                 deleteFooter: 'y 确认删除 | n/Esc 取消'
             },
             skill: {
-                browseHelp: '安装会在用户级 .agents/skills 中建立指向当前插件 Skill 的目录链接。',
+                browseHelp: '仅为已检测到的 Codex 或 Claude Code 在各自用户级 skills 目录建立链接。',
                 conflictWarning: '现有目标不受当前插件管理；覆盖会永久删除且不保留备份。',
                 replacePrompt: '确认删除冲突目标并安装 Skill 吗？',
                 uninstallPrompt: '确认卸载当前插件管理的 Skill 链接吗？',
@@ -269,6 +273,7 @@ export const messages = {
             OUTPUT_REQUIRED: '读取 Resource 必须指定输出文件。',
             RESOURCE_WRITE_FAILED: 'Resource 文件落盘失败。',
             SKILL_SOURCE_INVALID: '插件内置 SlothVault Skill 缺失或无效。',
+            SKILL_AGENT_NOT_DETECTED: '未检测到本机 Codex 或 Claude Code，未执行 Skill 安装。',
             SKILL_TARGET_INVALID: 'SlothVault Skill 安装目标无效。',
             SKILL_INSTALL_CONFIRMATION_REQUIRED: 'Skill 安装目标存在冲突，覆盖前必须明确确认。',
             SKILL_CONFIRMATION_DECLINED: 'Skill 冲突覆盖未获确认。',
@@ -364,8 +369,11 @@ export const messages = {
         invalidId: 'Invalid history record ID: {id}',
         httpWarning: 'This endpoint uses HTTP; the Bearer key will be sent in clear text.',
         plaintextConfigWarning: 'The MCP key is stored as plain text in the local SlothTool plugin configuration.',
-        skillTitle: 'SlothVault MCP Codex Skill',
+        skillTitle: 'SlothVault MCP Agent Skill',
         skillName: 'Name',
+        skillAgent: 'Agent',
+        skillDetected: 'detected',
+        skillNotDetected: 'not detected',
         skillState: 'State',
         skillSource: 'Source',
         skillTarget: 'Install target',
@@ -397,7 +405,7 @@ export const messages = {
                 profileAdd: 'Add profile',
                 profileEdit: 'Edit profile',
                 profileDelete: 'Delete profile',
-                skill: 'Codex Skill',
+                skill: 'Agent Skill',
                 skillReplace: 'Replace Skill target',
                 skillUninstall: 'Uninstall Skill'
             },
@@ -419,6 +427,7 @@ export const messages = {
                 timeout: 'Timeout',
                 default: 'Default',
                 makeDefault: 'Make default',
+                agent: 'Agent',
                 source: 'Source',
                 target: 'Install target'
             },
@@ -450,7 +459,7 @@ export const messages = {
             },
             footer: 'Tab switch page | Up/Down select | r refresh | q quit',
             empty: 'No data.',
-            help: 'The TUI displays status, capabilities, and redacted history and manages local profiles and the Codex Skill; it never calls Tools, fetches Prompt content, or reads Resources.',
+            help: 'The TUI displays status, capabilities, and redacted history and manages local profiles and agent Skills; it never calls Tools, fetches Prompt content, or reads Resources.',
             profile: {
                 keyEntered: '[entered; content hidden]',
                 keyUnchanged: 'leave empty to keep the existing key',
@@ -469,7 +478,7 @@ export const messages = {
                 deleteFooter: 'y confirm delete | n/Esc cancel'
             },
             skill: {
-                browseHelp: 'Installation creates a directory link in the user-level .agents/skills directory to this plugin Skill.',
+                browseHelp: 'Installation links the Skill into each detected Codex or Claude Code user-level skills directory.',
                 conflictWarning: 'The existing target is unmanaged; replacement permanently deletes it without a backup.',
                 replacePrompt: 'Delete the conflicting target and install the Skill?',
                 uninstallPrompt: 'Uninstall the Skill link managed by this plugin?',
@@ -513,6 +522,7 @@ export const messages = {
             OUTPUT_REQUIRED: 'Reading a Resource requires an output file.',
             RESOURCE_WRITE_FAILED: 'Unable to save the Resource file.',
             SKILL_SOURCE_INVALID: 'The bundled SlothVault Skill is missing or invalid.',
+            SKILL_AGENT_NOT_DETECTED: 'No local Codex or Claude Code installation was detected; the Skill was not installed.',
             SKILL_TARGET_INVALID: 'The SlothVault Skill install target is invalid.',
             SKILL_INSTALL_CONFIRMATION_REQUIRED: 'The Skill target conflicts and requires explicit confirmation before replacement.',
             SKILL_CONFIRMATION_DECLINED: 'Skill conflict replacement was not confirmed.',

@@ -304,7 +304,7 @@ function printDoctor(result, json) {
     console.log(`${t('resources')}: ${safeResult.capabilities?.resourceTemplates ?? 0}`);
 }
 
-/** Render the stable Skill status/result contract for people or automation. */
+/** Render detected-agent Skill status for people or automation. */
 function printSkillResult(result, json) {
     if (json) {
         printJson(result);
@@ -314,7 +314,12 @@ function printSkillResult(result, json) {
     console.log(`${t('skillName')}: ${result.name}`);
     console.log(`${t('skillState')}: ${t(`skillStates.${result.state}`)}`);
     console.log(`${t('skillSource')}: ${result.sourcePath}`);
-    console.log(`${t('skillTarget')}: ${result.targetPath}`);
+    for (const agent of result.agents) {
+        const detected = agent.detected ? t('skillDetected') : t('skillNotDetected');
+        console.log(`${t('skillAgent')}: ${agent.name} [${detected}]`);
+        console.log(`  ${t('skillState')}: ${t(`skillStates.${agent.state}`)}`);
+        console.log(`  ${t('skillTarget')}: ${agent.targetPath}`);
+    }
     if (result.action) {
         console.log(`${t('skillAction')}: ${t(`skillActions.${result.action}`)}`);
     }
@@ -338,13 +343,13 @@ async function confirmTool({tool, argumentsSummary, signal}) {
 }
 
 /** Ask before deleting an existing user Skill target without a backup. */
-async function confirmSkillReplacement(targetPath) {
+async function confirmSkillReplacement(targetPaths) {
     if (!isInteractiveTerminal()) {
         return false;
     }
     const rl = createInterface({input: process.stdin, output: process.stdout});
     try {
-        const answer = await rl.question(t('skillReplaceConfirm', {path: targetPath}));
+        const answer = await rl.question(t('skillReplaceConfirm', {path: targetPaths.join('\n')}));
         return ['y', 'yes'].includes(answer.trim().toLowerCase());
     } finally {
         rl.close();
@@ -387,7 +392,7 @@ function printHelp() {
     console.log('  slothvault-mcp tools call content.note.content.list_versions --args "{}"');
 }
 
-/** Run local Codex Skill installation commands without contacting SlothVault. */
+/** Run local agent Skill installation commands without contacting SlothVault. */
 async function runSkillCommand(args, json) {
     const subcommand = args[1] || 'status';
     if (subcommand === 'status') {
@@ -397,14 +402,17 @@ async function runSkillCommand(args, json) {
     if (subcommand === 'install') {
         const current = getSkillStatus();
         let replace = hasFlag(args, '--yes');
-        if (current.state === 'conflict' && !replace) {
+        const conflictPaths = current.agents
+            .filter(agent => agent.detected && agent.state === 'conflict')
+            .map(agent => agent.targetPath);
+        if (conflictPaths.length > 0 && !replace) {
             if (!isInteractiveTerminal() || json) {
-                throw new SlothVaultSkillError(t('skillReplaceRequired', {path: current.targetPath}), {
+                throw new SlothVaultSkillError(t('skillReplaceRequired', {path: conflictPaths.join(', ')}), {
                     code: 'SKILL_INSTALL_CONFIRMATION_REQUIRED',
                     category: 'confirmation'
                 });
             }
-            replace = await confirmSkillReplacement(current.targetPath);
+            replace = await confirmSkillReplacement(conflictPaths);
             if (!replace) {
                 throw new SlothVaultSkillError(t('cancelled'), {
                     code: 'SKILL_CONFIRMATION_DECLINED',

@@ -56,6 +56,7 @@ import {
     SlothVaultMcpBusinessError
 } from '../plugins/slothvault-mcp/lib/service.js';
 import {
+    detectSkillAgents,
     getSkillPaths,
     getSkillStatus,
     installSkill,
@@ -295,56 +296,77 @@ test('profile configuration rejects unsafe names, keys, URLs, timeouts, and corr
     });
 });
 
-test('Skill manager installs an idempotent user link, supports paths with spaces, and uninstalls only that link', () => {
+test('Skill manager detects agent homes, installs every detected agent link, and uninstalls only those links', () => {
     const homeDirectory = makeTemporaryDirectory('skill home');
-    const initial = getSkillStatus({homeDir: homeDirectory});
-    assert.deepEqual(Object.keys(initial), ['name', 'state', 'sourcePath', 'targetPath']);
+    fs.mkdirSync(path.join(homeDirectory, '.codex'), {recursive: true});
+    fs.mkdirSync(path.join(homeDirectory, '.claude'), {recursive: true});
+    const options = {homeDir: homeDirectory, env: {PATH: ''}};
+    const initial = getSkillStatus(options);
     assert.equal(initial.name, 'slothvault-mcp');
     assert.equal(initial.state, 'not-installed');
-    assert.match(initial.targetPath, /\.agents[\\/]skills[\\/]slothvault-mcp$/u);
+    assert.deepEqual(initial.agents.filter(agent => agent.detected).map(agent => agent.id), ['codex', 'claude-code']);
+    assert.match(initial.agents[0].targetPath, /\.codex[\\/]skills[\\/]slothvault-mcp$/u);
+    assert.match(initial.agents[1].targetPath, /\.claude[\\/]skills[\\/]slothvault-mcp$/u);
+    assert.match(initial.legacyTarget.targetPath, /\.agents[\\/]skills[\\/]slothvault-mcp$/u);
+    fs.mkdirSync(path.dirname(initial.legacyTarget.targetPath), {recursive: true});
+    fs.symlinkSync(initial.sourcePath, initial.legacyTarget.targetPath, 'dir');
 
-    let requestedLinkType = '';
+    const requestedLinkTypes = [];
     const installed = installSkill({
-        homeDir: homeDirectory,
+        ...options,
         platform: 'win32',
         createLink(sourcePath, targetPath, linkType) {
-            requestedLinkType = linkType;
+            requestedLinkTypes.push(linkType);
             fs.symlinkSync(sourcePath, targetPath, 'dir');
         }
     });
-    assert.equal(requestedLinkType, 'junction');
+    assert.deepEqual(requestedLinkTypes, ['junction', 'junction']);
     assert.equal(installed.state, 'installed');
     assert.equal(installed.action, 'installed');
-    assert.equal(fs.lstatSync(installed.targetPath).isSymbolicLink(), true);
-    assert.equal(
-        path.resolve(path.dirname(installed.targetPath), fs.readlinkSync(installed.targetPath)),
-        installed.sourcePath
-    );
+    assert.equal(fs.existsSync(initial.legacyTarget.targetPath), false);
+    for (const agent of installed.agents.filter(item => item.detected)) {
+        assert.equal(fs.lstatSync(agent.targetPath).isSymbolicLink(), true);
+        assert.equal(path.resolve(path.dirname(agent.targetPath), fs.readlinkSync(agent.targetPath)), installed.sourcePath);
+    }
 
-    const repeated = installSkill({homeDir: homeDirectory});
+    const repeated = installSkill(options);
     assert.equal(repeated.action, 'already-installed');
-    const removed = uninstallSkill({homeDir: homeDirectory});
+    const removed = uninstallSkill(options);
     assert.equal(removed.state, 'not-installed');
     assert.equal(removed.action, 'uninstalled');
-    assert.equal(uninstallSkill({homeDir: homeDirectory}).action, 'already-absent');
+    assert.equal(uninstallSkill(options).action, 'already-absent');
+
+    const customCodexHome = path.join(homeDirectory, 'custom codex');
+    fs.mkdirSync(customCodexHome);
+    const detected = detectSkillAgents({homeDir: homeDirectory, env: {PATH: '', CODEX_HOME: customCodexHome}});
+    assert.equal(detected[0].detected, true);
+    assert.equal(detected[0].targetPath, path.join(customCodexHome, 'skills', 'slothvault-mcp'));
+
+    const noAgentHome = makeTemporaryDirectory('skill-no-agent');
+    assert.throws(
+        () => installSkill({homeDir: noAgentHome, detectedAgents: []}),
+        error => error.code === 'SKILL_AGENT_NOT_DETECTED' && error.exitCode === 2
+    );
 });
 
 test('Skill conflict replacement requires authorization and preserves the old target when preflight link creation fails', () => {
     const homeDirectory = makeTemporaryDirectory('skill-conflict');
-    const {skillsDirectory, targetPath} = getSkillPaths({homeDir: homeDirectory});
+    const options = {homeDir: homeDirectory, detectedAgents: ['codex']};
+    const {agents} = getSkillPaths(options);
+    const {skillsDirectory, targetPath} = agents[0];
     fs.mkdirSync(targetPath, {recursive: true});
     const markerPath = path.join(targetPath, 'keep.txt');
     fs.writeFileSync(markerPath, 'keep', 'utf8');
 
     assert.throws(
-        () => installSkill({homeDir: homeDirectory}),
+        () => installSkill(options),
         error => error.code === 'SKILL_INSTALL_CONFIRMATION_REQUIRED' && error.exitCode === 2
     );
     assert.equal(fs.readFileSync(markerPath, 'utf8'), 'keep');
 
     assert.throws(
         () => installSkill({
-            homeDir: homeDirectory,
+            ...options,
             replace: true,
             createLink() {
                 const error = new Error('simulated link failure');
@@ -357,7 +379,7 @@ test('Skill conflict replacement requires authorization and preserves the old ta
     assert.equal(fs.readFileSync(markerPath, 'utf8'), 'keep');
     assert.equal(fs.readdirSync(skillsDirectory).some(name => name.startsWith('.slothvault-mcp.link.')), false);
 
-    const replaced = installSkill({homeDir: homeDirectory, replace: true});
+    const replaced = installSkill({...options, replace: true});
     assert.equal(replaced.action, 'replaced');
     assert.equal(replaced.state, 'installed');
     assert.equal(fs.existsSync(markerPath), false);
@@ -365,26 +387,27 @@ test('Skill conflict replacement requires authorization and preserves the old ta
 
 test('Skill manager classifies files, unrelated links, and dangling links as conflicts and never uninstalls them', () => {
     const homeDirectory = makeTemporaryDirectory('skill-unmanaged');
-    const {skillsDirectory, targetPath} = getSkillPaths({homeDir: homeDirectory});
+    const options = {homeDir: homeDirectory, detectedAgents: ['codex']};
+    const {skillsDirectory, targetPath} = getSkillPaths(options).agents[0];
     fs.mkdirSync(skillsDirectory, {recursive: true});
 
     fs.writeFileSync(targetPath, 'unmanaged', 'utf8');
-    assert.equal(getSkillStatus({homeDir: homeDirectory}).state, 'conflict');
-    assert.throws(() => uninstallSkill({homeDir: homeDirectory}), /unmanaged SlothVault Skill target/u);
+    assert.equal(getSkillStatus(options).state, 'conflict');
+    assert.throws(() => uninstallSkill(options), /unmanaged SlothVault Skill target/u);
     assert.equal(fs.readFileSync(targetPath, 'utf8'), 'unmanaged');
 
     fs.unlinkSync(targetPath);
     const unrelatedDirectory = path.join(homeDirectory, 'unrelated-skill');
     fs.mkdirSync(unrelatedDirectory);
     fs.symlinkSync(unrelatedDirectory, targetPath, 'dir');
-    assert.equal(getSkillStatus({homeDir: homeDirectory}).state, 'conflict');
-    assert.throws(() => uninstallSkill({homeDir: homeDirectory}), /unmanaged SlothVault Skill target/u);
+    assert.equal(getSkillStatus(options).state, 'conflict');
+    assert.throws(() => uninstallSkill(options), /unmanaged SlothVault Skill target/u);
     assert.equal(fs.lstatSync(targetPath).isSymbolicLink(), true);
 
     fs.unlinkSync(targetPath);
     fs.symlinkSync(path.join(homeDirectory, 'missing-skill'), targetPath, 'dir');
-    assert.equal(getSkillStatus({homeDir: homeDirectory}).state, 'conflict');
-    assert.throws(() => uninstallSkill({homeDir: homeDirectory}), /unmanaged SlothVault Skill target/u);
+    assert.equal(getSkillStatus(options).state, 'conflict');
+    assert.throws(() => uninstallSkill(options), /unmanaged SlothVault Skill target/u);
     assert.equal(fs.lstatSync(targetPath).isSymbolicLink(), true);
 });
 
@@ -798,10 +821,14 @@ test('CLI help, JSON errors, input-source exclusivity, key handling, and exit co
 
 test('CLI exposes stable Skill status, install, conflict replacement, and uninstall contracts', context => {
     const homeDirectory = makeTemporaryDirectory('skill-cli');
+    fs.mkdirSync(path.join(homeDirectory, '.codex'), {recursive: true});
+    fs.mkdirSync(path.join(homeDirectory, '.claude'), {recursive: true});
     const status = runCli(['skill', 'status', '--json'], {homeDirectory});
     if (skipIfProcessCreationIsBlocked(context, status)) return;
     assert.equal(status.status, 0, status.stderr);
-    assert.equal(JSON.parse(status.stdout).state, 'not-installed');
+    const statusResult = JSON.parse(status.stdout);
+    assert.equal(statusResult.state, 'not-installed');
+    assert.deepEqual(statusResult.agents.filter(agent => agent.detected).map(agent => agent.id), ['codex', 'claude-code']);
 
     const installed = runCli(['skill', 'install', '--json'], {homeDirectory});
     assert.equal(installed.status, 0, installed.stderr);
@@ -818,7 +845,8 @@ test('CLI exposes stable Skill status, install, conflict replacement, and uninst
     assert.equal(JSON.parse(uninstalled.stdout).action, 'uninstalled');
 
     const conflictHome = makeTemporaryDirectory('skill-cli-conflict');
-    const conflictTarget = getSkillPaths({homeDir: conflictHome}).targetPath;
+    fs.mkdirSync(path.join(conflictHome, '.codex'), {recursive: true});
+    const conflictTarget = getSkillPaths({homeDir: conflictHome, env: {PATH: ''}}).agents[0].targetPath;
     fs.mkdirSync(conflictTarget, {recursive: true});
     const markerPath = path.join(conflictTarget, 'keep.txt');
     fs.writeFileSync(markerPath, 'keep', 'utf8');
@@ -867,7 +895,7 @@ test('TUI entry has a smoke exit, stable narrow layout, local Profile/Skill mana
     assert.equal(smoke.status, 0, smoke.stderr);
     const renderSmoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'render-exit'}});
     assert.equal(renderSmoke.status, 0, renderSmoke.stderr);
-    assert.match(renderSmoke.stdout, /SlothVault MCP 1\.2\.0/u);
+    assert.match(renderSmoke.stdout, /SlothVault MCP 1\.2\.1/u);
 
     const narrow = resolveSlothVaultTuiLayout(30, 10);
     assert.equal(narrow.columns, 40);

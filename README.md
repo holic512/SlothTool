@@ -255,9 +255,9 @@ CLI 命令组包括 `profile add|update|list|show|use|remove`、`doctor`、`tool
 
 `--json` 成功时只输出一个 JSON 文档，警告写入 stderr。稳定退出码为：`0` 成功、`2` 用法/配置/缺少确认、`3` 认证失败、`4` 网络/超时/服务或协议失败、`5` MCP 业务失败、`1` 其他内部错误。
 
-插件通过 MCP 初始化与实时发现读取 SlothVault 暴露的 Tool、Prompt 和 Resource Template，不在客户端硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。TUI 可查看连接状态、能力与脱敏历史，在“配置”页管理本地 Profile，并在“技能”页管理用户级 Codex Skill；它不执行 Tool、获取 Prompt 内容或读取 Resource。
+插件通过 MCP 初始化与实时发现读取 SlothVault 暴露的 Tool、Prompt 和 Resource Template，不在客户端硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。TUI 可查看连接状态、能力与脱敏历史，在“配置”页管理本地 Profile，并在“技能”页管理已检测智能体的用户级 Skill；它不执行 Tool、获取 Prompt 内容或读取 Resource。
 
-发行包内置 `slothvault-mcp` Skill。`skill install` 会在 `~/.agents/skills/slothvault-mcp` 创建指向当前插件 Skill 的目录链接（Windows 使用 junction），因此插件更新后 Skill 会自动同步。若目标存在其他内容，交互模式会询问是否永久删除且不备份，非交互或 `--json` 模式只有显式 `--yes` 才能覆盖；`skill uninstall` 只删除准确指向当前插件 Skill 的受管链接。Codex 通常会自动发现新 Skill，未出现时请重启 Codex。
+发行包内置 `slothvault-mcp` Skill。`skill install` 会通过配置目录或可执行文件检测 Codex 与 Claude Code，并只在已检测智能体自己的目录创建链接：Codex 使用 `$CODEX_HOME/skills/slothvault-mcp`（默认 `~/.codex/skills/slothvault-mcp`），Claude Code 使用 `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp`（默认 `~/.claude/skills/slothvault-mcp`）；不再向 `~/.agents/skills` 新装链接。若任一目标存在其他内容，交互模式会列出冲突路径并询问是否永久删除且不备份，非交互或 `--json` 模式只有显式 `--yes` 才能覆盖；`skill uninstall` 只删除准确指向当前插件 Skill 的受管链接。未出现 Skill 时请重启对应智能体。
 
 TUI 的 Profile 表单不会载入现有明文 Key，也不会显示本次输入的新 Key；编辑时 Key 留空会保留原值。配置变更不会自动连接服务端，默认 Profile 或连接参数变化后需按 `r` 重新发现能力。
 
@@ -377,7 +377,7 @@ flowchart TD
     └── <plugin-config>.json
 ```
 
-SlothVault Codex Skill 安装在 SlothTool 数据目录之外的 `~/.agents/skills/slothvault-mcp`，并链接到 `~/.pipker/slothtool/plugins/slothvault-mcp/skills/slothvault-mcp`。
+SlothVault Skill 安装在 SlothTool 数据目录之外：已检测到 Codex 时链接到 `~/.codex/skills/slothvault-mcp`，已检测到 Claude Code 时链接到 `~/.claude/skills/slothvault-mcp`；两者均指向 `~/.pipker/slothtool/plugins/slothvault-mcp/skills/slothvault-mcp`。
 
 ## Repository Layout
 

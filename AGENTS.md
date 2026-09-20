@@ -12,7 +12,7 @@ Concise repo rules for Codex working on SlothTool.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/codex-models` ships as an official CLI + TUI plugin workspace for Codex custom-provider diagnostics, cross-vendor model metadata, reasoning-level switching, catalog sync, and safe Desktop offline repair-script generation.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
-- `plugins/slothvault-mcp` ships as an official CLI + TUI plugin workspace for dynamically discovering and safely invoking the SlothVault admin MCP; it bundles a user-installable Codex Skill, and its TUI manages local profiles and that Skill while keeping remote business operations read-only.
+- `plugins/slothvault-mcp` ships as an official CLI + TUI plugin workspace for dynamically discovering and safely invoking the SlothVault admin MCP; it bundles a user-installable Skill for detected Codex and Claude Code environments, and its TUI manages local profiles and that Skill while keeping remote business operations read-only.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
 - Runtime baseline:
@@ -26,7 +26,7 @@ Concise repo rules for Codex working on SlothTool.
 - `~/.pipker/slothtool/data/`
 - `~/.pipker/slothtool/plugins/`
 - `~/.pipker/slothtool/plugin-configs/`
-- `~/.agents/skills/slothvault-mcp` (optional link installed explicitly by the SlothVault MCP plugin)
+- `~/.codex/skills/slothvault-mcp` and `~/.claude/skills/slothvault-mcp` (optional links installed only for detected agents by the SlothVault MCP plugin; configurable through `CODEX_HOME` and `CLAUDE_CONFIG_DIR`)
 
 ## 2. Product Invariants
 
@@ -106,8 +106,9 @@ SlothVault MCP client rules:
 - Discover Tools, Prompts, and Resource Templates from the live MCP server; do not hardcode the SlothVault business catalog.
 - Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require write confirmation, and non-interactive calls require `--yes`.
 - Keep remote business operations read-only in the TUI. Local Profile add/update/default/remove operations are allowed, while Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
-- Keep the bundled Skill under `plugins/slothvault-mcp/skills/slothvault-mcp`; install it only through an explicit CLI/TUI action at `~/.agents/skills/slothvault-mcp`.
-- Skill conflict replacement requires explicit confirmation and may delete only the fixed Skill target. Skill uninstall may remove only a link that resolves to the current bundled Skill.
+- Keep the bundled Skill under `plugins/slothvault-mcp/skills/slothvault-mcp`; install it only through an explicit CLI/TUI action for detected Codex or Claude Code environments in their agent-specific user Skill directories.
+- Detect Codex through its config directory or `codex` executable and target `$CODEX_HOME/skills` (default `~/.codex/skills`); detect Claude Code through its config directory or `claude` executable and target `$CLAUDE_CONFIG_DIR/skills` (default `~/.claude/skills`). Do not create new links under `~/.agents/skills`.
+- Skill conflict replacement requires explicit confirmation and may delete only fixed detected-agent Skill targets. Skill uninstall may remove only links that resolve to the current bundled Skill.
 - Never load a stored raw MCP Key into TUI state or render typed Key content; clear transient Key input after save, cancellation, or validation failure.
 - Never print or persist complete credentials, request arguments, results, or Resource payloads outside their explicit output file.
 

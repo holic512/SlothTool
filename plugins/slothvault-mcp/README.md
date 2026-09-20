@@ -2,7 +2,7 @@
 
 SlothVault administrator MCP client for SlothTool. The plugin discovers tools, prompts, and resource templates from the server at runtime; it does not embed a fixed SlothVault tool catalog.
 
-The CLI is the only remote MCP execution surface. The full-screen TUI displays connection state, live capabilities, and redacted local call history, and it can manage local connection profiles and the bundled Codex Skill. It never calls Tools, fetches Prompt content, or reads Resources.
+The CLI is the only remote MCP execution surface. The full-screen TUI displays connection state, live capabilities, and redacted local call history, and it can manage local connection profiles and the bundled agent Skill. It never calls Tools, fetches Prompt content, or reads Resources.
 
 ## Requirements
 
@@ -51,9 +51,9 @@ slothvault-mcp resources read 'slothvault://managed-file/...' --output ./artifac
 
 Tool calls are not automatically retried. Resource downloads validate the SlothVault URI family, MIME type, Base64 payload, size limit, and the server-provided `_meta["slothvault/file-name"]`, then write a new output file without replacing an existing path. The client retains a legacy fallback for the former top-level `name` field.
 
-## Codex Skill
+## Agent Skill
 
-The release includes a `slothvault-mcp` Skill that directs Codex to use this CLI, inspect the live MCP catalog, protect credentials, and confirm every Tool that is not explicitly annotated as read-only.
+The release includes a `slothvault-mcp` Skill that directs supported coding agents to use this CLI, inspect the live MCP catalog, protect credentials, and confirm every Tool that is not explicitly annotated as read-only.
 
 ```bash
 slothvault-mcp skill status
@@ -61,9 +61,9 @@ slothvault-mcp skill install
 slothvault-mcp skill uninstall
 ```
 
-Installation creates a directory link at `~/.agents/skills/slothvault-mcp` pointing to the Skill inside the installed plugin. This keeps the Skill synchronized when SlothTool updates the plugin in place. On Windows, the equivalent directory junction is used. Codex normally detects a newly installed Skill automatically; restart Codex if it does not appear.
+Installation first detects Codex and Claude Code from their configuration directories or executables, then creates a directory link for every detected agent: `$CODEX_HOME/skills/slothvault-mcp` (default `~/.codex/skills/slothvault-mcp`) and `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp` (default `~/.claude/skills/slothvault-mcp`). It does not create new links under `~/.agents/skills`. This keeps the Skill synchronized when SlothTool updates the plugin in place. On Windows, the equivalent directory junction is used. Restart an agent if the Skill does not appear.
 
-If another file, directory, or link already occupies the target, interactive installation asks before permanently deleting it without a backup. Non-interactive and `--json` replacement require `--yes`. Uninstall removes only a link that points to this plugin's current Skill and refuses to delete any unmanaged target.
+If another file, directory, or link already occupies any detected-agent target, interactive installation lists every conflicting path before asking whether to permanently delete them without a backup. Non-interactive and `--json` replacement require `--yes`. Uninstall removes only links that point to this plugin's current Skill and refuses to delete unmanaged targets. A managed link left by version 1.2.0 under `~/.agents/skills` is removed during the next install or uninstall; conflicting content there is never deleted.
 
 Run `slothvault-mcp skill uninstall` before uninstalling the SlothTool plugin. `slothtool uninstall slothvault-mcp` does not remove the user-level Skill link automatically.
 

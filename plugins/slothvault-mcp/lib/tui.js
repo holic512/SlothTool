@@ -2,7 +2,7 @@
  * @file SlothVaultMcpTui
  * @project SlothTool
  * @module SlothVault MCP Plugin / TUI
- * @description Ink interface for read-only MCP inspection plus local profile and Codex Skill management.
+ * @description Ink interface for read-only MCP inspection plus local profile and coding-agent Skill management.
  * @logic 1. 展示远端只读发现与脱敏历史；2. 管理不加载原始 Key 的本地 Profile；3. 管理用户级 SlothVault Skill 链接并对覆盖和卸载二次确认。
  * @dependencies React/Ink, Config/History/Service/Skill Manager/I18N
  * @index_tags slothvault,mcp,tui,profile,skill,read-only
@@ -348,6 +348,21 @@ function SkillPage({skill, mode, layout}) {
         : skill.state === 'conflict'
             ? COLORS.danger
             : COLORS.warning;
+    const agentFields = skill.agents.flatMap(agent => {
+        const color = !agent.detected
+            ? COLORS.muted
+            : agent.state === 'installed'
+                ? COLORS.success
+                : agent.state === 'conflict'
+                    ? COLORS.danger
+                    : COLORS.warning;
+        const detection = agent.detected ? t('skillDetected') : t('skillNotDetected');
+        return [
+            h(Field, {key: `${agent.id}-agent`, label: t('tui.labels.agent'), value: `${agent.name} [${detection}]`, color}),
+            h(Field, {key: `${agent.id}-state`, label: t('tui.labels.status'), value: t(`skillStates.${agent.state}`), color}),
+            h(Field, {key: `${agent.id}-target`, label: t('tui.labels.target'), value: truncate(agent.targetPath, layout.columns - 18)})
+        ];
+    });
     return h(
         Box,
         {flexDirection: 'column'},
@@ -357,7 +372,7 @@ function SkillPage({skill, mode, layout}) {
             h(Field, {label: t('tui.labels.name'), value: skill.name}),
             h(Field, {label: t('tui.labels.status'), value: t(`skillStates.${skill.state}`), color: stateColor}),
             h(Field, {label: t('tui.labels.source'), value: truncate(skill.sourcePath, layout.columns - 18)}),
-            h(Field, {label: t('tui.labels.target'), value: truncate(skill.targetPath, layout.columns - 18)}),
+            ...agentFields,
             skill.state === 'conflict'
                 ? h(Text, {color: COLORS.danger}, t('tui.skill.conflictWarning'))
                 : null,
@@ -642,7 +657,8 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         try {
             const current = getSkillStatus();
             setSkill(current);
-            if (current.state === 'installed') {
+            if (current.agents.some(agent => agent.detected && agent.state === 'installed')
+                || current.legacyTarget.state === 'installed') {
                 setSkillMode('uninstall');
                 setStatus(t('tui.status.skillUninstallReady'));
                 setStatusTone('warning');
