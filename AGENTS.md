@@ -12,7 +12,7 @@ Concise repo rules for Codex working on SlothTool.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/codex-models` ships as an official CLI + TUI plugin workspace for Codex custom-provider diagnostics, cross-vendor model metadata, reasoning-level switching, catalog sync, and safe Desktop offline repair-script generation.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
-- `plugins/slothvault-mcp` ships as an official CLI + read-only TUI plugin workspace for dynamically discovering and safely invoking the SlothVault admin MCP.
+- `plugins/slothvault-mcp` ships as an official CLI + TUI plugin workspace for dynamically discovering and safely invoking the SlothVault admin MCP; its TUI manages local profiles but keeps remote business operations read-only.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
 - Runtime baseline:
@@ -104,7 +104,8 @@ SlothVault MCP client rules:
 
 - Discover Tools, Prompts, and Resource Templates from the live MCP server; do not hardcode the SlothVault business catalog.
 - Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require write confirmation, and non-interactive calls require `--yes`.
-- Keep the TUI read-only. Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
+- Keep remote business operations read-only in the TUI. Local Profile add/update/default/remove operations are allowed, while Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
+- Never load a stored raw MCP Key into TUI state or render typed Key content; clear transient Key input after save, cancellation, or validation failure.
 - Never print or persist complete credentials, request arguments, results, or Resource payloads outside their explicit output file.
 
 ## 5. Fast Change Map

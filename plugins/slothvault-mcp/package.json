@@ -1,7 +1,7 @@
 {
   "name": "@holic512/plugin-slothvault-mcp",
-  "version": "1.0.0",
-  "description": "Dedicated CLI and read-only TUI client for the SlothVault administrator MCP server",
+  "version": "1.1.0",
+  "description": "Dedicated CLI and profile-management TUI client for the SlothVault administrator MCP server",
   "main": "lib/service.js",
   "type": "module",
   "bin": {

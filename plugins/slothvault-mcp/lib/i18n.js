@@ -2,7 +2,7 @@
  * @file SlothVaultMcpI18n
  * @project SlothTool
  * @module SlothVault MCP Plugin / Internationalization
- * @description Provides bilingual CLI and read-only TUI copy for the SlothVault MCP client.
+ * @description Provides bilingual CLI and profile-management TUI copy for the SlothVault MCP client.
  * @author MengJiaXu
  */
 
@@ -34,7 +34,7 @@ export const messages = {
         title: 'slothvault-mcp - SlothVault MCP 客户端',
         usage: '用法：',
         help: '显示帮助信息',
-        tuiOption: '启动只读全屏 TUI',
+        tuiOption: '启动全屏 TUI（远端业务操作只读，本地配置档案可管理）',
         jsonOption: '以单个 JSON 文档输出',
         profileOption: '选择连接配置档案',
         yesOption: '确认执行可能修改数据的工具',
@@ -119,12 +119,73 @@ export const messages = {
         plaintextConfigWarning: 'MCP Key 将以明文保存在本地 SlothTool 插件配置中。',
         tui: {
             tabs: {status: '状态', capabilities: '能力', history: '历史', profiles: '配置'},
-            panels: {connection: '连接状态', tools: '工具', prompts: 'Prompts', resources: 'Resource 模板', details: '详情', recent: '最近调用', profile: '当前配置'},
-            labels: {profile: '档案', endpoint: '端点', server: '服务端', version: '版本', protocol: '协议', status: '状态', count: '数量', name: '名称', description: '描述', risk: '风险', uri: 'URI', key: 'Key', timeout: '超时'},
-            status: {ready: '就绪。按 r 刷新远端能力，q 退出。', loading: '正在连接并发现能力…', failed: '连接失败：{message}', refreshed: '能力已刷新。'},
+            panels: {
+                connection: '连接状态',
+                tools: '工具',
+                prompts: 'Prompts',
+                resources: 'Resource 模板',
+                details: '详情',
+                recent: '最近调用',
+                profile: '配置详情',
+                profileAdd: '新增配置档案',
+                profileEdit: '编辑配置档案',
+                profileDelete: '删除配置档案'
+            },
+            labels: {
+                profile: '档案',
+                endpoint: '端点',
+                server: '服务端',
+                version: '版本',
+                protocol: '协议',
+                status: '状态',
+                count: '数量',
+                name: '名称',
+                description: '描述',
+                risk: '风险',
+                uri: 'URI',
+                key: 'Key',
+                mcpKey: 'MCP Key',
+                newKey: '新 MCP Key',
+                timeout: '超时',
+                default: '默认',
+                makeDefault: '设为默认'
+            },
+            status: {
+                ready: '就绪。按 r 刷新远端能力，q 退出。',
+                loading: '正在连接并发现能力…',
+                failed: '连接失败：{message}',
+                refreshed: '能力已刷新。',
+                profileAddReady: '正在新增本地配置档案。',
+                profileEditReady: '正在编辑配置档案：{name}',
+                profileDeleteReady: '请确认是否删除所选配置档案。',
+                profileAdded: '已添加配置档案：{name}。',
+                profileUpdated: '已更新配置档案：{name}。',
+                profileUsed: '已将配置档案设为默认：{name}。',
+                profileRemoved: '已删除配置档案：{name}。',
+                profileOperationFailed: '配置档案操作失败：{message}',
+                profileCancelled: '已取消配置档案操作。',
+                refreshRequired: '连接配置已变化；按 r 重新发现远端能力。'
+            },
             footer: 'Tab 切换页面 | ↑↓ 选择 | r 刷新 | q 退出',
             empty: '暂无数据。',
-            help: 'TUI 仅提供状态、能力、历史与配置档案查看，不会执行远程操作。'
+            help: 'TUI 可查看状态、能力和脱敏历史，并管理本地配置档案；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
+            profile: {
+                keyEntered: '[已输入，内容已隐藏]',
+                keyUnchanged: '留空以保留现有 Key',
+                keyRequired: '必填（输入内容已隐藏）',
+                alreadyDefault: '[x] 已是默认配置',
+                endpointPlaceholder: 'https://vault.example.com/mcp',
+                emptyValue: '（空）',
+                editKeyHint: '现有 Key 不会载入表单；新 Key 留空时保持不变。',
+                browseHelp: '本页只修改本地配置，不会自动连接 MCP 服务。',
+                formHelp: '↑↓ 切换字段；Enter 下一项/保存；Ctrl+U 清空；Space 切换默认；Esc 取消。',
+                deletePrompt: '确定删除配置档案 “{name}” 吗？',
+                deleteHistoryNote: '删除配置档案不会删除脱敏调用历史。',
+                deleteHelp: '按 y 确认；按 n 或 Esc 取消。',
+                browseFooter: '↑↓ 选择 | a 新增 | e/Enter 编辑 | u 设为默认 | d 删除 | r 刷新 | q 退出',
+                formFooter: '↑↓ 字段 | Enter 下一项/保存 | Ctrl+U 清空 | Space 切换 | Esc 取消',
+                deleteFooter: 'y 确认删除 | n/Esc 取消'
+            }
         },
         errors: {
             INVALID_PROFILE_NAME: '配置档案名称必须由 1 至 64 个字母、数字、点、下划线或连字符组成。',
@@ -166,7 +227,7 @@ export const messages = {
         title: 'slothvault-mcp - SlothVault MCP client',
         usage: 'Usage:',
         help: 'Show help',
-        tuiOption: 'Launch the read-only full-screen TUI',
+        tuiOption: 'Launch the full-screen TUI (read-only remote operations, local profile management)',
         jsonOption: 'Print one JSON document',
         profileOption: 'Select a connection profile',
         yesOption: 'Confirm a tool that may mutate remote data',
@@ -251,12 +312,73 @@ export const messages = {
         plaintextConfigWarning: 'The MCP key is stored as plain text in the local SlothTool plugin configuration.',
         tui: {
             tabs: {status: 'Status', capabilities: 'Capabilities', history: 'History', profiles: 'Profiles'},
-            panels: {connection: 'Connection', tools: 'Tools', prompts: 'Prompts', resources: 'Resource templates', details: 'Details', recent: 'Recent calls', profile: 'Current profile'},
-            labels: {profile: 'Profile', endpoint: 'Endpoint', server: 'Server', version: 'Version', protocol: 'Protocol', status: 'Status', count: 'Count', name: 'Name', description: 'Description', risk: 'Risk', uri: 'URI', key: 'Key', timeout: 'Timeout'},
-            status: {ready: 'Ready. Press r to refresh capabilities or q to quit.', loading: 'Connecting and discovering capabilities…', failed: 'Connection failed: {message}', refreshed: 'Capabilities refreshed.'},
+            panels: {
+                connection: 'Connection',
+                tools: 'Tools',
+                prompts: 'Prompts',
+                resources: 'Resource templates',
+                details: 'Details',
+                recent: 'Recent calls',
+                profile: 'Profile details',
+                profileAdd: 'Add profile',
+                profileEdit: 'Edit profile',
+                profileDelete: 'Delete profile'
+            },
+            labels: {
+                profile: 'Profile',
+                endpoint: 'Endpoint',
+                server: 'Server',
+                version: 'Version',
+                protocol: 'Protocol',
+                status: 'Status',
+                count: 'Count',
+                name: 'Name',
+                description: 'Description',
+                risk: 'Risk',
+                uri: 'URI',
+                key: 'Key',
+                mcpKey: 'MCP key',
+                newKey: 'New MCP key',
+                timeout: 'Timeout',
+                default: 'Default',
+                makeDefault: 'Make default'
+            },
+            status: {
+                ready: 'Ready. Press r to refresh capabilities or q to quit.',
+                loading: 'Connecting and discovering capabilities…',
+                failed: 'Connection failed: {message}',
+                refreshed: 'Capabilities refreshed.',
+                profileAddReady: 'Adding a local connection profile.',
+                profileEditReady: 'Editing profile: {name}',
+                profileDeleteReady: 'Confirm removal of the selected profile.',
+                profileAdded: 'Profile added: {name}.',
+                profileUpdated: 'Profile updated: {name}.',
+                profileUsed: 'Default profile selected: {name}.',
+                profileRemoved: 'Profile removed: {name}.',
+                profileOperationFailed: 'Profile operation failed: {message}',
+                profileCancelled: 'Profile operation cancelled.',
+                refreshRequired: 'Connection settings changed; press r to discover remote capabilities again.'
+            },
             footer: 'Tab switch page | Up/Down select | r refresh | q quit',
             empty: 'No data.',
-            help: 'The TUI only displays status, capabilities, history, and profiles; it never performs remote operations.'
+            help: 'The TUI displays status, capabilities, and redacted history and manages local profiles; it never calls Tools, fetches Prompt content, or reads Resources.',
+            profile: {
+                keyEntered: '[entered; content hidden]',
+                keyUnchanged: 'leave empty to keep the existing key',
+                keyRequired: 'required (input is hidden)',
+                alreadyDefault: '[x] already the default',
+                endpointPlaceholder: 'https://vault.example.com/mcp',
+                emptyValue: '(empty)',
+                editKeyHint: 'The existing key is never loaded into this form; leave the new key empty to keep it.',
+                browseHelp: 'This page only changes local configuration and never connects automatically.',
+                formHelp: 'Up/Down fields; Enter next/save; Ctrl+U clear; Space toggle default; Esc cancel.',
+                deletePrompt: 'Delete profile "{name}"?',
+                deleteHistoryNote: 'Removing a profile does not delete redacted call history.',
+                deleteHelp: 'Press y to confirm; press n or Esc to cancel.',
+                browseFooter: 'Up/Down select | a add | e/Enter edit | u default | d delete | r refresh | q quit',
+                formFooter: 'Up/Down fields | Enter next/save | Ctrl+U clear | Space toggle | Esc cancel',
+                deleteFooter: 'y confirm delete | n/Esc cancel'
+            }
         },
         errors: {
             INVALID_PROFILE_NAME: 'Profile names must contain 1-64 letters, numbers, dots, underscores, or hyphens.',

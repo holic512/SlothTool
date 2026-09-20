@@ -25,7 +25,7 @@ SlothTool 把“插件管理器”作为默认交互入口：根命令负责安�
 | 配置云同步 | `gstore` 通过独立 Git 仓库缓存同步全局设置、插件配置和数据，并提供冲突检测与显式覆盖策略。 |
 | Codex 模型管理 | `codex-models` 诊断自定义 provider，同步跨厂商模型库、上下文与推理等级，并生成 Desktop 离线修复脚本。 |
 | 项目 ZIP 压缩 | `pzip` 递归创建 ZIP，默认过滤 macOS、构建产物与 Git 元数据，并应用嵌套 `.gitignore`。 |
-| SlothVault MCP | `slothvault-mcp` 动态发现 SlothVault 管理员 MCP 能力，通过带风险确认的 CLI 调用，并提供只读诊断 TUI。 |
+| SlothVault MCP | `slothvault-mcp` 动态发现 SlothVault 管理员 MCP 能力，通过带风险确认的 CLI 调用，并提供远端只读、本地 Profile 可管理的诊断 TUI。 |
 | 双语界面 | 根管理器和官方插件支持中文 / English 文案。 |
 | 本地用户数据 | 设置、注册表、插件包、插件配置和同步数据都保存在 `~/.pipker/slothtool/`。 |
 
@@ -143,7 +143,7 @@ Run 页面会把最近运行的插件排在前面，未运行过的插件继续�
 | `gstore` | `@holic512/plugin-gstore` | GitHub CLI 登录、独立 Git 缓存、设置/插件配置/数据全量同步、冲突检测和显式覆盖策略。 | `slothtool gstore` / `gstore` |
 | `codex-models` | `@holic512/plugin-codex-models` | 自定义 provider 诊断、跨厂商模型库、上下文和推理等级切换、目录同步、Desktop 离线修复脚本。 | `slothtool codex-models` / `codex-models` |
 | `pzip` | `@holic512/plugin-pzip` | ZIP 目录压缩、递归过滤 `.DS_Store`/`__MACOSX`/`dist`/`target`/`.git`、嵌套 `.gitignore` 与规则配置。 | `slothtool pzip` / `pzip` |
-| `slothvault-mcp` | `@holic512/plugin-slothvault-mcp` | 动态发现管理员 MCP Tool、Prompt 和 Resource，提供风险确认 CLI、只读 TUI 与脱敏历史。 | `slothtool slothvault-mcp` / `slothvault-mcp` |
+| `slothvault-mcp` | `@holic512/plugin-slothvault-mcp` | 动态发现管理员 MCP Tool、Prompt 和 Resource，提供风险确认 CLI、Profile 管理 TUI 与脱敏历史。 | `slothtool slothvault-mcp` / `slothvault-mcp` |
 
 ### `loc`
 
@@ -252,7 +252,9 @@ CLI 命令组包括 `profile add|update|list|show|use|remove`、`doctor`、`tool
 
 `--json` 成功时只输出一个 JSON 文档，警告写入 stderr。稳定退出码为：`0` 成功、`2` 用法/配置/缺少确认、`3` 认证失败、`4` 网络/超时/服务或协议失败、`5` MCP 业务失败、`1` 其他内部错误。
 
-插件通过 MCP 初始化与实时发现读取 SlothVault 暴露的 Tool、Prompt 和 Resource Template，不在客户端硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。TUI 只展示连接状态、能力、配置档案与脱敏历史，不执行 Tool、Prompt 或 Resource 操作。
+插件通过 MCP 初始化与实时发现读取 SlothVault 暴露的 Tool、Prompt 和 Resource Template，不在客户端硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。TUI 可查看连接状态、能力与脱敏历史，并在“配置”页新增、编辑、设为默认或删除本地 Profile；它不执行 Tool、获取 Prompt 内容或读取 Resource。
+
+TUI 的 Profile 表单不会载入现有明文 Key，也不会显示本次输入的新 Key；编辑时 Key 留空会保留原值。配置变更不会自动连接服务端，默认 Profile 或连接参数变化后需按 `r` 重新发现能力。
 
 配置保存在 `~/.pipker/slothtool/plugin-configs/slothvault-mcp.json`，其中 Bearer Key 为明文；历史保存在 `~/.pipker/slothtool/data/slothvault-mcp/history.json`，只记录脱敏摘要，不保存完整参数、完整结果或 Resource 内容。`gstore` 默认会同步 `plugin-configs/` 和 `data/`，因此其私有同步仓库可能包含明文 Key 与脱敏历史元数据。优先使用 HTTPS；HTTP endpoint 可以用于受控内网，但插件会持续显示明文传输警告。
 

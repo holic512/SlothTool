@@ -130,7 +130,7 @@ my-plugin/
 
 `pzip` 是“递归扫描和路径过滤完全位于 service 层，CLI/TUI 只复用归档结果”的参考实现。它也演示了任意深度默认目录过滤、分层 `.gitignore`、持久化模式配置与不覆盖已有输出的安全写入策略。
 
-`slothvault-mcp` 是“service 封装外部协议与动态能力发现，CLI 承担业务执行，TUI 仅提供只读检查”的参考实现。它也演示了 MCP Streamable HTTP 生命周期、基于 Tool annotations 的风险判断、敏感字段脱敏、多配置档案和 Resource 安全落盘。
+`slothvault-mcp` 是“service 封装外部协议与动态能力发现，CLI 承担远端业务执行，TUI 只读检查远端能力并复用配置服务管理本地 Profile”的参考实现。它也演示了 MCP Streamable HTTP 生命周期、基于 Tool annotations 的风险判断、敏感字段脱敏、多配置档案、不会回显 Key 的 TUI 表单和 Resource 安全落盘。
 
 ## TUI Shell Standard
 

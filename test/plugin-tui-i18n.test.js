@@ -68,15 +68,17 @@ test('gstore and codex-models expose the shared tab and footer shell in both lan
     assert.match(codexModelsMessages.en.tui.footer.models, /Tab/u);
 });
 
-test('slothvault-mcp exposes a bilingual read-only TUI shell and HTTP warning', () => {
+test('slothvault-mcp exposes a bilingual remote-read-only profile-management TUI shell and HTTP warning', () => {
     assert.equal(slothVaultMcpMessages.zh.tui.tabs.status, '状态');
     assert.equal(slothVaultMcpMessages.en.tui.tabs.status, 'Status');
     assert.equal(slothVaultMcpMessages.zh.tui.tabs.capabilities, '能力');
     assert.equal(slothVaultMcpMessages.en.tui.tabs.profiles, 'Profiles');
     assert.match(slothVaultMcpMessages.zh.tui.footer, /Tab/u);
     assert.match(slothVaultMcpMessages.en.tui.footer, /refresh/u);
-    assert.match(slothVaultMcpMessages.zh.tui.help, /不会执行远程操作/u);
-    assert.match(slothVaultMcpMessages.en.tui.help, /never performs remote operations/u);
+    assert.match(slothVaultMcpMessages.zh.tui.help, /不会调用 Tool/u);
+    assert.match(slothVaultMcpMessages.en.tui.help, /never calls Tools/u);
+    assert.match(slothVaultMcpMessages.zh.tui.profile.browseFooter, /新增/u);
+    assert.match(slothVaultMcpMessages.en.tui.profile.browseFooter, /add/u);
     assert.match(slothVaultMcpMessages.zh.httpWarning, /明文传输/u);
     assert.match(slothVaultMcpMessages.en.httpWarning, /clear text/u);
 });

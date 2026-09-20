@@ -145,8 +145,8 @@
       "packageDir": "plugins/slothvault-mcp",
       "releaseTagPrefix": "plugin-slothvault-mcp-v",
       "assetNamePrefix": "holic512-plugin-slothvault-mcp-",
-      "description": "连接 SlothVault 管理员 MCP，动态发现能力并通过安全 CLI 调用，TUI 仅提供只读检查",
-      "descriptionEn": "Connect to the SlothVault admin MCP with dynamic capability discovery, a guarded CLI, and a read-only TUI",
+      "description": "连接 SlothVault 管理员 MCP，动态发现能力并通过安全 CLI 调用，TUI 提供只读远端检查与本地 Profile 管理",
+      "descriptionEn": "Connect to the SlothVault admin MCP with dynamic discovery, a guarded CLI, and a TUI for read-only remote inspection and local profile management",
       "version": "latest",
       "author": "MengJiaXu",
       "features": [
@@ -154,14 +154,14 @@
         "多配置档案与 Bearer Key 脱敏",
         "基于 Tool annotations 的写操作确认",
         "受限 Resource 校验与安全落盘",
-        "只读诊断 TUI 与脱敏调用历史"
+        "远端只读诊断、本地 Profile 管理与脱敏调用历史"
       ],
       "featuresEn": [
         "Dynamic Tool, Prompt, and Resource Template discovery",
         "Multiple profiles with redacted Bearer Keys",
         "Write-operation confirmation based on Tool annotations",
         "Validated Resource downloads with safe file writes",
-        "Read-only diagnostics TUI with redacted call history"
+        "Read-only remote diagnostics, local profile management, and redacted call history"
       ]
     }
   ]

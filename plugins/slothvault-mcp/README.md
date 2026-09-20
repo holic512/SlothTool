@@ -2,7 +2,7 @@
 
 SlothVault administrator MCP client for SlothTool. The plugin discovers tools, prompts, and resource templates from the server at runtime; it does not embed a fixed SlothVault tool catalog.
 
-The CLI is the only execution surface. The full-screen TUI is intentionally read-only and displays connection state, live capabilities, local call history, and configured profiles.
+The CLI is the only remote MCP execution surface. The full-screen TUI displays connection state, live capabilities, and redacted local call history, and it can add, edit, select, and remove local connection profiles. It never calls Tools, fetches Prompt content, or reads Resources.
 
 ## Requirements
 
@@ -62,7 +62,9 @@ slothvault-mcp
 
 History is stored in `~/.pipker/slothtool/data/slothvault-mcp/history.json`, capped at 200 redacted summaries. Full arguments, full results, Bearer keys, and resource payloads are never retained. Uninstalling the plugin keeps this history until it is explicitly cleared.
 
-In the TUI, use `Tab` to switch among Status, Capabilities, History, and Profiles; use the arrow keys to inspect items, `r` to refresh discovery, and `q` to exit. The TUI never calls tools, fetches prompts, reads resources, edits profiles, or clears history.
+In the TUI, use `Tab` to switch among Status, Capabilities, History, and Profiles; use the arrow keys to inspect items, `r` to refresh discovery, and `q` to exit. On the Profiles page, use `a` to add, `e` or `Enter` to edit, `u` to select the default, and `d` to delete after confirmation. Profile forms use `Up`/`Down` to move between fields, `Enter` to advance or save, `Ctrl+U` to clear the current field, `Space` to toggle the default setting, and `Esc` to cancel.
+
+The TUI never loads an existing raw key into an edit form and never renders a newly typed key. Leaving the key field empty while editing preserves the stored value. Profile changes are local and do not connect automatically; press `r` after changing the default profile or its connection settings to refresh remote capabilities. The TUI still never calls Tools, fetches Prompt content, reads Resources, or clears history.
 
 ## JSON and exit codes
 

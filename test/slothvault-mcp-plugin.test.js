@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module Test / SlothVault MCP Plugin
  * @description 验证 SlothVault MCP 插件的配置、脱敏历史、动态协议发现、安全调用、Resource 落盘及 CLI/TUI 契约。
- * @logic 1. 使用隔离目录验证本地状态；2. 注入 fake MCP client 验证协议行为且不联网；3. 以子进程验证稳定 CLI 退出码和只读 TUI smoke。
+ * @logic 1. 使用隔离目录验证本地状态；2. 注入 fake MCP client 验证协议行为且不联网；3. 以子进程验证稳定 CLI 退出码与远端只读、本地 Profile 可管理的 TUI smoke。
  * @dependencies Node: assert/child_process/fs/os/path/test/url, Plugin: ../plugins/slothvault-mcp
  * @index_tags slothvault,mcp,client,config,history,resource,cli,tui
  * @author MengJiaXu
@@ -721,7 +721,7 @@ test('CLI validates inline, file, and stdin JSON object sources before any netwo
     assert.match(JSON.parse(fileObject.stdout).error.message, /JSON object/iu);
 });
 
-test('TUI entry has a smoke exit, stable narrow layout, and imports no operation APIs', context => {
+test('TUI entry has a smoke exit, stable narrow layout, local profile management, and no remote operation APIs', context => {
     const smoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'exit'}});
     if (skipIfProcessCreationIsBlocked(context, smoke)) return;
     assert.equal(smoke.status, 0, smoke.stderr);
@@ -739,5 +739,7 @@ test('TUI entry has a smoke exit, stable narrow layout, and imports no operation
 
     const source = fs.readFileSync(tuiSourcePath, 'utf8');
     assert.match(source, /import \{inspectServer\} from '.\/service\.js'/u);
+    assert.match(source, /addProfile[\s\S]*removeProfile[\s\S]*updateProfile[\s\S]*useProfile/u);
+    assert.match(source, /keyEntered/u);
     assert.doesNotMatch(source, /\bcallTool\b|\bgetPrompt\b|\breadResource\b/u);
 });

@@ -2,20 +2,36 @@
  * @file SlothVaultMcpTui
  * @project SlothTool
  * @module SlothVault MCP Plugin / TUI
- * @description Read-only Ink interface for connection state, live capabilities, history, and profiles.
+ * @description Ink interface for read-only MCP inspection and local connection profile management.
  * @author MengJiaXu
  */
 
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Box, Spacer, Text, render, useApp, useInput, useWindowSize} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
-import {getConfigSummary} from './config.js';
+import {
+    addProfile,
+    getConfigSummary,
+    removeProfile,
+    updateProfile,
+    useProfile
+} from './config.js';
 import {listHistory} from './history.js';
 import {inspectServer} from './service.js';
 import {formatSlothVaultError, t} from './i18n.js';
 
 const h = React.createElement;
 const TABS = ['status', 'capabilities', 'history', 'profiles'];
+const PROFILE_FORM_FIELDS = {
+    add: ['name', 'endpoint', 'timeoutMs', 'apiKey', 'makeDefault'],
+    edit: ['endpoint', 'timeoutMs', 'apiKey', 'makeDefault']
+};
+const PROFILE_FIELD_LIMITS = {
+    name: 64,
+    endpoint: 2048,
+    timeoutMs: 9,
+    apiKey: 512
+};
 const COLORS = {
     accent: 'cyan',
     border: 'blue',
@@ -95,6 +111,60 @@ function capabilityRisk(item) {
 function listWindow(items, selectedIndex, limit) {
     const start = Math.max(0, Math.min(selectedIndex - Math.floor(limit / 2), Math.max(0, items.length - limit)));
     return {start, items: items.slice(start, start + limit)};
+}
+
+/** Build an empty add form or a secret-free edit form from masked profile metadata. */
+function createProfileForm(mode, profile = null, profileCount = 0) {
+    return {
+        name: mode === 'add' ? '' : profile?.name || '',
+        endpoint: mode === 'add' ? '' : profile?.endpoint || '',
+        timeoutMs: String(profile?.timeoutMs ?? 30_000),
+        apiKey: '',
+        makeDefault: mode === 'add' && profileCount === 0,
+        alreadyDefault: mode === 'edit' && Boolean(profile?.isDefault)
+    };
+}
+
+/** Return the ordered fields for the active profile form. */
+function profileFormFields(mode) {
+    return PROFILE_FORM_FIELDS[mode] || [];
+}
+
+/** Remove control characters from terminal text before appending it to a form value. */
+function printableInput(input) {
+    return String(input || '').replace(/[\u0000-\u001f\u007f]/gu, '');
+}
+
+/** Resolve a localized label for one profile form field. */
+function profileFieldLabel(field, mode) {
+    const labels = {
+        name: 'tui.labels.profile',
+        endpoint: 'tui.labels.endpoint',
+        timeoutMs: 'tui.labels.timeout',
+        apiKey: mode === 'add' ? 'tui.labels.mcpKey' : 'tui.labels.newKey',
+        makeDefault: 'tui.labels.makeDefault'
+    };
+    return t(labels[field] || field);
+}
+
+/** Render a profile form value without ever revealing typed or persisted credentials. */
+function profileFieldValue(field, form, mode) {
+    if (field === 'apiKey') {
+        if (form.apiKey) {
+            return t('tui.profile.keyEntered');
+        }
+        return mode === 'edit' ? t('tui.profile.keyUnchanged') : t('tui.profile.keyRequired');
+    }
+    if (field === 'makeDefault') {
+        if (form.alreadyDefault) {
+            return t('tui.profile.alreadyDefault');
+        }
+        return form.makeDefault ? '[x]' : '[ ]';
+    }
+    if (field === 'endpoint' && !form.endpoint) {
+        return t('tui.profile.endpointPlaceholder');
+    }
+    return form[field] || t('tui.profile.emptyValue');
 }
 
 /** Render connection status and the active profile without exposing its key. */
@@ -177,35 +247,91 @@ function HistoryPage({history, selectedIndex, layout}) {
     );
 }
 
-/** Render stored profile metadata with every key masked. */
-function ProfilesPage({config, selectedIndex, layout}) {
-    const profiles = config.profiles || [];
-    const selected = profiles[selectedIndex] || null;
-    const visible = listWindow(profiles, selectedIndex, layout.listLimit);
+/** Render the profile add/edit form with secret-safe field values. */
+function ProfileFormPage({mode, form, fieldIndex, layout}) {
+    const fields = profileFormFields(mode);
+    const maxValueWidth = Math.max(12, layout.columns - 28);
     return h(
         Box,
-        {flexDirection: layout.compact ? 'column' : 'row'},
+        {flexDirection: 'column'},
         h(
             Panel,
-            {title: `${t('tui.tabs.profiles')} (${profiles.length})`, grow: true},
-            ...(visible.items.length ? visible.items.map((profile, index) => {
-                const absoluteIndex = visible.start + index;
-                return h(Text, {key: profile.name, color: absoluteIndex === selectedIndex ? COLORS.accent : undefined}, `${absoluteIndex === selectedIndex ? '›' : ' '} ${profile.name}${profile.isDefault ? ' *' : ''}`);
-            }) : [h(Text, {key: 'empty', dimColor: true}, t('noProfile'))])
+            {title: t(`tui.panels.profile${mode === 'add' ? 'Add' : 'Edit'}`), color: COLORS.accent},
+            ...fields.map((field, index) => h(
+                Text,
+                {key: field, color: index === fieldIndex ? COLORS.accent : undefined},
+                `${index === fieldIndex ? '›' : ' '} ${profileFieldLabel(field, mode)}: ${truncate(profileFieldValue(field, form, mode), maxValueWidth)}`
+            )),
+            mode === 'edit'
+                ? h(Text, {dimColor: true}, t('tui.profile.editKeyHint'))
+                : null,
+            form.endpoint.trim().startsWith('http://')
+                ? h(Text, {color: COLORS.warning}, t('httpWarning'))
+                : null
         ),
-        h(
-            Panel,
-            {title: t('tui.panels.profile'), grow: true},
-            h(Field, {label: t('tui.labels.profile'), value: selected?.name || '-'}),
-            h(Field, {label: t('tui.labels.endpoint'), value: truncate(selected?.endpoint || '-', Math.floor(layout.columns / (layout.compact ? 1 : 2)) - 14)}),
-            h(Field, {label: t('tui.labels.key'), value: selected?.apiKey || '-'}),
-            h(Field, {label: t('tui.labels.timeout'), value: selected ? `${selected.timeoutMs} ms` : '-'}),
-            selected?.endpoint?.startsWith('http://') ? h(Text, {color: COLORS.warning}, t('httpWarning')) : null
-        )
+        h(Text, {color: COLORS.warning}, t('plaintextConfigWarning')),
+        h(Text, {dimColor: true}, t('tui.profile.formHelp'))
     );
 }
 
-/** Provide the read-only application state machine and keyboard navigation. */
+/** Render an explicit confirmation before removing a local profile. */
+function ProfileDeletePage({profile}) {
+    return h(
+        Box,
+        {flexDirection: 'column'},
+        h(
+            Panel,
+            {title: t('tui.panels.profileDelete'), color: COLORS.danger},
+            h(Text, {color: COLORS.danger}, t('tui.profile.deletePrompt', {name: profile?.name || '-'})),
+            h(Text, {dimColor: true}, t('tui.profile.deleteHistoryNote'))
+        ),
+        h(Text, {dimColor: true}, t('tui.profile.deleteHelp'))
+    );
+}
+
+/** Render stored profile metadata and local management actions with every key masked. */
+function ProfilesPage({config, selectedIndex, layout, mode, form, fieldIndex}) {
+    const profiles = config.profiles || [];
+    const selected = profiles[selectedIndex] || null;
+    if ((mode === 'add' || mode === 'edit') && form) {
+        return h(ProfileFormPage, {mode, form, fieldIndex, layout});
+    }
+    if (mode === 'delete') {
+        return h(ProfileDeletePage, {profile: selected});
+    }
+
+    const visible = listWindow(profiles, selectedIndex, layout.listLimit);
+    return h(
+        Box,
+        {flexDirection: 'column'},
+        h(
+            Box,
+            {flexDirection: layout.compact ? 'column' : 'row'},
+            h(
+                Panel,
+                {title: `${t('tui.tabs.profiles')} (${profiles.length})`, grow: true},
+                ...(visible.items.length ? visible.items.map((profile, index) => {
+                    const absoluteIndex = visible.start + index;
+                    return h(Text, {key: profile.name, color: absoluteIndex === selectedIndex ? COLORS.accent : undefined}, `${absoluteIndex === selectedIndex ? '›' : ' '} ${profile.name}${profile.isDefault ? ' *' : ''}`);
+                }) : [h(Text, {key: 'empty', dimColor: true}, t('noProfile'))])
+            ),
+            h(
+                Panel,
+                {title: t('tui.panels.profile'), grow: true},
+                h(Field, {label: t('tui.labels.profile'), value: selected?.name || '-'}),
+                h(Field, {label: t('tui.labels.endpoint'), value: truncate(selected?.endpoint || '-', Math.floor(layout.columns / (layout.compact ? 1 : 2)) - 14)}),
+                h(Field, {label: t('tui.labels.key'), value: selected?.apiKey || '-'}),
+                h(Field, {label: t('tui.labels.timeout'), value: selected ? `${selected.timeoutMs} ms` : '-'}),
+                h(Field, {label: t('tui.labels.default'), value: selected ? selected.isDefault ? t('yes') : t('no') : '-'}),
+                selected?.endpoint?.startsWith('http://') ? h(Text, {color: COLORS.warning}, t('httpWarning')) : null
+            )
+        ),
+        h(Text, {color: COLORS.warning}, t('plaintextConfigWarning')),
+        h(Text, {dimColor: true}, t('tui.profile.browseHelp'))
+    );
+}
+
+/** Provide read-only remote inspection and local profile-management state. */
 export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null} = {}) {
     const app = useApp();
     const windowSize = useWindowSize();
@@ -218,28 +344,254 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [status, setStatus] = useState(t('tui.status.ready'));
+    const [statusTone, setStatusTone] = useState('success');
+    const [profileMode, setProfileMode] = useState('browse');
+    const [profileForm, setProfileForm] = useState(null);
+    const [profileFieldIndex, setProfileFieldIndex] = useState(0);
+    const refreshGeneration = useRef(0);
 
     /** Refresh local display data and perform exactly one remote discovery connection. */
     async function refresh() {
-        // Step 0: Refresh local redacted configuration and history snapshots.
-        setConfig(getConfigSummary());
-        setHistory(listHistory({limit: 50}));
+        const generation = ++refreshGeneration.current;
+
+        // Step 0: Enter a visible loading state before reading local snapshots.
         setLoading(true);
         setError('');
         setStatus(t('tui.status.loading'));
+        setStatusTone('warning');
 
-        // Step 1: Discover every remote capability through one initialized MCP client.
+        // Step 1: Refresh local redacted state, then discover through one MCP client.
         try {
+            setConfig(getConfigSummary());
+            setHistory(listHistory({limit: 50}));
             const result = await inspectServer({recordHistory: false});
+            if (generation !== refreshGeneration.current) {
+                return;
+            }
             setDiscovery(result);
             setStatus(t('tui.status.refreshed'));
+            setStatusTone('success');
         } catch (refreshError) {
+            if (generation !== refreshGeneration.current) {
+                return;
+            }
             const message = formatSlothVaultError(refreshError);
             setDiscovery(null);
             setError(message);
             setStatus(t('tui.status.failed', {message}));
+            setStatusTone('danger');
         } finally {
-            setLoading(false);
+            if (generation === refreshGeneration.current) {
+                setLoading(false);
+            }
+        }
+    }
+
+    /** Cancel an in-flight discovery result and require an explicit refresh. */
+    function invalidateDiscovery() {
+        refreshGeneration.current += 1;
+        setDiscovery(null);
+        setError('');
+        setLoading(false);
+    }
+
+    /** Reload masked profile metadata and keep the requested profile selected when possible. */
+    function reloadProfiles(selectedName = '') {
+        const nextConfig = getConfigSummary();
+        const selectedIndex = Math.max(0, nextConfig.profiles.findIndex(profile => profile.name === selectedName));
+        setConfig(nextConfig);
+        setSelectedIndices(current => ({...current, profiles: selectedIndex}));
+        return nextConfig;
+    }
+
+    /** Clear every transient form value, including a typed MCP key. */
+    function closeProfileInteraction() {
+        setProfileMode('browse');
+        setProfileForm(null);
+        setProfileFieldIndex(0);
+    }
+
+    /** Open a clean form for a new local profile. */
+    function startAddingProfile() {
+        setProfileMode('add');
+        setProfileForm(createProfileForm('add', null, config.profiles.length));
+        setProfileFieldIndex(0);
+        setStatus(t('tui.status.profileAddReady'));
+        setStatusTone('warning');
+    }
+
+    /** Open an edit form populated only with non-secret masked profile metadata. */
+    function startEditingProfile() {
+        const selected = config.profiles[selectedIndices.profiles];
+        if (!selected) {
+            return;
+        }
+        setProfileMode('edit');
+        setProfileForm(createProfileForm('edit', selected, config.profiles.length));
+        setProfileFieldIndex(0);
+        setStatus(t('tui.status.profileEditReady', {name: selected.name}));
+        setStatusTone('warning');
+    }
+
+    /** Persist the active add/edit form and clear its credential state. */
+    function saveProfileForm() {
+        if (!profileForm || !['add', 'edit'].includes(profileMode)) {
+            return;
+        }
+
+        // Step 0: Build the minimal service input without reading a stored raw key.
+        const selected = config.profiles[selectedIndices.profiles] || null;
+        const patch = {
+            endpoint: profileForm.endpoint,
+            timeoutMs: profileForm.timeoutMs,
+            ...(profileForm.apiKey ? {apiKey: profileForm.apiKey} : {}),
+            ...(profileForm.makeDefault ? {makeDefault: true} : {})
+        };
+
+        try {
+            // Step 1: Let the shared config service validate and atomically persist the mutation.
+            const saved = profileMode === 'add'
+                ? addProfile(profileForm.name, {...patch, apiKey: profileForm.apiKey})
+                : updateProfile(profileForm.name, patch);
+            const defaultChanged = config.defaultProfile !== (saved.isDefault ? saved.name : config.defaultProfile);
+            const connectionChanged = profileMode === 'edit' && selected?.isDefault && (
+                saved.endpoint !== selected.endpoint
+                || saved.timeoutMs !== selected.timeoutMs
+                || Boolean(profileForm.apiKey)
+            );
+
+            // Step 2: Reload only masked metadata, invalidate stale discovery, and clear the form.
+            reloadProfiles(saved.name);
+            if (defaultChanged || connectionChanged) {
+                invalidateDiscovery();
+            }
+            closeProfileInteraction();
+            const messageKey = profileMode === 'add' ? 'tui.status.profileAdded' : 'tui.status.profileUpdated';
+            const refreshHint = defaultChanged || connectionChanged ? ` ${t('tui.status.refreshRequired')}` : '';
+            setStatus(`${t(messageKey, {name: saved.name})}${refreshHint}`);
+            setStatusTone('success');
+        } catch (saveError) {
+            // Step 3: Retain non-secret fields for correction, but immediately discard the typed key.
+            setProfileForm(current => current ? {...current, apiKey: ''} : null);
+            setStatus(t('tui.status.profileOperationFailed', {message: formatSlothVaultError(saveError)}));
+            setStatusTone('danger');
+        }
+    }
+
+    /** Select the highlighted profile as default without connecting to the server. */
+    function selectDefaultProfile() {
+        const selected = config.profiles[selectedIndices.profiles];
+        if (!selected || selected.isDefault) {
+            return;
+        }
+
+        try {
+            useProfile(selected.name);
+            reloadProfiles(selected.name);
+            invalidateDiscovery();
+            setStatus(`${t('tui.status.profileUsed', {name: selected.name})} ${t('tui.status.refreshRequired')}`);
+            setStatusTone('success');
+        } catch (useError) {
+            setStatus(t('tui.status.profileOperationFailed', {message: formatSlothVaultError(useError)}));
+            setStatusTone('danger');
+        }
+    }
+
+    /** Enter deletion confirmation for the selected local profile. */
+    function requestProfileRemoval() {
+        if (!config.profiles[selectedIndices.profiles]) {
+            return;
+        }
+        setProfileMode('delete');
+        setProfileForm(null);
+        setStatus(t('tui.status.profileDeleteReady'));
+        setStatusTone('warning');
+    }
+
+    /** Remove the selected profile after explicit confirmation and migrate selection safely. */
+    function confirmProfileRemoval() {
+        const selected = config.profiles[selectedIndices.profiles];
+        if (!selected) {
+            closeProfileInteraction();
+            return;
+        }
+
+        try {
+            // Step 0: Persist removal and let the config service migrate the default deterministically.
+            const wasDefault = selected.isDefault;
+            const remainingProfiles = config.profiles.filter(profile => profile.name !== selected.name);
+            const adjacentIndex = Math.min(selectedIndices.profiles, Math.max(0, remainingProfiles.length - 1));
+            const adjacentName = remainingProfiles[adjacentIndex]?.name || '';
+            const removed = removeProfile(selected.name);
+
+            // Step 1: Reload masked state, invalidate affected discovery, and leave confirmation mode.
+            reloadProfiles(wasDefault ? removed.defaultProfile || '' : adjacentName);
+            if (wasDefault || discovery?.profile?.name === selected.name) {
+                invalidateDiscovery();
+            }
+            closeProfileInteraction();
+            const refreshHint = wasDefault ? ` ${t('tui.status.refreshRequired')}` : '';
+            setStatus(`${t('tui.status.profileRemoved', {name: selected.name})}${refreshHint}`);
+            setStatusTone('success');
+        } catch (removeError) {
+            closeProfileInteraction();
+            setStatus(t('tui.status.profileOperationFailed', {message: formatSlothVaultError(removeError)}));
+            setStatusTone('danger');
+        }
+    }
+
+    /** Handle navigation and secret-safe editing while a profile form is open. */
+    function handleProfileFormInput(input, key) {
+        const fields = profileFormFields(profileMode);
+        const field = fields[profileFieldIndex];
+        if (!profileForm || !field) {
+            closeProfileInteraction();
+            return;
+        }
+        if (key.escape) {
+            closeProfileInteraction();
+            setStatus(t('tui.status.profileCancelled'));
+            setStatusTone('warning');
+            return;
+        }
+        if (key.upArrow || key.downArrow) {
+            const delta = key.upArrow ? -1 : 1;
+            setProfileFieldIndex(index => (index + delta + fields.length) % fields.length);
+            return;
+        }
+        if (field === 'makeDefault' && input === ' ') {
+            if (!profileForm.alreadyDefault) {
+                setProfileForm(current => ({...current, makeDefault: !current.makeDefault}));
+            }
+            return;
+        }
+        if (key.return) {
+            if (profileFieldIndex === fields.length - 1) {
+                saveProfileForm();
+            } else {
+                setProfileFieldIndex(index => index + 1);
+            }
+            return;
+        }
+        if (key.backspace || key.delete) {
+            if (field !== 'makeDefault') {
+                setProfileForm(current => ({...current, [field]: current[field].slice(0, -1)}));
+            }
+            return;
+        }
+        if (key.ctrl && input.toLowerCase() === 'u' && field !== 'makeDefault') {
+            setProfileForm(current => ({...current, [field]: ''}));
+            return;
+        }
+        if (field === 'makeDefault' || key.ctrl || key.meta || key.tab) {
+            return;
+        }
+        const addition = printableInput(input);
+        if (addition) {
+            setProfileForm(current => ({
+                ...current,
+                [field]: `${current[field]}${addition}`.slice(0, PROFILE_FIELD_LIMITS[field])
+            }));
         }
     }
 
@@ -260,6 +612,20 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     }), [config.profiles.length, discovery, history.length]);
 
     useInput((input, key) => {
+        if (activeTab === 'profiles' && profileMode !== 'browse') {
+            if (profileMode === 'delete') {
+                if (input.toLowerCase() === 'y') {
+                    confirmProfileRemoval();
+                } else if (input.toLowerCase() === 'n' || key.escape) {
+                    closeProfileInteraction();
+                    setStatus(t('tui.status.profileCancelled'));
+                    setStatusTone('warning');
+                }
+                return;
+            }
+            handleProfileFormInput(input, key);
+            return;
+        }
         if (input === 'q') {
             app.exit();
             return;
@@ -276,6 +642,24 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             setActiveTab(tab => TABS[(TABS.indexOf(tab) - 1 + TABS.length) % TABS.length]);
             return;
         }
+        if (activeTab === 'profiles') {
+            if (input === 'a') {
+                startAddingProfile();
+                return;
+            }
+            if (input === 'e' || key.return) {
+                startEditingProfile();
+                return;
+            }
+            if (input === 'u') {
+                selectDefaultProfile();
+                return;
+            }
+            if (input === 'd') {
+                requestProfileRemoval();
+                return;
+            }
+        }
         if ((key.upArrow || key.downArrow) && activeTab !== 'status') {
             setSelectedIndices(current => {
                 const count = itemCounts[activeTab] || 0;
@@ -291,7 +675,22 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             ? h(CapabilitiesPage, {discovery, selectedIndex: selectedIndices.capabilities, layout})
             : activeTab === 'history'
                 ? h(HistoryPage, {history, selectedIndex: selectedIndices.history, layout})
-                : h(ProfilesPage, {config, selectedIndex: selectedIndices.profiles, layout});
+                : h(ProfilesPage, {
+                    config,
+                    selectedIndex: selectedIndices.profiles,
+                    layout,
+                    mode: profileMode,
+                    form: profileForm,
+                    fieldIndex: profileFieldIndex
+                });
+
+    const footerKey = activeTab !== 'profiles'
+        ? 'tui.footer'
+        : profileMode === 'delete'
+            ? 'tui.profile.deleteFooter'
+            : profileMode === 'browse'
+                ? 'tui.profile.browseFooter'
+                : 'tui.profile.formFooter';
 
     return h(
         Box,
@@ -300,8 +699,8 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         h(Text, {dimColor: true}, '─'.repeat(Math.max(1, layout.columns - 1))),
         content,
         h(Spacer),
-        h(Text, {color: error ? COLORS.danger : loading ? COLORS.warning : COLORS.success}, truncate(status, layout.columns - 1)),
-        h(Text, {inverse: true}, truncate(t('tui.footer'), layout.columns - 1))
+        h(Text, {color: COLORS[statusTone] || COLORS.success}, truncate(status, layout.columns - 1)),
+        h(Text, {inverse: true}, truncate(t(footerKey), layout.columns - 1))
     );
 }
 
