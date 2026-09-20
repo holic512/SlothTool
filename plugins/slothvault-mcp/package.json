@@ -1,0 +1,49 @@
+{
+  "name": "@holic512/plugin-slothvault-mcp",
+  "version": "1.0.0",
+  "description": "Dedicated CLI and read-only TUI client for the SlothVault administrator MCP server",
+  "main": "lib/service.js",
+  "type": "module",
+  "bin": {
+    "slothvault-mcp": "bin/slothvault-mcp.js"
+  },
+  "slothtool": {
+    "interactive": true,
+    "interactiveFlag": "-i",
+    "ui": {
+      "cli": true,
+      "tui": true,
+      "defaultMode": "tui",
+      "tuiFlag": "--tui",
+      "compatFlags": [
+        "-i",
+        "--interactive"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "slothtool",
+    "plugin",
+    "slothvault",
+    "mcp",
+    "client"
+  ],
+  "author": "MengJiaXu",
+  "license": "ISC",
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "ink": "^7.0.4",
+    "react": "^19.2.0"
+  }
+}

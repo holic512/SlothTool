@@ -137,6 +137,32 @@
         "Configurable defaults and custom patterns",
         "Full-screen archive and filter-rule TUI"
       ]
+    },
+    {
+      "alias": "slothvault-mcp",
+      "packageName": "@holic512/plugin-slothvault-mcp",
+      "repository": "holic512/SlothTool",
+      "packageDir": "plugins/slothvault-mcp",
+      "releaseTagPrefix": "plugin-slothvault-mcp-v",
+      "assetNamePrefix": "holic512-plugin-slothvault-mcp-",
+      "description": "连接 SlothVault 管理员 MCP，动态发现能力并通过安全 CLI 调用，TUI 仅提供只读检查",
+      "descriptionEn": "Connect to the SlothVault admin MCP with dynamic capability discovery, a guarded CLI, and a read-only TUI",
+      "version": "latest",
+      "author": "MengJiaXu",
+      "features": [
+        "动态发现 Tool、Prompt 与 Resource Template",
+        "多配置档案与 Bearer Key 脱敏",
+        "基于 Tool annotations 的写操作确认",
+        "受限 Resource 校验与安全落盘",
+        "只读诊断 TUI 与脱敏调用历史"
+      ],
+      "featuresEn": [
+        "Dynamic Tool, Prompt, and Resource Template discovery",
+        "Multiple profiles with redacted Bearer Keys",
+        "Write-operation confirmation based on Tool annotations",
+        "Validated Resource downloads with safe file writes",
+        "Read-only diagnostics TUI with redacted call history"
+      ]
     }
   ]
 }

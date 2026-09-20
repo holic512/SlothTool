@@ -47,6 +47,33 @@ function createArchive(packageName = '@holic512/plugin-codex-models', dependenci
     return archivePath;
 }
 
+/** Creates a self-contained SlothVault MCP archive with its SDK runtime dependency. */
+function createSlothVaultMcpArchive() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-slothvault-mcp-archive-'));
+    const packageDir = path.join(root, 'package');
+    const binDir = path.join(packageDir, 'bin');
+    const sdkDir = path.join(packageDir, 'node_modules', '@modelcontextprotocol', 'sdk');
+    fs.mkdirSync(binDir, {recursive: true});
+    fs.mkdirSync(sdkDir, {recursive: true});
+    fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({
+        name: '@holic512/plugin-slothvault-mcp',
+        version: '1.0.0-test',
+        type: 'module',
+        bin: {'slothvault-mcp': 'bin/slothvault-mcp.js'},
+        dependencies: {'@modelcontextprotocol/sdk': '1.30.0'}
+    }, null, 2));
+    fs.writeFileSync(
+        path.join(sdkDir, 'package.json'),
+        JSON.stringify({name: '@modelcontextprotocol/sdk', version: '1.30.0'}, null, 2)
+    );
+    const binPath = path.join(binDir, 'slothvault-mcp.js');
+    fs.writeFileSync(binPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MCP_OFFLINE_OK");\n');
+    fs.chmodSync(binPath, 0o755);
+    const archivePath = path.join(root, 'slothvault-mcp-offline.tgz');
+    execFileSync('tar', ['-czf', archivePath, '-C', root, 'package']);
+    return archivePath;
+}
+
 function writeTarOctal(buffer, offset, length, value) {
     const text = `${value.toString(8).padStart(length - 1, '0')}\0`;
     buffer.write(text, offset, length, 'ascii');
@@ -94,8 +121,10 @@ function createCraftedArchive(entries) {
 
 async function withHome(run) {
     const previousHome = process.env.HOME;
+    const previousUserProfile = process.env.USERPROFILE;
     const home = createHome();
     process.env.HOME = home;
+    process.env.USERPROFILE = home;
     try {
         return await run(home);
     } finally {
@@ -103,6 +132,11 @@ async function withHome(run) {
             delete process.env.HOME;
         } else {
             process.env.HOME = previousHome;
+        }
+        if (previousUserProfile === undefined) {
+            delete process.env.USERPROFILE;
+        } else {
+            process.env.USERPROFILE = previousUserProfile;
         }
     }
 }
@@ -118,7 +152,9 @@ test('offline archive installs an official plugin and records its source', async
         assert.equal(installed.packageName, '@holic512/plugin-codex-models');
         assert.equal(installed.sourceType, 'offline-archive');
         assert.equal(installed.assetName, path.basename(archivePath));
-        assert.equal(fs.statSync(installed.binPath).mode & 0o100, 0o100);
+        if (process.platform !== 'win32') {
+            assert.equal(fs.statSync(installed.binPath).mode & 0o100, 0o100);
+        }
         assert.equal(execFileSync(process.execPath, [installed.binPath], {encoding: 'utf8'}).trim(), 'OFFLINE_PLUGIN_OK');
         assert.ok(installed.binPath.startsWith(path.join(home, '.pipker', 'slothtool', 'plugins', 'codex-models')));
     });
@@ -136,6 +172,27 @@ test('offline bundle contains a package root and can be reinstalled', async () =
         assert.match(listing, /^package\//mu);
         assert.match(listing, /package\/package\.json/u);
         assert.match(listing, /package\/bin\/codex-models\.js/u);
+    });
+});
+
+test('slothvault-mcp offline bundle retains its MCP SDK runtime dependency', async () => {
+    await withHome(async home => {
+        const initialArchive = createSlothVaultMcpArchive();
+        const installResult = await installPluginFromArchive('slothvault-mcp', initialArchive);
+        assert.equal(installResult.plugin.packageName, '@holic512/plugin-slothvault-mcp');
+        assert.equal(installResult.plugin.sourceType, 'offline-archive');
+        assert.equal(
+            execFileSync(process.execPath, [installResult.plugin.binPath], {encoding: 'utf8'}).trim(),
+            'SLOTHVAULT_MCP_OFFLINE_OK'
+        );
+
+        const outputPath = path.join(home, 'bundles', 'slothvault-mcp-self-contained.tgz');
+        const bundle = await createOfflinePluginBundle('slothvault-mcp', outputPath);
+        const listing = execFileSync('tar', ['-tzf', outputPath], {encoding: 'utf8'});
+
+        assert.equal(bundle.packageName, '@holic512/plugin-slothvault-mcp');
+        assert.match(listing, /package\/bin\/slothvault-mcp\.js/u);
+        assert.match(listing, /package\/node_modules\/@modelcontextprotocol\/sdk\/package\.json/u);
     });
 });
 

@@ -2,9 +2,9 @@
 # @project SlothTool
 # @module GitHub Actions / Plugin Release
 # @description 当纯 Node 官方插件变更时，按矩阵打包并发布 GitHub Release 资产。
-# @logic 1. 监听 loc、gstore、codex-models 与 pzip 插件目录；2. 按矩阵解析插件元数据并执行 npm pack；3. 为不存在的版本 tag 创建 release 并上传 tgz。
-# @dependencies GitHub Actions, npm, plugins/loc/package.json, plugins/gstore/package.json, plugins/codex-models/package.json, plugins/pzip/package.json
-# @index_tags workflow, plugin-release, loc, gstore, codex-models, pzip, npm-pack
+# @logic 1. 监听 loc、gstore、codex-models、pzip 与 slothvault-mcp 插件目录；2. 按矩阵解析插件元数据并执行 npm pack；3. 为不存在的版本 tag 创建 release 并上传 tgz。
+# @dependencies GitHub Actions, npm, plugins/loc/package.json, plugins/gstore/package.json, plugins/codex-models/package.json, plugins/pzip/package.json, plugins/slothvault-mcp/package.json
+# @index_tags workflow, plugin-release, loc, gstore, codex-models, pzip, slothvault-mcp, npm-pack
 # @author holic512
 
 name: Release Official Node Plugins
@@ -18,10 +18,12 @@ on:
       - 'plugins/gstore/**'
       - 'plugins/codex-models/**'
       - 'plugins/pzip/**'
+      - 'plugins/slothvault-mcp/**'
       - 'test/loc-cli.test.js'
       - 'test/gstore-cli.test.js'
       - 'test/codex-models-cli.test.js'
       - 'test/pzip-plugin.test.js'
+      - 'test/slothvault-mcp-plugin.test.js'
       - '.github/workflows/release-plugins.yml'
   workflow_dispatch:
 
@@ -47,6 +49,9 @@ jobs:
           - alias: pzip
             package_dir: plugins/pzip
             tag_prefix: plugin-pzip-v
+          - alias: slothvault-mcp
+            package_dir: plugins/slothvault-mcp
+            tag_prefix: plugin-slothvault-mcp-v
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

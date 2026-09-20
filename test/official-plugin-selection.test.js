@@ -3,9 +3,9 @@
  * @project SlothTool
  * @module Test / Official Plugin Selection
  * @description 验证官方插件目录包含通用 Node 插件，并确保安装流程会根据当前平台架构选择正确的 image-compress 发布资产。
- * @logic 1. 校验 image-compress、gstore、codex-models 与 pzip 已加入官方插件目录且 todo 已移除；2. 覆盖 macOS/Windows/Linux 目标的资产匹配；3. 校验安装入口会把当前 target 传递给 release 选择器。
+ * @logic 1. 校验 image-compress、gstore、codex-models、pzip 与 slothvault-mcp 已加入官方插件目录且 todo 已移除；2. 覆盖工作区、发布资产与插件包契约；3. 覆盖 macOS/Windows/Linux 目标的资产匹配；4. 校验安装入口会把当前 target 传递给 release 选择器。
  * @dependencies Node: assert/fs/os/path/test, Service: ../lib/services/plugin-service.js
- * @index_tags 官方插件测试, 平台资产选择, image-compress, codex-models, pzip, 安装流程, macos, windows, linux
+ * @index_tags 官方插件测试, 平台资产选择, image-compress, codex-models, pzip, slothvault-mcp, 安装流程, macos, windows, linux
  * @author holic512
  */
 
@@ -33,7 +33,10 @@ function createTempHome() {
 
 async function withTempHome(run) {
     const originalHome = process.env.HOME;
-    process.env.HOME = createTempHome();
+    const originalUserProfile = process.env.USERPROFILE;
+    const homeDir = createTempHome();
+    process.env.HOME = homeDir;
+    process.env.USERPROFILE = homeDir;
 
     try {
         return await run();
@@ -42,6 +45,11 @@ async function withTempHome(run) {
             delete process.env.HOME;
         } else {
             process.env.HOME = originalHome;
+        }
+        if (originalUserProfile === undefined) {
+            delete process.env.USERPROFILE;
+        } else {
+            process.env.USERPROFILE = originalUserProfile;
         }
     }
 }
@@ -75,6 +83,36 @@ test('official plugin catalog includes pzip as a generic Node plugin', () => {
     assert.equal(plugin.packageName, '@holic512/plugin-pzip');
     assert.equal(plugin.assetStrategy, undefined);
     assert.equal(plugin.assetNamePrefix, 'holic512-plugin-pzip-');
+});
+
+test('official plugin catalog and workspace expose slothvault-mcp release metadata', () => {
+    const plugin = getOfficialPlugin('slothvault-mcp');
+    const rootPackage = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    const pluginPackage = JSON.parse(fs.readFileSync(
+        new URL('../plugins/slothvault-mcp/package.json', import.meta.url),
+        'utf8'
+    ));
+    const releaseWorkflow = fs.readFileSync(
+        new URL('../.github/workflows/release-plugins.yml', import.meta.url),
+        'utf8'
+    );
+
+    assert.ok(getOfficialPluginAliases().includes('slothvault-mcp'));
+    assert.equal(plugin.packageName, '@holic512/plugin-slothvault-mcp');
+    assert.equal(plugin.packageDir, 'plugins/slothvault-mcp');
+    assert.equal(plugin.releaseTagPrefix, 'plugin-slothvault-mcp-v');
+    assert.equal(plugin.assetNamePrefix, 'holic512-plugin-slothvault-mcp-');
+    assert.equal(plugin.assetStrategy, undefined);
+    assert.equal(rootPackage.version, '2.3.0');
+    assert.ok(rootPackage.workspaces.includes('plugins/slothvault-mcp'));
+    assert.equal(rootPackage.scripts['dev:slothvault-mcp'], 'node plugins/slothvault-mcp/bin/slothvault-mcp.js');
+    assert.equal(pluginPackage.name, '@holic512/plugin-slothvault-mcp');
+    assert.equal(pluginPackage.version, '1.0.0');
+    assert.equal(pluginPackage.bin['slothvault-mcp'], 'bin/slothvault-mcp.js');
+    assert.equal(pluginPackage.dependencies['@modelcontextprotocol/sdk'], '1.30.0');
+    assert.equal(pluginPackage.slothtool.ui.defaultMode, 'tui');
+    assert.match(releaseWorkflow, /alias:\s+slothvault-mcp/u);
+    assert.match(releaseWorkflow, /tag_prefix:\s+plugin-slothvault-mcp-v/u);
 });
 
 test('platform-target asset selection chooses the matching release bundle', () => {
