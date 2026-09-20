@@ -463,9 +463,9 @@ test('Resource reads validate protected namespaces and publish decoded files wit
         readResource: async request => ({
             contents: [{
                 uri: request.uri,
-                name: 'report.txt',
                 mimeType: 'text/plain',
-                blob: Buffer.from('hello vault').toString('base64')
+                blob: Buffer.from('hello vault').toString('base64'),
+                _meta: {'slothvault/file-name': 'report.txt'}
             }]
         })
     });

@@ -22,6 +22,7 @@ export const MANAGED_FILE_PREFIX = 'slothvault://managed-file/';
 export const CONTRACT_ATTACHMENT_PREFIX = 'slothvault://contract-attachment/';
 export const MANAGED_FILE_MAX_BYTES = 10 * 1024 * 1024;
 export const CONTRACT_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+export const RESOURCE_FILE_NAME_META_KEY = 'slothvault/file-name';
 
 export class SlothVaultMcpError extends Error {
     constructor(message, options = {}) {
@@ -649,7 +650,10 @@ function validatedResourceContent(result, policy) {
             code: 'INVALID_RESOURCE_MIME', category: 'protocol', exitCode: 4
         });
     }
-    const fileName = String(content.name || '');
+    const metadataFileName = content._meta && typeof content._meta === 'object'
+        ? content._meta[RESOURCE_FILE_NAME_META_KEY]
+        : undefined;
+    const fileName = String(metadataFileName || content.name || '');
     if (!fileName || fileName === '.' || fileName === '..' || fileName.length > 255 || /[\\/\0]/u.test(fileName)) {
         throw new SlothVaultMcpError('Resource response contains an invalid file name.', {
             code: 'INVALID_RESOURCE_NAME', category: 'protocol', exitCode: 4

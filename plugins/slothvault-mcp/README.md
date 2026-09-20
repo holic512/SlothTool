@@ -49,7 +49,7 @@ slothvault-mcp resources read 'slothvault://managed-file/...' --output ./artifac
 
 `--args` and `--args-file` accept a JSON object and are mutually exclusive. `--args-file -` reads JSON from stdin. Tools are classified from live MCP annotations: only `readOnlyHint: true` executes without confirmation. All other tools require interactive confirmation or explicit `--yes`; non-TTY and `--json` calls always require `--yes` for write-capable tools.
 
-Tool calls are not automatically retried. Resource downloads validate the SlothVault URI family, MIME type, Base64 payload, and size limit, then write a new output file without replacing an existing path.
+Tool calls are not automatically retried. Resource downloads validate the SlothVault URI family, MIME type, Base64 payload, size limit, and the server-provided `_meta["slothvault/file-name"]`, then write a new output file without replacing an existing path. The client retains a legacy fallback for the former top-level `name` field.
 
 ## History and TUI
 

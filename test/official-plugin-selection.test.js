@@ -107,7 +107,7 @@ test('official plugin catalog and workspace expose slothvault-mcp release metada
     assert.ok(rootPackage.workspaces.includes('plugins/slothvault-mcp'));
     assert.equal(rootPackage.scripts['dev:slothvault-mcp'], 'node plugins/slothvault-mcp/bin/slothvault-mcp.js');
     assert.equal(pluginPackage.name, '@holic512/plugin-slothvault-mcp');
-    assert.equal(pluginPackage.version, '1.1.0');
+    assert.equal(pluginPackage.version, '1.1.1');
     assert.equal(pluginPackage.bin['slothvault-mcp'], 'bin/slothvault-mcp.js');
     assert.equal(pluginPackage.dependencies['@modelcontextprotocol/sdk'], '1.30.0');
     assert.equal(pluginPackage.slothtool.ui.defaultMode, 'tui');

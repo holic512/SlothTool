@@ -258,7 +258,7 @@ TUI 的 Profile 表单不会载入现有明文 Key，也不会显示本次输入
 
 配置保存在 `~/.pipker/slothtool/plugin-configs/slothvault-mcp.json`，其中 Bearer Key 为明文；历史保存在 `~/.pipker/slothtool/data/slothvault-mcp/history.json`，只记录脱敏摘要，不保存完整参数、完整结果或 Resource 内容。`gstore` 默认会同步 `plugin-configs/` 和 `data/`，因此其私有同步仓库可能包含明文 Key 与脱敏历史元数据。优先使用 HTTPS；HTTP endpoint 可以用于受控内网，但插件会持续显示明文传输警告。
 
-读取 Resource 时必须显式指定 `--output`，目标文件已存在则拒绝覆盖。插件只接受 SlothVault 受保护的 Resource URI，校验 MIME、Base64 与大小后再原子落盘；托管文件上限为 10 MiB，合同附件上限为 25 MiB，Resource Base64 不会打印到终端。
+读取 Resource 时必须显式指定 `--output`，目标文件已存在则拒绝覆盖。插件只接受 SlothVault 受保护的 Resource URI，校验 MIME、Base64、大小及 `_meta["slothvault/file-name"]` 文件名后再原子落盘，并兼容旧服务端的顶层 `name` 字段；托管文件上限为 10 MiB，合同附件上限为 25 MiB，Resource Base64 不会打印到终端。
 
 `slothtool uninstall slothvault-mcp` 会删除插件包和 profile 配置，但保留脱敏历史；需要删除历史时先执行 `slothvault-mcp history clear --yes`。
 
