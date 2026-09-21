@@ -1,7 +1,7 @@
 /**
  * @file SlothVaultSkillManager
  * @project SlothTool
- * @module SlothVault MCP Plugin / Skill Management
+ * @module SlothVault Multifunction Plugin / Skill Management
  * @description 检测本机 Codex 与 Claude Code，并将插件内置 SlothVault Skill 安装到各智能体的用户级 Skill 目录。
  * @logic 1. 通过配置目录或 PATH 检测受支持智能体；2. 为每个已检测智能体解析固定目标并识别受管链接、未安装和冲突状态；3. 预创建全部链接后按显式授权替换冲突；4. 卸载时只删除准确指向当前来源的受管链接。
  * @dependencies Node: fs/os/path/crypto/url

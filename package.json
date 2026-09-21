@@ -1,6 +1,6 @@
 {
   "name": "@holic512/slothtool",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "A plugin manager and dispatcher for CLI tools",
   "main": "lib/index.js",
   "type": "module",
@@ -14,7 +14,7 @@
     "dev:gstore": "node plugins/gstore/bin/gstore.js",
     "dev:codex-models": "node plugins/codex-models/bin/codex-models.js",
     "dev:pzip": "node plugins/pzip/bin/pzip.js",
-    "dev:slothvault-mcp": "node plugins/slothvault-mcp/bin/slothvault-mcp.js",
+    "dev:slothvault": "node plugins/slothvault/bin/slothvault.js",
     "test": "node --test"
   },
   "keywords": [
@@ -42,7 +42,7 @@
     "plugins/gstore",
     "plugins/codex-models",
     "plugins/pzip",
-    "plugins/slothvault-mcp"
+    "plugins/slothvault"
   ],
   "engines": {
     "node": ">=22.0.0"

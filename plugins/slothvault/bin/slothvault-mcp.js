@@ -3,11 +3,11 @@
 /**
  * @file SlothVaultMcpPluginEntry
  * @project SlothTool
- * @module SlothVault MCP Plugin / Entry
- * @description CLI entry for profile and Skill management, MCP discovery, safe calls, resources, and history.
- * @logic 1. 解析稳定 CLI 命令与安全输入；2. 复用服务层执行 MCP 操作；3. 对远端写操作和本地 Skill 冲突覆盖强制确认；4. 将错误映射为稳定输出与退出码。
- * @dependencies Node: fs/readline/process, Config/History/Service/Skill Manager/TUI
- * @index_tags slothvault,mcp,cli,profile,skill,confirmation
+ * @module SlothVault Multifunction Plugin / MCP Entry
+ * @description Standalone MCP CLI entry for profiles, runtime discovery, guarded calls, resources, and redacted history.
+ * @logic 1. 解析稳定 MCP CLI 命令与安全输入；2. 复用服务层执行动态发现和调用；3. 对远端写操作强制确认；4. 将错误映射为稳定输出与退出码。
+ * @dependencies Node: fs/readline/process, Config/History/Service/TUI
+ * @index_tags slothvault,mcp,cli,profile,history,confirmation
  * @author holic512
  */
 
@@ -24,12 +24,6 @@ import {
     useProfile
 } from '../lib/config.js';
 import {clearHistory, getHistory, listHistory} from '../lib/history.js';
-import {
-    getSkillStatus,
-    installSkill,
-    SlothVaultSkillError,
-    uninstallSkill
-} from '../lib/skill-manager.js';
 import {
     callTool,
     classifyError,
@@ -304,27 +298,6 @@ function printDoctor(result, json) {
     console.log(`${t('resources')}: ${safeResult.capabilities?.resourceTemplates ?? 0}`);
 }
 
-/** Render detected-agent Skill status for people or automation. */
-function printSkillResult(result, json) {
-    if (json) {
-        printJson(result);
-        return;
-    }
-    console.log(t('skillTitle'));
-    console.log(`${t('skillName')}: ${result.name}`);
-    console.log(`${t('skillState')}: ${t(`skillStates.${result.state}`)}`);
-    console.log(`${t('skillSource')}: ${result.sourcePath}`);
-    for (const agent of result.agents) {
-        const detected = agent.detected ? t('skillDetected') : t('skillNotDetected');
-        console.log(`${t('skillAgent')}: ${agent.name} [${detected}]`);
-        console.log(`  ${t('skillState')}: ${t(`skillStates.${agent.state}`)}`);
-        console.log(`  ${t('skillTarget')}: ${agent.targetPath}`);
-    }
-    if (result.action) {
-        console.log(`${t('skillAction')}: ${t(`skillActions.${result.action}`)}`);
-    }
-}
-
 /** Ask for a write-capable Tool confirmation in an interactive terminal. */
 async function confirmTool({tool, argumentsSummary, signal}) {
     if (!isInteractiveTerminal()) {
@@ -336,20 +309,6 @@ async function confirmTool({tool, argumentsSummary, signal}) {
             t('confirmTool', {name: tool.name, summary: argumentsSummary || '{}'}),
             {signal}
         );
-        return ['y', 'yes'].includes(answer.trim().toLowerCase());
-    } finally {
-        rl.close();
-    }
-}
-
-/** Ask before deleting an existing user Skill target without a backup. */
-async function confirmSkillReplacement(targetPaths) {
-    if (!isInteractiveTerminal()) {
-        return false;
-    }
-    const rl = createInterface({input: process.stdin, output: process.stdout});
-    try {
-        const answer = await rl.question(t('skillReplaceConfirm', {path: targetPaths.join('\n')}));
         return ['y', 'yes'].includes(answer.trim().toLowerCase());
     } finally {
         rl.close();
@@ -374,7 +333,6 @@ function printHelp() {
     console.log('  slothvault-mcp resources list [--profile <name>] [--json]');
     console.log('  slothvault-mcp resources read <uri> --output <path> [--profile <name>] [--json]');
     console.log('  slothvault-mcp history list|show <id>|clear [--json] [--yes]');
-    console.log('  slothvault-mcp skill status|install|uninstall [--json] [--yes]');
     console.log('');
     console.log(t('options'));
     console.log(`  -h, --help          ${t('help')}`);
@@ -390,44 +348,6 @@ function printHelp() {
     console.log('  slothvault-mcp profile add production --url https://vault.example/mcp');
     console.log('  slothvault-mcp tools list --profile production');
     console.log('  slothvault-mcp tools call content.note.content.list_versions --args "{}"');
-}
-
-/** Run local agent Skill installation commands without contacting SlothVault. */
-async function runSkillCommand(args, json) {
-    const subcommand = args[1] || 'status';
-    if (subcommand === 'status') {
-        printSkillResult(getSkillStatus(), json);
-        return;
-    }
-    if (subcommand === 'install') {
-        const current = getSkillStatus();
-        let replace = hasFlag(args, '--yes');
-        const conflictPaths = current.agents
-            .filter(agent => agent.detected && agent.state === 'conflict')
-            .map(agent => agent.targetPath);
-        if (conflictPaths.length > 0 && !replace) {
-            if (!isInteractiveTerminal() || json) {
-                throw new SlothVaultSkillError(t('skillReplaceRequired', {path: conflictPaths.join(', ')}), {
-                    code: 'SKILL_INSTALL_CONFIRMATION_REQUIRED',
-                    category: 'confirmation'
-                });
-            }
-            replace = await confirmSkillReplacement(conflictPaths);
-            if (!replace) {
-                throw new SlothVaultSkillError(t('cancelled'), {
-                    code: 'SKILL_CONFIRMATION_DECLINED',
-                    category: 'confirmation'
-                });
-            }
-        }
-        printSkillResult(installSkill({replace}), json);
-        return;
-    }
-    if (subcommand === 'uninstall') {
-        printSkillResult(uninstallSkill(), json);
-        return;
-    }
-    throw usageError(t('unknownCommand', {command: `skill ${subcommand}`}));
 }
 
 /** Run profile management commands. */
@@ -604,10 +524,6 @@ async function runCli(args) {
     }
     if (command === 'history') {
         await runHistoryCommand(commandArgs, json);
-        return;
-    }
-    if (command === 'skill') {
-        await runSkillCommand(commandArgs, json);
         return;
     }
     await runRemoteCommand(commandArgs, json, profileName);

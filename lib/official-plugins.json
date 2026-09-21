@@ -139,17 +139,20 @@
       ]
     },
     {
-      "alias": "slothvault-mcp",
-      "packageName": "@holic512/plugin-slothvault-mcp",
+      "alias": "slothvault",
+      "packageName": "@holic512/plugin-slothvault",
       "repository": "holic512/SlothTool",
-      "packageDir": "plugins/slothvault-mcp",
-      "releaseTagPrefix": "plugin-slothvault-mcp-v",
-      "assetNamePrefix": "holic512-plugin-slothvault-mcp-",
-      "description": "连接 SlothVault 管理员 MCP，动态发现能力并通过安全 CLI 调用，TUI 提供只读远端检查与本地 Profile 管理",
-      "descriptionEn": "Connect to the SlothVault admin MCP with dynamic discovery, a guarded CLI, and a TUI for read-only remote inspection and local profile management",
+      "packageDir": "plugins/slothvault",
+      "releaseTagPrefix": "plugin-slothvault-v",
+      "assetNamePrefix": "holic512-plugin-slothvault-",
+      "description": "提供 SlothVault Linux 部署、Codex/Claude Code Skill 管理，以及可单独注册的管理员 MCP 客户端",
+      "descriptionEn": "Provide SlothVault Linux deployment, Codex/Claude Code Skill management, and a separately registrable administrator MCP client",
       "version": "latest",
       "author": "MengJiaXu",
       "features": [
+        "Linux 部署、更新、Nginx 与 HTTPS 入口",
+        "Codex / Claude Code Skill 管理",
+        "可单独注册的 slothvault-mcp 命令",
         "动态发现 Tool、Prompt 与 Resource Template",
         "多配置档案与 Bearer Key 脱敏",
         "基于 Tool annotations 的写操作确认",
@@ -161,6 +164,9 @@
         "Multiple profiles with redacted Bearer Keys",
         "Write-operation confirmation based on Tool annotations",
         "Validated Resource downloads with safe file writes",
+        "Linux deployment, update, Nginx, and HTTPS entry",
+        "Codex / Claude Code Skill management",
+        "Separately registered slothvault-mcp command",
         "Read-only remote diagnostics, local profile management, and redacted call history"
       ]
     }

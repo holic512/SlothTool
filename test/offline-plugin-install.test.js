@@ -47,8 +47,8 @@ function createArchive(packageName = '@holic512/plugin-codex-models', dependenci
     return archivePath;
 }
 
-/** Creates a self-contained SlothVault MCP archive with its SDK runtime dependency. */
-function createSlothVaultMcpArchive() {
+/** Creates a self-contained SlothVault multifunction archive with its SDK runtime dependency. */
+function createSlothVaultArchive() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-slothvault-mcp-archive-'));
     const packageDir = path.join(root, 'package');
     const binDir = path.join(packageDir, 'bin');
@@ -58,21 +58,27 @@ function createSlothVaultMcpArchive() {
     fs.mkdirSync(skillDir, {recursive: true});
     fs.mkdirSync(sdkDir, {recursive: true});
     fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({
-        name: '@holic512/plugin-slothvault-mcp',
-        version: '1.0.0-test',
+        name: '@holic512/plugin-slothvault',
+        version: '2.0.0-test',
         type: 'module',
-        bin: {'slothvault-mcp': 'bin/slothvault-mcp.js'},
+        bin: {
+            slothvault: 'bin/slothvault.js',
+            'slothvault-mcp': 'bin/slothvault-mcp.js'
+        },
         dependencies: {'@modelcontextprotocol/sdk': '1.30.0'}
     }, null, 2));
     fs.writeFileSync(
         path.join(sdkDir, 'package.json'),
         JSON.stringify({name: '@modelcontextprotocol/sdk', version: '1.30.0'}, null, 2)
     );
-    const binPath = path.join(binDir, 'slothvault-mcp.js');
-    fs.writeFileSync(binPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MCP_OFFLINE_OK");\n');
+    const binPath = path.join(binDir, 'slothvault.js');
+    const mcpBinPath = path.join(binDir, 'slothvault-mcp.js');
+    fs.writeFileSync(binPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MULTIFUNCTION_OFFLINE_OK");\n');
+    fs.writeFileSync(mcpBinPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MCP_OFFLINE_OK");\n');
     fs.chmodSync(binPath, 0o755);
+    fs.chmodSync(mcpBinPath, 0o755);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: slothvault-mcp\ndescription: Test Skill.\n---\n');
-    const archivePath = path.join(root, 'slothvault-mcp-offline.tgz');
+    const archivePath = path.join(root, 'slothvault-offline.tgz');
     execFileSync('tar', ['-czf', archivePath, '-C', root, 'package']);
     return archivePath;
 }
@@ -178,22 +184,24 @@ test('offline bundle contains a package root and can be reinstalled', async () =
     });
 });
 
-test('slothvault-mcp offline bundle retains its MCP SDK runtime dependency', async () => {
+test('slothvault offline bundle retains its MCP SDK runtime dependency and both executables', async () => {
     await withHome(async home => {
-        const initialArchive = createSlothVaultMcpArchive();
+        const initialArchive = createSlothVaultArchive();
         const installResult = await installPluginFromArchive('slothvault-mcp', initialArchive);
-        assert.equal(installResult.plugin.packageName, '@holic512/plugin-slothvault-mcp');
+        assert.equal(installResult.alias, 'slothvault');
+        assert.equal(installResult.plugin.packageName, '@holic512/plugin-slothvault');
         assert.equal(installResult.plugin.sourceType, 'offline-archive');
         assert.equal(
             execFileSync(process.execPath, [installResult.plugin.binPath], {encoding: 'utf8'}).trim(),
-            'SLOTHVAULT_MCP_OFFLINE_OK'
+            'SLOTHVAULT_MULTIFUNCTION_OFFLINE_OK'
         );
 
-        const outputPath = path.join(home, 'bundles', 'slothvault-mcp-self-contained.tgz');
+        const outputPath = path.join(home, 'bundles', 'slothvault-self-contained.tgz');
         const bundle = await createOfflinePluginBundle('slothvault-mcp', outputPath);
         const listing = execFileSync('tar', ['-tzf', outputPath], {encoding: 'utf8'});
 
-        assert.equal(bundle.packageName, '@holic512/plugin-slothvault-mcp');
+        assert.equal(bundle.packageName, '@holic512/plugin-slothvault');
+        assert.match(listing, /package\/bin\/slothvault\.js/u);
         assert.match(listing, /package\/bin\/slothvault-mcp\.js/u);
         assert.match(listing, /package\/skills\/slothvault-mcp\/SKILL\.md/u);
         assert.match(listing, /package\/node_modules\/@modelcontextprotocol\/sdk\/package\.json/u);

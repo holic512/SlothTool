@@ -1,11 +1,11 @@
 /**
  * @file SlothVaultMcpI18n
  * @project SlothTool
- * @module SlothVault MCP Plugin / Internationalization
- * @description Provides bilingual CLI, profile, and Skill-management TUI copy for the SlothVault MCP client.
- * @logic 1. 读取 SlothTool 语言设置；2. 提供中英文稳定消息键；3. 对用户可见错误进行翻译和敏感信息脱敏。
+ * @module SlothVault Multifunction Plugin / Internationalization
+ * @description Provides bilingual copy for the standalone MCP client and the local multifunction manager.
+ * @logic 1. 读取 SlothTool 语言设置；2. 提供 MCP 客户端与多功能管理器的中英文稳定消息键；3. 对用户可见错误进行翻译和敏感信息脱敏。
  * @dependencies Node: fs/os/path, SlothTool settings.json
- * @index_tags slothvault,mcp,i18n,cli,tui,skill
+ * @index_tags slothvault,mcp,i18n,cli,tui,deploy,skill,registration
  * @author holic512
  */
 
@@ -37,10 +37,10 @@ export const messages = {
         title: 'slothvault-mcp - SlothVault MCP 客户端',
         usage: '用法：',
         help: '显示帮助信息',
-        tuiOption: '启动全屏 TUI（远端业务操作只读，本地配置档案与 Skill 可管理）',
+        tuiOption: '启动全屏 MCP TUI（远端业务操作只读，仅管理本地配置档案）',
         jsonOption: '以单个 JSON 文档输出',
         profileOption: '选择连接配置档案',
-        yesOption: '显式确认远端写操作、本地清理或 Skill 冲突覆盖',
+        yesOption: '显式确认远端写操作或本地历史清理',
         argsOption: '将 JSON 对象作为工具或 Prompt 参数',
         argsFileOption: '从文件或 -（标准输入）读取 JSON 参数',
         outputOption: 'Resource 输出文件（不会覆盖已有文件）',
@@ -210,7 +210,7 @@ export const messages = {
             },
             footer: 'Tab 切换页面 | ↑↓ 选择 | r 刷新 | q 退出',
             empty: '暂无数据。',
-            help: 'TUI 可查看状态、能力和脱敏历史，并管理本地配置档案与智能体 Skill；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
+            help: 'MCP TUI 可查看状态、能力和脱敏历史，并管理本地配置档案；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
             profile: {
                 keyEntered: '[已输入，内容已隐藏]',
                 keyUnchanged: '留空以保留现有 Key',
@@ -237,6 +237,45 @@ export const messages = {
                 browseFooter: 'i/Enter 安装 | u 卸载 | r 刷新状态 | q 退出',
                 confirmFooter: 'y 确认 | n/Esc 取消'
             }
+        },
+        manager: {
+            title: 'SlothVault 多功能包',
+            tabs: {overview: '概览', deploy: '部署', skill: '技能', mcp: 'MCP 命令'},
+            ready: '就绪。部署只能通过明确的 deploy 命令启动。',
+            refreshed: '本地状态已刷新。',
+            refreshFailed: '刷新本地状态失败：{message}',
+            overview: 'SlothVault 管理由 SlothTool 插件统一承载。',
+            statusSummary: 'Skill：{skill} | MCP 命令：{mcp}',
+            skillState: 'Skill 状态：{state}',
+            skillAgent: '{name}：{state}（{target}）',
+            mcpState: '独立命令：{state}',
+            target: '目标：{target}',
+            reason: '原因：{reason}',
+            skillActionCompleted: 'Skill 操作已完成：{action}。',
+            skillActionFailed: 'Skill 操作需要确认或失败：{message}',
+            mcpActionCompleted: 'MCP 命令操作已完成：{action}。',
+            mcpActionFailed: 'MCP 命令操作需要确认或失败：{message}',
+            states: {
+                unavailable: '不可用',
+                'not-detected': '未检测到',
+                'not-installed': '未安装',
+                installed: '已安装',
+                conflict: '存在冲突',
+                registered: '已注册',
+                'not-registered': '未注册',
+                'already-registered': '已注册',
+                replaced: '已替换',
+                unregistered: '已注销',
+                'already-absent': '原本未注册',
+                'already-installed': '已安装'
+            },
+            mcpGuide: '仅使用独立 slothvault-mcp 命令处理 MCP 配置档案、发现、受保护调用、Prompt、Resource 和历史。',
+            deployGuide: '运行：slothtool slothvault deploy [部署参数]',
+            deploySafety: '内置 Python 安装器保留 Docker、Compose、Nginx、Certbot 与确认保护。',
+            deployPrivilege: '只有部署动作需要宿主机权限时才使用管理员调用。',
+            skillGuide: 'i 安装 | u 卸载 | 冲突必须通过明确的 CLI --yes 流程解决',
+            mcpGuideAction: 'i 注册 | u 注销 | 要替换冲突命令时使用 CLI --replace --yes',
+            footer: 'Tab/←/→ 切换 | r 刷新 | i 安装/注册 | u 卸载/注销 | q 退出'
         },
         errors: {
             INVALID_PROFILE_NAME: '配置档案名称必须由 1 至 64 个字母、数字、点、下划线或连字符组成。',
@@ -286,10 +325,10 @@ export const messages = {
         title: 'slothvault-mcp - SlothVault MCP client',
         usage: 'Usage:',
         help: 'Show help',
-        tuiOption: 'Launch the full-screen TUI (read-only remote operations, local profile and Skill management)',
+        tuiOption: 'Launch the full-screen MCP TUI (read-only remote operations and local Profile management only)',
         jsonOption: 'Print one JSON document',
         profileOption: 'Select a connection profile',
-        yesOption: 'Explicitly confirm remote writes, local cleanup, or Skill conflict replacement',
+        yesOption: 'Explicitly confirm remote writes or local history cleanup',
         argsOption: 'Pass a JSON object as tool or prompt arguments',
         argsFileOption: 'Read a JSON object from a file or - (stdin)',
         outputOption: 'Resource output file (existing files are never replaced)',
@@ -459,7 +498,7 @@ export const messages = {
             },
             footer: 'Tab switch page | Up/Down select | r refresh | q quit',
             empty: 'No data.',
-            help: 'The TUI displays status, capabilities, and redacted history and manages local profiles and agent Skills; it never calls Tools, fetches Prompt content, or reads Resources.',
+            help: 'The MCP TUI displays status, capabilities, and redacted history and manages local Profiles; it never calls Tools, fetches Prompt content, or reads Resources.',
             profile: {
                 keyEntered: '[entered; content hidden]',
                 keyUnchanged: 'leave empty to keep the existing key',
@@ -486,6 +525,45 @@ export const messages = {
                 browseFooter: 'i/Enter install | u uninstall | r refresh status | q quit',
                 confirmFooter: 'y confirm | n/Esc cancel'
             }
+        },
+        manager: {
+            title: 'SlothVault multifunction package',
+            tabs: {overview: 'Overview', deploy: 'Deploy', skill: 'Skill', mcp: 'MCP command'},
+            ready: 'Ready. Deployment starts only from the explicit deploy command.',
+            refreshed: 'Local state refreshed.',
+            refreshFailed: 'Unable to refresh local state: {message}',
+            overview: 'SlothVault management stays under the SlothTool plugin.',
+            statusSummary: 'Skill: {skill} | MCP command: {mcp}',
+            skillState: 'Skill state: {state}',
+            skillAgent: '{name}: {state} ({target})',
+            mcpState: 'Standalone command: {state}',
+            target: 'Target: {target}',
+            reason: 'Reason: {reason}',
+            skillActionCompleted: 'Skill operation completed: {action}.',
+            skillActionFailed: 'Skill operation requires confirmation or failed: {message}',
+            mcpActionCompleted: 'MCP command operation completed: {action}.',
+            mcpActionFailed: 'MCP command operation requires confirmation or failed: {message}',
+            states: {
+                unavailable: 'unavailable',
+                'not-detected': 'not detected',
+                'not-installed': 'not installed',
+                installed: 'installed',
+                conflict: 'conflict',
+                registered: 'registered',
+                'not-registered': 'not registered',
+                'already-registered': 'already registered',
+                replaced: 'replaced',
+                unregistered: 'unregistered',
+                'already-absent': 'already absent',
+                'already-installed': 'already installed'
+            },
+            mcpGuide: 'Use the standalone slothvault-mcp command only for MCP profiles, discovery, guarded calls, prompts, resources, and history.',
+            deployGuide: 'Run: slothtool slothvault deploy [deployment arguments]',
+            deploySafety: 'The bundled Python installer preserves Docker, Compose, Nginx, Certbot, and confirmation safeguards.',
+            deployPrivilege: 'Use an elevated invocation only when the deployment action requires host privileges.',
+            skillGuide: 'i install | u uninstall | resolve conflicts through the explicit CLI --yes flow',
+            mcpGuideAction: 'i register | u unregister | use the CLI with --replace --yes to replace a conflict',
+            footer: 'Tab/←/→ switch | r refresh | i install/register | u uninstall | q exit'
         },
         errors: {
             INVALID_PROFILE_NAME: 'Profile names must contain 1-64 letters, numbers, dots, underscores, or hyphens.',

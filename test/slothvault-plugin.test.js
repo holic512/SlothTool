@@ -4,7 +4,7 @@
  * @module Test / SlothVault MCP Plugin
  * @description 验证 SlothVault MCP 插件的配置、Skill 安装、脱敏历史、动态协议发现、安全调用、Resource 落盘及 CLI/TUI 契约。
  * @logic 1. 使用隔离目录验证本地状态与受管 Skill 链接；2. 注入 fake MCP client 验证协议行为且不联网；3. 以子进程验证稳定 CLI 退出码与远端只读、本地 Profile/Skill 可管理的 TUI smoke。
- * @dependencies Node: assert/child_process/fs/os/path/test/url, Plugin: ../plugins/slothvault-mcp
+ * @dependencies Node: assert/child_process/fs/os/path/test/url, Plugin: ../plugins/slothvault
  * @index_tags slothvault,mcp,client,config,history,resource,cli,tui
  * @author MengJiaXu
  */
@@ -19,6 +19,7 @@ import {fileURLToPath} from 'node:url';
 import {
     addProfile,
     API_KEY_PATTERN,
+    getConfigMigrationStatus,
     getProfile,
     listProfiles,
     maskApiKey,
@@ -32,16 +33,17 @@ import {
     validateApiKey,
     validateProfileName,
     validateTimeoutMs
-} from '../plugins/slothvault-mcp/lib/config.js';
+} from '../plugins/slothvault/lib/config.js';
 import {
     appendHistory,
     clearHistory,
     createHistorySummary,
     HISTORY_LIMIT,
+    getHistoryMigrationStatus,
     listHistory,
     redactSensitive,
     SUMMARY_LIMIT
-} from '../plugins/slothvault-mcp/lib/history.js';
+} from '../plugins/slothvault/lib/history.js';
 import {
     callTool,
     classifyError,
@@ -54,20 +56,28 @@ import {
     MANAGED_FILE_MAX_BYTES,
     readResource,
     SlothVaultMcpBusinessError
-} from '../plugins/slothvault-mcp/lib/service.js';
+} from '../plugins/slothvault/lib/service.js';
 import {
     detectSkillAgents,
     getSkillPaths,
     getSkillStatus,
     installSkill,
     uninstallSkill
-} from '../plugins/slothvault-mcp/lib/skill-manager.js';
-import {resolveSlothVaultTuiLayout} from '../plugins/slothvault-mcp/lib/tui.js';
+} from '../plugins/slothvault/lib/skill-manager.js';
+import {resolveSlothVaultTuiLayout} from '../plugins/slothvault/lib/tui.js';
+import {
+    getMcpCommandStatus,
+    registerMcpCommand,
+    SlothVaultMcpCommandError,
+    unregisterMcpCommand
+} from '../plugins/slothvault/lib/mcp-command-manager.js';
+import {getDeploymentPaths, runDeployment} from '../plugins/slothvault/lib/deploy-runner.js';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '..');
-const pluginBin = path.join(repositoryRoot, 'plugins', 'slothvault-mcp', 'bin', 'slothvault-mcp.js');
-const tuiSourcePath = path.join(repositoryRoot, 'plugins', 'slothvault-mcp', 'lib', 'tui.js');
+const pluginBin = path.join(repositoryRoot, 'plugins', 'slothvault', 'bin', 'slothvault-mcp.js');
+const managerBin = path.join(repositoryRoot, 'plugins', 'slothvault', 'bin', 'slothvault.js');
+const tuiSourcePath = path.join(repositoryRoot, 'plugins', 'slothvault', 'lib', 'tui.js');
 const VALID_KEY = `svmcp_${'A'.repeat(24)}.${'B'.repeat(43)}`;
 const temporaryDirectories = [];
 
@@ -193,6 +203,26 @@ function runCli(args, options = {}) {
     });
 }
 
+/** Run the SlothTool-managed multifunction entry with an isolated HOME. */
+function runManager(args, options = {}) {
+    const homeDirectory = options.homeDirectory || makeTemporaryDirectory('manager-home');
+    const settingsDirectory = path.join(homeDirectory, '.pipker', 'slothtool');
+    fs.mkdirSync(settingsDirectory, {recursive: true});
+    fs.writeFileSync(path.join(settingsDirectory, 'settings.json'), JSON.stringify({language: 'en'}));
+    return spawnSync(process.execPath, [managerBin, ...args], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        input: options.input,
+        timeout: 10_000,
+        env: {
+            ...process.env,
+            HOME: homeDirectory,
+            USERPROFILE: homeDirectory,
+            ...options.environment
+        }
+    });
+}
+
 /** Skip a subprocess-dependent assertion only when the host sandbox forbids process creation. */
 function skipIfProcessCreationIsBlocked(context, result) {
     if (result.error?.code !== 'EPERM') {
@@ -226,7 +256,7 @@ test.after(() => {
 
 test('profile configuration validates fields, normalizes endpoints, masks keys, and migrates defaults', () => {
     const root = makeTemporaryDirectory('config');
-    const configPath = path.join(root, 'plugin-configs', 'slothvault-mcp.json');
+    const configPath = path.join(root, 'plugin-configs', 'slothvault.json');
     const options = {configPath};
 
     assert.match(VALID_KEY, API_KEY_PATTERN);
@@ -294,6 +324,109 @@ test('profile configuration rejects unsafe names, keys, URLs, timeouts, and corr
         assert.equal(error.exitCode, 2);
         return true;
     });
+});
+
+test('Profile and history move from legacy locations without merging conflicting files', () => {
+    const root = makeTemporaryDirectory('storage-migration');
+    const legacyConfigPath = path.join(root, 'plugin-configs', 'slothvault-mcp.json');
+    const canonicalConfigPath = path.join(root, 'plugin-configs', 'slothvault.json');
+    const legacyHistoryPath = path.join(root, 'data', 'slothvault-mcp', 'history.json');
+    const canonicalHistoryPath = path.join(root, 'data', 'slothvault', 'history.json');
+    fs.mkdirSync(path.dirname(legacyConfigPath), {recursive: true});
+    fs.mkdirSync(path.dirname(legacyHistoryPath), {recursive: true});
+    fs.writeFileSync(legacyConfigPath, JSON.stringify({schemaVersion: 1, defaultProfile: null, profiles: {}}), 'utf8');
+    fs.writeFileSync(legacyHistoryPath, JSON.stringify({schemaVersion: 1, entries: []}), 'utf8');
+
+    assert.equal(getConfigMigrationStatus({slothToolHome: root}).state, 'migrated');
+    assert.equal(getHistoryMigrationStatus({slothToolHome: root}).state, 'migrated');
+    assert.equal(fs.existsSync(legacyConfigPath), false);
+    assert.equal(fs.existsSync(legacyHistoryPath), false);
+    assert.equal(fs.existsSync(canonicalConfigPath), true);
+    assert.equal(fs.existsSync(canonicalHistoryPath), true);
+
+    fs.writeFileSync(legacyConfigPath, '{"legacy":true}', 'utf8');
+    fs.mkdirSync(path.dirname(legacyHistoryPath), {recursive: true});
+    fs.writeFileSync(legacyHistoryPath, '{"legacy":true}', 'utf8');
+    assert.equal(getConfigMigrationStatus({slothToolHome: root}).state, 'conflict');
+    assert.equal(getHistoryMigrationStatus({slothToolHome: root}).state, 'conflict');
+    assert.equal(fs.readFileSync(canonicalConfigPath, 'utf8').includes('"legacy":true'), false);
+    assert.equal(fs.readFileSync(canonicalHistoryPath, 'utf8').includes('"legacy":true'), false);
+});
+
+test('MCP command registration creates, recognizes, replaces, and removes only managed launchers', () => {
+    const root = makeTemporaryDirectory('mcp-command');
+    const binDirectory = path.join(root, 'bin');
+    const slothtoolExecutable = path.join(binDirectory, 'slothtool');
+    fs.mkdirSync(binDirectory, {recursive: true});
+    fs.writeFileSync(slothtoolExecutable, '#!/bin/sh\n', {mode: 0o755});
+    const options = {slothtoolExecutable};
+
+    const initial = getMcpCommandStatus(options);
+    assert.equal(initial.state, 'not-registered');
+    assert.equal(initial.registered, false);
+    assert.equal(initial.managed, false);
+    assert.equal(registerMcpCommand(options).action, 'registered');
+    const registered = getMcpCommandStatus(options);
+    assert.equal(registered.state, 'registered');
+    assert.equal(registered.registered, true);
+    assert.equal(registered.managed, true);
+    assert.equal(fs.lstatSync(registered.targetPath).isSymbolicLink(), true);
+    assert.equal(registerMcpCommand(options).action, 'already-registered');
+    assert.equal(unregisterMcpCommand(options).action, 'unregistered');
+    assert.equal(getMcpCommandStatus(options).state, 'not-registered');
+
+    fs.writeFileSync(path.join(binDirectory, 'slothvault-mcp'), 'user command\n', 'utf8');
+    assert.equal(getMcpCommandStatus(options).state, 'conflict');
+    assert.throws(() => registerMcpCommand(options), error => {
+        assert.ok(error instanceof SlothVaultMcpCommandError);
+        assert.equal(error.code, 'MCP_COMMAND_REPLACE_REQUIRED');
+        return true;
+    });
+    assert.equal(registerMcpCommand({...options, replace: true}).action, 'replaced');
+    assert.equal(unregisterMcpCommand(options).action, 'unregistered');
+});
+
+test('Windows MCP shim uses a managed marker and the fixed Node executable path', () => {
+    const root = makeTemporaryDirectory('mcp-command-windows');
+    const binDirectory = path.join(root, 'bin');
+    const slothtoolExecutable = path.join(binDirectory, 'slothtool.cmd');
+    fs.mkdirSync(binDirectory, {recursive: true});
+    fs.writeFileSync(slothtoolExecutable, '@echo off\r\n', 'utf8');
+    const result = registerMcpCommand({platform: 'win32', slothtoolExecutable});
+    assert.equal(result.targetPath.endsWith('slothvault-mcp.cmd'), true);
+    const source = fs.readFileSync(result.targetPath, 'utf8');
+    assert.match(source, /Managed by SlothVault MCP command registration/u);
+    assert.match(source, new RegExp(process.execPath.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')));
+    assert.equal(unregisterMcpCommand({platform: 'win32', slothtoolExecutable}).action, 'unregistered');
+});
+
+test('Deployment runner reports missing entrypoints and preserves arguments, exit status, and plugin version', async () => {
+    const root = makeTemporaryDirectory('deploy-runner');
+    const resultPath = path.join(root, 'result.json');
+    const driverPath = path.join(root, 'driver.js');
+    fs.writeFileSync(driverPath, [
+        "import fs from 'node:fs';",
+        "fs.writeFileSync(process.env.SLOTHVAULT_TEST_RESULT, JSON.stringify({args: process.argv.slice(2), version: process.env.SLOTHTOOL_SLOTHVAULT_PLUGIN_VERSION}));",
+        'process.exit(7);'
+    ].join('\n'), 'utf8');
+
+    await assert.rejects(
+        runDeployment([], {entryPath: path.join(root, 'missing.py')}),
+        error => error.code === 'DEPLOY_ENTRY_MISSING'
+    );
+    const result = await runDeployment(['--action', 'status'], {
+        entryPath: driverPath,
+        packagePath: path.join(repositoryRoot, 'plugins', 'slothvault', 'package.json'),
+        pythonCommand: process.execPath,
+        stdio: 'ignore',
+        env: {SLOTHVAULT_TEST_RESULT: resultPath}
+    });
+    assert.equal(result.code, 7);
+    assert.deepEqual(JSON.parse(fs.readFileSync(resultPath, 'utf8')), {
+        args: ['--action', 'status'],
+        version: '2.0.0'
+    });
+    assert.equal(getDeploymentPaths().entryPath.endsWith(path.join('deploy', 'install.py')), true);
 });
 
 test('Skill manager detects agent homes, installs every detected agent link, and uninstalls only those links', () => {
@@ -773,7 +906,7 @@ test('CLI help, JSON errors, input-source exclusivity, key handling, and exit co
     assert.match(help.stdout, /tools call <tool>/u);
     assert.match(help.stdout, /resources list \[--profile/u);
     assert.match(help.stdout, /resources read <uri> --output <path>/u);
-    assert.match(help.stdout, /skill status\|install\|uninstall/u);
+    assert.doesNotMatch(help.stdout, /skill status\|install\|uninstall/u);
     assert.match(help.stdout, /--args-file <path>/u);
 
     const unknown = runCli(['unknown', '--json']);
@@ -819,28 +952,28 @@ test('CLI help, JSON errors, input-source exclusivity, key handling, and exit co
     assert.equal(JSON.parse(cleared.stdout).cleared, 0);
 });
 
-test('CLI exposes stable Skill status, install, conflict replacement, and uninstall contracts', context => {
+test('multifunction CLI exposes stable Skill status, install, conflict replacement, and uninstall contracts', context => {
     const homeDirectory = makeTemporaryDirectory('skill-cli');
     fs.mkdirSync(path.join(homeDirectory, '.codex'), {recursive: true});
     fs.mkdirSync(path.join(homeDirectory, '.claude'), {recursive: true});
-    const status = runCli(['skill', 'status', '--json'], {homeDirectory});
+    const status = runManager(['skill', 'status', '--json'], {homeDirectory});
     if (skipIfProcessCreationIsBlocked(context, status)) return;
     assert.equal(status.status, 0, status.stderr);
     const statusResult = JSON.parse(status.stdout);
     assert.equal(statusResult.state, 'not-installed');
     assert.deepEqual(statusResult.agents.filter(agent => agent.detected).map(agent => agent.id), ['codex', 'claude-code']);
 
-    const installed = runCli(['skill', 'install', '--json'], {homeDirectory});
+    const installed = runManager(['skill', 'install', '--json'], {homeDirectory});
     assert.equal(installed.status, 0, installed.stderr);
     const installedResult = JSON.parse(installed.stdout);
     assert.equal(installedResult.state, 'installed');
     assert.equal(installedResult.action, 'installed');
 
-    const repeated = runCli(['skill', 'install', '--json'], {homeDirectory});
+    const repeated = runManager(['skill', 'install', '--json'], {homeDirectory});
     assert.equal(repeated.status, 0, repeated.stderr);
     assert.equal(JSON.parse(repeated.stdout).action, 'already-installed');
 
-    const uninstalled = runCli(['skill', 'uninstall', '--json'], {homeDirectory});
+    const uninstalled = runManager(['skill', 'uninstall', '--json'], {homeDirectory});
     assert.equal(uninstalled.status, 0, uninstalled.stderr);
     assert.equal(JSON.parse(uninstalled.stdout).action, 'uninstalled');
 
@@ -851,14 +984,14 @@ test('CLI exposes stable Skill status, install, conflict replacement, and uninst
     const markerPath = path.join(conflictTarget, 'keep.txt');
     fs.writeFileSync(markerPath, 'keep', 'utf8');
 
-    const denied = runCli(['skill', 'install', '--json'], {homeDirectory: conflictHome});
+    const denied = runManager(['skill', 'install', '--json'], {homeDirectory: conflictHome});
     assert.equal(denied.status, 2);
     const deniedResult = JSON.parse(denied.stdout);
     assert.equal(deniedResult.error.code, 'SKILL_INSTALL_CONFIRMATION_REQUIRED');
     assert.equal(deniedResult.error.category, 'confirmation');
     assert.equal(fs.readFileSync(markerPath, 'utf8'), 'keep');
 
-    const replaced = runCli(['skill', 'install', '--yes', '--json'], {homeDirectory: conflictHome});
+    const replaced = runManager(['skill', 'install', '--yes', '--json'], {homeDirectory: conflictHome});
     assert.equal(replaced.status, 0, replaced.stderr);
     assert.equal(JSON.parse(replaced.stdout).action, 'replaced');
     assert.equal(fs.existsSync(markerPath), false);
@@ -889,13 +1022,13 @@ test('CLI validates inline, file, and stdin JSON object sources before any netwo
     assert.match(JSON.parse(fileObject.stdout).error.message, /JSON object/iu);
 });
 
-test('TUI entry has a smoke exit, stable narrow layout, local Profile/Skill management, and no remote operation APIs', context => {
+test('MCP TUI has a smoke exit, stable narrow layout, local Profile management, and no remote operation APIs', context => {
     const smoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'exit'}});
     if (skipIfProcessCreationIsBlocked(context, smoke)) return;
     assert.equal(smoke.status, 0, smoke.stderr);
     const renderSmoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'render-exit'}});
     assert.equal(renderSmoke.status, 0, renderSmoke.stderr);
-    assert.match(renderSmoke.stdout, /SlothVault MCP 1\.2\.1/u);
+    assert.match(renderSmoke.stdout, /SlothVault MCP 2\.0\.0/u);
 
     const narrow = resolveSlothVaultTuiLayout(30, 10);
     assert.equal(narrow.columns, 40);
@@ -911,9 +1044,7 @@ test('TUI entry has a smoke exit, stable narrow layout, local Profile/Skill mana
     const source = fs.readFileSync(tuiSourcePath, 'utf8');
     assert.match(source, /import \{inspectServer\} from '.\/service\.js'/u);
     assert.match(source, /addProfile[\s\S]*removeProfile[\s\S]*updateProfile[\s\S]*useProfile/u);
-    assert.match(source, /getSkillStatus[\s\S]*installSkill[\s\S]*uninstallSkill/u);
-    assert.match(source, /const TABS = \[[^\]]*'skill'/u);
-    assert.match(source, /skillMode === 'replace'[\s\S]*performSkillInstall\(true\)/u);
+    assert.doesNotMatch(source, /getSkillStatus|installSkill|uninstallSkill|const TABS = \[[^\]]*'skill'/u);
     assert.match(source, /keyEntered/u);
     assert.doesNotMatch(source, /\bcallTool\b|\bgetPrompt\b|\breadResource\b/u);
 });

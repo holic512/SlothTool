@@ -4,8 +4,8 @@
  * @module Test / Plugin TUI
  * @description 验证官方插件与模板已经提供统一 TUI 外壳所需的 tab、响应式 footer 和状态栏文案键。
  * @logic 1. 直接读取插件 i18n 消息字典；2. 校验中英文 tab、响应式 footer 与核心页面文案；3. 防止双语外壳文案缺失。
- * @dependencies I18N: loc/image-compress/gstore/codex-models/pzip/slothvault-mcp/template-basic, Node: assert/test
- * @index_tags 插件i18n测试, loc, image-compress, pzip, slothvault-mcp, template-basic, TUI外壳
+ * @dependencies I18N: loc/image-compress/gstore/codex-models/pzip/slothvault/template-basic, Node: assert/test
+ * @index_tags 插件i18n测试, loc, image-compress, pzip, slothvault, slothvault-mcp, template-basic, TUI外壳
  * @author holic512
  */
 
@@ -16,7 +16,7 @@ import {messages as gstoreMessages} from '../plugins/gstore/lib/i18n.js';
 import {messages as codexModelsMessages} from '../plugins/codex-models/lib/i18n.js';
 import {messages as locMessages} from '../plugins/loc/lib/i18n.js';
 import {messages as pzipMessages} from '../plugins/pzip/lib/i18n.js';
-import {messages as slothVaultMcpMessages} from '../plugins/slothvault-mcp/lib/i18n.js';
+import {messages as slothVaultMcpMessages} from '../plugins/slothvault/lib/i18n.js';
 import {messages as templateMessages} from '../plugins/template-basic/lib/i18n.js';
 
 test('loc TUI shell keys exist in zh and en', () => {
@@ -68,7 +68,7 @@ test('gstore and codex-models expose the shared tab and footer shell in both lan
     assert.match(codexModelsMessages.en.tui.footer.models, /Tab/u);
 });
 
-test('slothvault-mcp exposes a bilingual remote-read-only profile-management TUI shell and HTTP warning', () => {
+test('SlothVault multifunction package exposes bilingual MCP and local-manager TUI copy', () => {
     assert.equal(slothVaultMcpMessages.zh.tui.tabs.status, '状态');
     assert.equal(slothVaultMcpMessages.en.tui.tabs.status, 'Status');
     assert.equal(slothVaultMcpMessages.zh.tui.tabs.capabilities, '能力');
@@ -81,4 +81,8 @@ test('slothvault-mcp exposes a bilingual remote-read-only profile-management TUI
     assert.match(slothVaultMcpMessages.en.tui.profile.browseFooter, /add/u);
     assert.match(slothVaultMcpMessages.zh.httpWarning, /明文传输/u);
     assert.match(slothVaultMcpMessages.en.httpWarning, /clear text/u);
+    assert.equal(slothVaultMcpMessages.zh.manager.title, 'SlothVault 多功能包');
+    assert.equal(slothVaultMcpMessages.en.manager.title, 'SlothVault multifunction package');
+    assert.equal(slothVaultMcpMessages.zh.manager.states.registered, '已注册');
+    assert.equal(slothVaultMcpMessages.en.manager.states['not-registered'], 'not registered');
 });

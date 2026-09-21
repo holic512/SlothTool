@@ -1,12 +1,12 @@
 /**
  * @file SlothVaultMcpHistoryStore
  * @project SlothTool
- * @module SlothVault MCP Plugin / Storage
- * @description 保存不含完整请求、结果、凭据或 Resource 内容的 MCP 调用历史。
+ * @module SlothVault Multifunction Plugin / MCP Storage
+ * @description 保存不含完整请求、结果、凭据或 Resource 内容的 MCP 调用历史，并安全迁移 MCP-only 插件遗留位置。
  * @logic 1. 递归移除敏感字段；2. 将摘要限制到 512 字符；3. 使用私有原子文件轮转最近 200 条记录。
  * @dependencies Node: fs/os/path/crypto
  * @index_tags slothvault,mcp,history,redaction,audit
- * @author MengJiaXu
+ * @author holic512
  */
 
 import fs from 'node:fs';
@@ -27,7 +27,44 @@ const INLINE_SECRET_PATTERNS = [
 
 export function getHistoryPath(options = {}) {
     const slothToolHome = options.slothToolHome || path.join(options.homeDir || os.homedir(), '.pipker', 'slothtool');
-    return options.historyPath || path.join(slothToolHome, 'data', 'slothvault-mcp', 'history.json');
+    return options.historyPath || path.join(slothToolHome, 'data', 'slothvault', 'history.json');
+}
+
+/** Return the v1 history path used by the former MCP-only plugin. */
+export function getLegacyHistoryPath(options = {}) {
+    const slothToolHome = options.slothToolHome || path.join(options.homeDir || os.homedir(), '.pipker', 'slothtool');
+    return options.legacyHistoryPath || path.join(slothToolHome, 'data', 'slothvault-mcp', 'history.json');
+}
+
+/** Move v1 redacted history only when no canonical history exists. */
+function migrateLegacyHistoryIfNeeded(options = {}) {
+    if (options.historyPath) {
+        return {state: 'custom'};
+    }
+    const targetPath = getHistoryPath(options);
+    const legacyPath = getLegacyHistoryPath(options);
+    if (fs.existsSync(targetPath)) {
+        return {state: fs.existsSync(legacyPath) ? 'conflict' : 'current', targetPath, legacyPath};
+    }
+    if (!fs.existsSync(legacyPath)) {
+        return {state: 'absent', targetPath, legacyPath};
+    }
+    fs.mkdirSync(path.dirname(targetPath), {recursive: true, mode: 0o700});
+    fs.renameSync(legacyPath, targetPath);
+    const legacyDirectory = path.dirname(legacyPath);
+    try {
+        if (fs.readdirSync(legacyDirectory).length === 0) {
+            fs.rmdirSync(legacyDirectory);
+        }
+    } catch {
+        // The moved history is already safe; an empty legacy directory is harmless.
+    }
+    return {state: 'migrated', targetPath, legacyPath};
+}
+
+/** Report migration state without exposing stored history content. */
+export function getHistoryMigrationStatus(options = {}) {
+    return migrateLegacyHistoryIfNeeded(options);
 }
 
 /** Replaces key-shaped and inline secrets while retaining useful structural context. */
@@ -110,6 +147,7 @@ function emptyHistory() {
 
 /** Writes a complete history document with private permissions and atomic replacement. */
 function writeHistoryDocument(document, options = {}) {
+    migrateLegacyHistoryIfNeeded(options);
     const historyPath = getHistoryPath(options);
     const directory = path.dirname(historyPath);
     fs.mkdirSync(directory, {recursive: true, mode: 0o700});
@@ -149,6 +187,7 @@ function quarantineCorruptHistory(historyPath) {
 
 /** Reads, validates, and caps the stored history document. */
 function readHistoryDocument(options = {}) {
+    migrateLegacyHistoryIfNeeded(options);
     const historyPath = getHistoryPath(options);
     if (!fs.existsSync(historyPath)) {
         return emptyHistory();

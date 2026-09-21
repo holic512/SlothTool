@@ -1,6 +1,6 @@
 # Plugin Development Guide
 
-本仓库当前保留六个官方插件工作区 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`、`plugins/codex-models`、`plugins/pzip`、`plugins/slothvault-mcp`，以及一个脚手架目录 `plugins/template-basic`。
+本仓库当前保留六个官方插件工作区 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`、`plugins/codex-models`、`plugins/pzip`、`plugins/slothvault`，以及一个脚手架目录 `plugins/template-basic`。
 
 ## Design Rule
 
@@ -117,7 +117,7 @@ my-plugin/
 
 ## Current Reference Package
 
-优先参考 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`、`plugins/codex-models`、`plugins/pzip` 或 `plugins/slothvault-mcp` 来实现：
+优先参考 `plugins/loc`、`plugins/image-compress`、`plugins/gstore`、`plugins/codex-models`、`plugins/pzip` 或 `plugins/slothvault` 来实现：
 
 - 默认 TUI 入口
 - 显式 CLI 统计/配置命令
@@ -130,7 +130,7 @@ my-plugin/
 
 `pzip` 是“递归扫描和路径过滤完全位于 service 层，CLI/TUI 只复用归档结果”的参考实现。它也演示了任意深度默认目录过滤、分层 `.gitignore`、持久化模式配置与不覆盖已有输出的安全写入策略。
 
-`slothvault-mcp` 是“service 封装外部协议与动态能力发现，CLI 承担远端业务执行，TUI 只读检查远端能力并复用配置服务管理本地 Profile”的参考实现。它也演示了 MCP Streamable HTTP 生命周期、基于 Tool annotations 的风险判断、敏感字段脱敏、多配置档案、不会回显 Key 的 TUI 表单和 Resource 安全落盘。
+`slothvault` 是“主 CLI 管理部署、Skill 与独立 MCP 命令注册，MCP executable 封装外部协议与动态能力发现，MCP TUI 只读检查远端能力并复用配置服务管理本地 Profile”的参考实现。它也演示了 MCP Streamable HTTP 生命周期、基于 Tool annotations 的风险判断、敏感字段脱敏、多配置档案、不会回显 Key 的 TUI 表单、Resource 安全落盘和受管命令注册。注册器只接受根调度传入、且其 bin 目录已位于 `PATH` 的 SlothTool 命令路径；源码直启不猜测写入位置，Unix/macOS 使用可验证符号链接、Windows 使用带固定 Node 路径和受管标记的 `.cmd` shim。
 
 ## TUI Shell Standard
 
@@ -186,20 +186,21 @@ SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 node --test test/pzip-plugin.test.js
 ```
 
-`slothvault-mcp` 参考命令：
+`slothvault` 参考命令：
 
 ```bash
-node plugins/slothvault-mcp/bin/slothvault-mcp.js --help
-node plugins/slothvault-mcp/bin/slothvault-mcp.js profile list
-SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION=exit node plugins/slothvault-mcp/bin/slothvault-mcp.js
-node --test test/slothvault-mcp-plugin.test.js
+node plugins/slothvault/bin/slothvault.js --help
+node plugins/slothvault/bin/slothvault-mcp.js profile list
+node plugins/slothvault/bin/slothvault.js mcp status
+SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault-mcp.js
+node --test test/slothvault-plugin.test.js
 ```
 
 ## Integration Notes
 
 SlothTool 当前只安装内置官方插件：
 
-- `slothtool install loc`、`slothtool install image-compress`、`slothtool install gstore`、`slothtool install codex-models`、`slothtool install pzip`、`slothtool install slothvault-mcp` 可用，因为它们定义在 `lib/official-plugins.json`
+- `slothtool install loc`、`slothtool install image-compress`、`slothtool install gstore`、`slothtool install codex-models`、`slothtool install pzip`、`slothtool install slothvault` 可用，因为它们定义在 `lib/official-plugins.json`
 - 相同 alias 可通过 `slothtool install <alias> --file <archive.tgz>` 离线安装，但归档包名仍必须与官方目录一致
 - 任意第三方插件安装暂不属于当前产品范围
 
@@ -215,12 +216,12 @@ SlothTool 当前只安装内置官方插件：
 - gstore Git 缓存：`~/.pipker/slothtool/cache/gstore/repository`
 - 默认同步数据目录：`~/.pipker/slothtool/data`
 - 默认同步插件配置目录：`~/.pipker/slothtool/plugin-configs`（排除 `gstore.json`）
-- SlothVault MCP 配置：`~/.pipker/slothtool/plugin-configs/slothvault-mcp.json`（包含明文 Bearer Key，会被 gstore 默认同步）
-- SlothVault MCP 脱敏历史：`~/.pipker/slothtool/data/slothvault-mcp/history.json`
+- SlothVault MCP 配置：`~/.pipker/slothtool/plugin-configs/slothvault.json`（包含明文 Bearer Key，会被 gstore 默认同步）
+- SlothVault MCP 脱敏历史：`~/.pipker/slothtool/data/slothvault/history.json`
 
 ## Publishing Model
 
 - 根包 `@holic512/slothtool` 从仓库根目录发布
-- 官方纯 Node 插件 `@holic512/plugin-loc`、`@holic512/plugin-gstore`、`@holic512/plugin-codex-models`、`@holic512/plugin-pzip`、`@holic512/plugin-slothvault-mcp` 通过 `npm pack` 生成 GitHub Release 资产
+- 官方纯 Node 插件 `@holic512/plugin-loc`、`@holic512/plugin-gstore`、`@holic512/plugin-codex-models`、`@holic512/plugin-pzip`、`@holic512/plugin-slothvault` 通过 `npm pack` 生成 GitHub Release 资产
 - `@holic512/plugin-image-compress` 使用专用多平台 release workflow
 - `plugins/template-basic` 不发布

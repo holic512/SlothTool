@@ -6,13 +6,13 @@ Concise repo rules for Codex working on SlothTool.
 
 - SlothTool is a TUI-first plugin manager.
 - Root package: `@holic512/slothtool`
-- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, `@holic512/plugin-codex-models`, `@holic512/plugin-pzip`, and `@holic512/plugin-slothvault-mcp`.
+- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, `@holic512/plugin-codex-models`, `@holic512/plugin-pzip`, and `@holic512/plugin-slothvault`.
 - `plugins/image-compress` ships as an official plugin workspace with a dedicated multi-platform release workflow and target-aware asset installation.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing SlothTool settings, plugin configs, and data through an isolated Git repository cache and a GitHub private repository via local `git` and `gh`.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/codex-models` ships as an official CLI + TUI plugin workspace for Codex custom-provider diagnostics, cross-vendor model metadata, reasoning-level switching, catalog sync, and safe Desktop offline repair-script generation.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
-- `plugins/slothvault-mcp` ships as an official CLI + TUI plugin workspace for dynamically discovering and safely invoking the SlothVault admin MCP; it bundles a user-installable Skill for detected Codex and Claude Code environments, and its TUI manages local profiles and that Skill while keeping remote business operations read-only.
+- `plugins/slothvault` ships as the official SlothVault multifunction workspace: `slothtool slothvault` manages Linux deployment, user-installable Codex/Claude Code Skill links, and explicit standalone MCP command registration; the independently registered `slothvault-mcp` executable dynamically discovers and safely invokes the administrator MCP while its TUI manages only local profiles and read-only remote inspection.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
 - Runtime baseline:
@@ -26,7 +26,7 @@ Concise repo rules for Codex working on SlothTool.
 - `~/.pipker/slothtool/data/`
 - `~/.pipker/slothtool/plugins/`
 - `~/.pipker/slothtool/plugin-configs/`
-- `~/.codex/skills/slothvault-mcp` and `~/.claude/skills/slothvault-mcp` (optional links installed only for detected agents by the SlothVault MCP plugin; configurable through `CODEX_HOME` and `CLAUDE_CONFIG_DIR`)
+- `~/.codex/skills/slothvault-mcp` and `~/.claude/skills/slothvault-mcp` (optional links installed only for detected agents by the SlothVault multifunction plugin; configurable through `CODEX_HOME` and `CLAUDE_CONFIG_DIR`)
 
 ## 2. Product Invariants
 
@@ -101,16 +101,17 @@ Cross-platform official plugin rules:
 - Release archives must contain a runnable plugin root either directly at archive root or under the standard `package/` directory produced by `npm pack`.
 - If the plugin ships a prebuilt backend, place it under `backend/dist/`, and keep the Node wrapper able to prefer that binary at runtime.
 
-SlothVault MCP client rules:
+SlothVault multifunction package rules:
 
 - Discover Tools, Prompts, and Resource Templates from the live MCP server; do not hardcode the SlothVault business catalog.
 - Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require write confirmation, and non-interactive calls require `--yes`.
 - Keep remote business operations read-only in the TUI. Local Profile add/update/default/remove operations are allowed, while Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
-- Keep the bundled Skill under `plugins/slothvault-mcp/skills/slothvault-mcp`; install it only through an explicit CLI/TUI action for detected Codex or Claude Code environments in their agent-specific user Skill directories.
+- Keep the bundled Skill under `plugins/slothvault/skills/slothvault-mcp`; install it only through an explicit `slothtool slothvault skill …` action for detected Codex or Claude Code environments in their agent-specific user Skill directories.
 - Detect Codex through its config directory or `codex` executable and target `$CODEX_HOME/skills` (default `~/.codex/skills`); detect Claude Code through its config directory or `claude` executable and target `$CLAUDE_CONFIG_DIR/skills` (default `~/.claude/skills`). Do not create new links under `~/.agents/skills`.
 - Skill conflict replacement requires explicit confirmation and may delete only fixed detected-agent Skill targets. Skill uninstall may remove only links that resolve to the current bundled Skill.
 - Never load a stored raw MCP Key into TUI state or render typed Key content; clear transient Key input after save, cancellation, or validation failure.
 - Never print or persist complete credentials, request arguments, results, or Resource payloads outside their explicit output file.
+- Register `slothvault-mcp` only beside the verified, PATH-resolved running `slothtool` command. Direct source execution must report that registration is unavailable; Unix/macOS launchers are managed links, Windows launchers are marked `.cmd` shims, and non-managed targets are never replaced or deleted without the explicit registration flow.
 
 ## 5. Fast Change Map
 
@@ -123,7 +124,7 @@ SlothVault MCP client rules:
 - `gstore` plugin: `plugins/gstore/bin/gstore.js`, `plugins/gstore/lib/*`, `test/gstore-cli.test.js`
 - `codex-models` plugin: `plugins/codex-models/bin/codex-models.js`, `plugins/codex-models/lib/*`, `test/codex-models-cli.test.js`
 - `pzip` plugin: `plugins/pzip/bin/pzip.js`, `plugins/pzip/lib/*`, `test/pzip-plugin.test.js`
-- `slothvault-mcp` plugin: `plugins/slothvault-mcp/bin/slothvault-mcp.js`, `plugins/slothvault-mcp/lib/*`, `plugins/slothvault-mcp/skills/slothvault-mcp/*`, `test/slothvault-mcp-plugin.test.js`
+- `slothvault` plugin: `plugins/slothvault/bin/slothvault.js`, `plugins/slothvault/bin/slothvault-mcp.js`, `plugins/slothvault/deploy/*`, `plugins/slothvault/lib/*`, `plugins/slothvault/skills/slothvault-mcp/*`, `test/slothvault-plugin.test.js`
 - Offline install/bundle: `lib/commands/install.js`, `lib/commands/bundle.js`, `lib/services/plugin-service.js`, `test/offline-plugin-install.test.js`
 - `plugins/template-basic/**` is scaffold-only, not a published workspace package.
 
@@ -179,15 +180,20 @@ SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 node --test test/pzip-plugin.test.js
 ```
 
-`slothvault-mcp` plugin:
+`slothvault` multifunction plugin:
 
 ```bash
-node plugins/slothvault-mcp/bin/slothvault-mcp.js --help
-node --check plugins/slothvault-mcp/lib/service.js
-node --check plugins/slothvault-mcp/lib/skill-manager.js
-python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py plugins/slothvault-mcp/skills/slothvault-mcp
-SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION=exit node plugins/slothvault-mcp/bin/slothvault-mcp.js
-node --test test/slothvault-mcp-plugin.test.js
+node plugins/slothvault/bin/slothvault.js --help
+node plugins/slothvault/bin/slothvault-mcp.js --help
+node --check plugins/slothvault/lib/deploy-runner.js
+node --check plugins/slothvault/lib/mcp-command-manager.js
+node --check plugins/slothvault/lib/service.js
+node --check plugins/slothvault/lib/skill-manager.js
+python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py plugins/slothvault/skills/slothvault-mcp
+PYTHONDONTWRITEBYTECODE=1 python3 plugins/slothvault/deploy/tests/deploy_installer_test.py
+SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault.js
+SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault-mcp.js
+node --test test/slothvault-plugin.test.js
 ```
 
 Packaging:
@@ -198,7 +204,7 @@ cd plugins/loc && npm pack --dry-run
 cd plugins/gstore && npm pack --dry-run
 cd plugins/codex-models && npm pack --dry-run
 cd plugins/pzip && npm pack --dry-run
-cd plugins/slothvault-mcp && npm pack --dry-run
+cd plugins/slothvault && npm pack --dry-run
 cd plugins/image-compress/backend && GOCACHE=$(mktemp -d) go test ./...
 node --test test/image-compress-plugin.test.js
 node --test test/official-plugin-selection.test.js
@@ -225,7 +231,7 @@ Testing conventions:
 - `plugins/gstore` shipped behavior changes require bumping `plugins/gstore/package.json` and its workspace lock entry.
 - `plugins/codex-models` shipped behavior changes require bumping `plugins/codex-models/package.json` and its workspace lock entry.
 - `plugins/pzip` shipped behavior changes require bumping `plugins/pzip/package.json` and its workspace lock entry.
-- `plugins/slothvault-mcp` shipped behavior changes require bumping `plugins/slothvault-mcp/package.json` and its workspace lock entry.
+- `plugins/slothvault` shipped behavior changes require bumping `plugins/slothvault/package.json` and its workspace lock entry.
 - If a change ships both core and the official plugin, bump both in the same change set.
 - Before any commit that changes a shipped package version, confirm the intended version increment with the user. Do not choose the bump unilaterally.
 - Before finishing shipped code changes, verify release tags are still free:
@@ -235,7 +241,7 @@ Testing conventions:
   - gstore plugin: `plugin-gstore-v<plugin-version>`
   - codex-models plugin: `plugin-codex-models-v<plugin-version>`
   - pzip plugin: `plugin-pzip-v<plugin-version>`
-  - slothvault-mcp plugin: `plugin-slothvault-mcp-v<plugin-version>`
+  - slothvault plugin: `plugin-slothvault-v<plugin-version>`
 - Release workflows:
   - core: `.github/workflows/release-core.yml`
   - plugins: `.github/workflows/release-plugins.yml`
@@ -255,5 +261,6 @@ Testing conventions:
   - `plugins/gstore/bin/gstore.js`
   - `plugins/codex-models/bin/codex-models.js`
   - `plugins/pzip/bin/pzip.js`
-  - `plugins/slothvault-mcp/bin/slothvault-mcp.js`
+  - `plugins/slothvault/bin/slothvault.js`
+  - `plugins/slothvault/bin/slothvault-mcp.js`
   - `plugins/template-basic/bin/mytool.js`

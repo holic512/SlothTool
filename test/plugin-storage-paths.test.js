@@ -20,7 +20,7 @@ import {getLanguage as getGstoreLanguage} from '../plugins/gstore/lib/i18n.js';
 import {getLanguage as getImageCompressLanguage} from '../plugins/image-compress/lib/i18n.js';
 import {getLanguage as getLocLanguage} from '../plugins/loc/lib/i18n.js';
 import {getLanguage as getPzipLanguage} from '../plugins/pzip/lib/i18n.js';
-import {getLanguage as getSlothVaultMcpLanguage} from '../plugins/slothvault-mcp/lib/i18n.js';
+import {getLanguage as getSlothVaultMcpLanguage} from '../plugins/slothvault/lib/i18n.js';
 import {getLanguage as getTemplateLanguage} from '../plugins/template-basic/lib/i18n.js';
 
 test('plugins read shared language settings from the Pipker SlothTool home only', () => {

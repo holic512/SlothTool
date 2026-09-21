@@ -1,12 +1,12 @@
 /**
  * @file SlothVaultMcpConfigStore
  * @project SlothTool
- * @module SlothVault MCP Plugin / Storage
- * @description 管理 SlothVault MCP 多配置档案及明文 Bearer Key。
+ * @module SlothVault Multifunction Plugin / MCP Storage
+ * @description 管理 SlothVault MCP 多配置档案及明文 Bearer Key，并安全迁移 MCP-only 插件遗留位置。
  * @logic 1. 严格校验档案名称、端点、Key 和超时；2. 通过同目录临时文件原子替换配置；3. 对 HTTP 和明文凭据给出可展示警告。
  * @dependencies Node: fs/os/path/crypto
  * @index_tags slothvault,mcp,profile,config,api-key
- * @author MengJiaXu
+ * @author holic512
  */
 
 import fs from 'node:fs';
@@ -35,7 +35,35 @@ export function getSlothToolHome(options = {}) {
 }
 
 export function getConfigPath(options = {}) {
-    return options.configPath || path.join(getSlothToolHome(options), 'plugin-configs', 'slothvault-mcp.json');
+    return options.configPath || path.join(getSlothToolHome(options), 'plugin-configs', 'slothvault.json');
+}
+
+/** Return the v1 configuration location used before the multifunction plugin rename. */
+export function getLegacyConfigPath(options = {}) {
+    return options.legacyConfigPath || path.join(getSlothToolHome(options), 'plugin-configs', 'slothvault-mcp.json');
+}
+
+/** Move a v1 profile file only when the canonical target has not been created yet. */
+function migrateLegacyConfigIfNeeded(options = {}) {
+    if (options.configPath) {
+        return {state: 'custom'};
+    }
+    const targetPath = getConfigPath(options);
+    const legacyPath = getLegacyConfigPath(options);
+    if (fs.existsSync(targetPath)) {
+        return {state: fs.existsSync(legacyPath) ? 'conflict' : 'current', targetPath, legacyPath};
+    }
+    if (!fs.existsSync(legacyPath)) {
+        return {state: 'absent', targetPath, legacyPath};
+    }
+    fs.mkdirSync(path.dirname(targetPath), {recursive: true, mode: 0o700});
+    fs.renameSync(legacyPath, targetPath);
+    return {state: 'migrated', targetPath, legacyPath};
+}
+
+/** Report the canonical and legacy locations without reading credential content. */
+export function getConfigMigrationStatus(options = {}) {
+    return migrateLegacyConfigIfNeeded(options);
 }
 
 export function getDefaultConfig() {
@@ -217,6 +245,7 @@ function writePrivateJsonAtomic(filePath, value) {
 }
 
 export function readConfig(options = {}) {
+    migrateLegacyConfigIfNeeded(options);
     const configPath = getConfigPath(options);
     if (!fs.existsSync(configPath)) {
         return getDefaultConfig();
@@ -236,6 +265,7 @@ export function readConfig(options = {}) {
 }
 
 export function writeConfig(config, options = {}) {
+    migrateLegacyConfigIfNeeded(options);
     const normalized = normalizeConfig(config);
     writePrivateJsonAtomic(getConfigPath(options), normalized);
     return normalized;

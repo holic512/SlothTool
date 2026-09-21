@@ -1,12 +1,12 @@
 /**
  * @file SlothVaultMcpService
  * @project SlothTool
- * @module SlothVault MCP Plugin / Services
- * @description 通过官方 MCP SDK 提供 SlothVault 管理员服务发现、调用、诊断与受保护 Resource 下载。
+ * @module SlothVault Multifunction Plugin / MCP Services
+ * @description 通过官方 MCP SDK 为独立 slothvault-mcp 命令提供 SlothVault 管理员服务发现、调用、诊断与受保护 Resource 下载。
  * @logic 1. 每次操作建立独立无状态连接并验证服务端身份；2. 实时发现能力和 Tool 风险；3. 写 Tool 强制确认且不重试；4. Resource 经校验后排他式原子落盘。
  * @dependencies MCP SDK Client/StreamableHTTPClientTransport, Node: fs/path, Config: ./config.js, History: ./history.js
  * @index_tags slothvault,mcp,client,streamable-http,tools,resources
- * @author MengJiaXu
+ * @author holic512
  */
 
 import fs from 'node:fs';
@@ -147,7 +147,7 @@ async function createClient(profile, options) {
         return await options.clientFactory({profile, options});
     }
     return new Client(
-        {name: '@holic512/plugin-slothvault-mcp', version: options.clientVersion || '1.0.0'},
+        {name: '@holic512/plugin-slothvault', version: options.clientVersion || '2.0.0'},
         {capabilities: {}}
     );
 }

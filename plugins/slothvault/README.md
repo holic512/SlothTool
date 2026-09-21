@@ -1,8 +1,35 @@
-# @holic512/plugin-slothvault-mcp
+# @holic512/plugin-slothvault
 
-SlothVault administrator MCP client for SlothTool. The plugin discovers tools, prompts, and resource templates from the server at runtime; it does not embed a fixed SlothVault tool catalog.
+SlothVault's multifunction package for SlothTool. It provides the standard-library Linux deployment program, Codex/Claude Code Skill management, and an administrator MCP client that can be registered as the standalone `slothvault-mcp` command. The MCP client discovers tools, prompts, and resource templates from the server at runtime; it does not embed a fixed SlothVault tool catalog.
 
-The CLI is the only remote MCP execution surface. The full-screen TUI displays connection state, live capabilities, and redacted local call history, and it can manage local connection profiles and the bundled agent Skill. It never calls Tools, fetches Prompt content, or reads Resources.
+`slothtool slothvault` opens the local multifunction manager. It never deploys, invokes an MCP Tool, fetches Prompt content, or reads Resources automatically. The separately registered `slothvault-mcp` command is the only remote MCP execution surface; its full-screen TUI displays connection state, live capabilities, redacted local call history, and local connection profiles.
+
+## Install and command registration
+
+```bash
+npm install -g @holic512/slothtool
+slothtool install slothvault
+slothtool slothvault mcp status
+slothtool slothvault mcp register
+```
+
+Registration creates a managed symbolic link on Unix/macOS or a managed `.cmd` launcher on Windows. It never overwrites an existing user-owned command. Replacing a detected non-managed launcher requires an interactive confirmation, or both `--replace --yes` in a non-interactive terminal. `unregister` only deletes a launcher that is verifiably managed by this plugin.
+
+The prior `slothtool slothvault-mcp …` shorthand remains a deprecated compatibility entry: MCP arguments use the new MCP executable and its old `skill …` subcommand is forwarded to `slothtool slothvault skill …`.
+
+## Deployment
+
+```bash
+slothtool slothvault deploy
+slothtool slothvault deploy --action check-update
+slothtool slothvault deploy --action update
+```
+
+The Node launcher uses `spawn` without shell interpolation and passes deployment arguments and exit status directly to the bundled Python 3.8+ installer. Docker Engine and Docker Compose v2 remain required. When an action needs `/data`, Nginx, or Certbot administration, preserve the installing user's SlothTool home while elevating:
+
+```bash
+sudo env HOME="$HOME" "$(command -v slothtool)" slothvault deploy
+```
 
 ## Requirements
 
@@ -31,7 +58,7 @@ slothvault-mcp profile update staging --timeout 60000
 slothvault-mcp profile remove staging
 ```
 
-Profiles are stored in `~/.pipker/slothtool/plugin-configs/slothvault-mcp.json`. Profile output masks the stored key.
+Profiles are stored in `~/.pipker/slothtool/plugin-configs/slothvault.json`. Profile output masks the stored key. On first use, an existing `slothvault-mcp.json` is atomically moved only if the canonical path does not exist; if both paths exist, neither is overwritten or merged.
 
 ## Discovery and calls
 
@@ -53,19 +80,19 @@ Tool calls are not automatically retried. Resource downloads validate the SlothV
 
 ## Agent Skill
 
-The release includes a `slothvault-mcp` Skill that directs supported coding agents to use this CLI, inspect the live MCP catalog, protect credentials, and confirm every Tool that is not explicitly annotated as read-only.
+The release includes a `slothvault-mcp` Skill that directs supported coding agents to use the registered standalone command, inspect the live MCP catalog, protect credentials, and confirm every Tool that is not explicitly annotated as read-only.
 
 ```bash
-slothvault-mcp skill status
-slothvault-mcp skill install
-slothvault-mcp skill uninstall
+slothtool slothvault skill status
+slothtool slothvault skill install
+slothtool slothvault skill uninstall
 ```
 
 Installation first detects Codex and Claude Code from their configuration directories or executables, then creates a directory link for every detected agent: `$CODEX_HOME/skills/slothvault-mcp` (default `~/.codex/skills/slothvault-mcp`) and `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp` (default `~/.claude/skills/slothvault-mcp`). It does not create new links under `~/.agents/skills`. This keeps the Skill synchronized when SlothTool updates the plugin in place. On Windows, the equivalent directory junction is used. Restart an agent if the Skill does not appear.
 
 If another file, directory, or link already occupies any detected-agent target, interactive installation lists every conflicting path before asking whether to permanently delete them without a backup. Non-interactive and `--json` replacement require `--yes`. Uninstall removes only links that point to this plugin's current Skill and refuses to delete unmanaged targets. A managed link left by version 1.2.0 under `~/.agents/skills` is removed during the next install or uninstall; conflicting content there is never deleted.
 
-Run `slothvault-mcp skill uninstall` before uninstalling the SlothTool plugin. `slothtool uninstall slothvault-mcp` does not remove the user-level Skill link automatically.
+Run `slothtool slothvault skill uninstall` before uninstalling the SlothTool plugin. `slothtool uninstall slothvault` does not remove the user-level Skill link automatically.
 
 ## History and TUI
 
@@ -76,9 +103,9 @@ slothvault-mcp history clear --yes
 slothvault-mcp
 ```
 
-History is stored in `~/.pipker/slothtool/data/slothvault-mcp/history.json`, capped at 200 redacted summaries. Full arguments, full results, Bearer keys, and resource payloads are never retained. Uninstalling the plugin keeps this history until it is explicitly cleared.
+History is stored in `~/.pipker/slothtool/data/slothvault/history.json`, capped at 200 redacted summaries. Full arguments, full results, Bearer keys, and resource payloads are never retained. On first use, legacy history is atomically moved only when the new file is absent. Uninstalling the plugin keeps this history until it is explicitly cleared.
 
-In the TUI, use `Tab` to switch among Status, Capabilities, History, Profiles, and Skill; use the arrow keys to inspect items, `r` to refresh the active remote page or the local Skill status, and `q` to exit. On the Profiles page, use `a` to add, `e` or `Enter` to edit, `u` to select the default, and `d` to delete after confirmation. Profile forms use `Up`/`Down` to move between fields, `Enter` to advance or save, `Ctrl+U` to clear the current field, `Space` to toggle the default setting, and `Esc` to cancel. On the Skill page, use `i` or `Enter` to install and `u` to uninstall; replacement and uninstall require `y/n` confirmation.
+In the MCP TUI, use `Tab` to switch among Status, Capabilities, History, and Profiles; use the arrow keys to inspect items, `r` to refresh the active remote page, and `q` to exit. On the Profiles page, use `a` to add, `e` or `Enter` to edit, `u` to select the default, and `d` to delete after confirmation. Profile forms use `Up`/`Down` to move between fields, `Enter` to advance or save, `Ctrl+U` to clear the current field, `Space` to toggle the default setting, and `Esc` to cancel.
 
 The TUI never loads an existing raw key into an edit form and never renders a newly typed key. Leaving the key field empty while editing preserves the stored value. Profile changes are local and do not connect automatically; press `r` after changing the default profile or its connection settings to refresh remote capabilities. The TUI still never calls Tools, fetches Prompt content, reads Resources, or clears history.
 

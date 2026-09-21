@@ -5,13 +5,19 @@ description: Safely inspect and operate the SlothVault administrator MCP through
 
 # SlothVault MCP
 
-Use the plugin CLI as the only SlothVault MCP execution surface. Prefer `slothvault-mcp`; if it is not directly available, use `slothtool slothvault-mcp` as the command prefix.
+Use the registered `slothvault-mcp` CLI as the only SlothVault MCP execution surface. Do not fall back to `slothtool slothvault-mcp`.
 
 ## Establish the connection
 
-1. Run the selected command prefix with `--help` to confirm that the plugin is available.
-2. Run `doctor --json`, adding `--profile <name>` when the user selected a non-default profile.
-3. If no usable profile exists, ask the user to configure one in their own interactive terminal. Direct them to hidden input, `--key-stdin`, or `--key-env`. Never ask them to paste an MCP Key into the conversation, and never place a Key in command arguments or output.
+1. Run `slothvault-mcp --help` to confirm that the command is registered.
+2. If the command is unavailable, direct the user to install and register it in their own terminal:
+   ```bash
+   slothtool install slothvault
+   slothtool slothvault mcp register
+   ```
+   Do not substitute the deprecated SlothTool shorthand.
+3. Run `slothvault-mcp doctor --json`, adding `--profile <name>` when the user selected a non-default profile.
+4. If no usable profile exists, ask the user to configure one in their own interactive terminal. Direct them to hidden input, `--key-stdin`, or `--key-env`. Never ask them to paste an MCP Key into the conversation, and never place a Key in command arguments or output.
 
 ## Discover before acting
 
