@@ -43,6 +43,28 @@ export function getLegacyConfigPath(options = {}) {
     return options.legacyConfigPath || path.join(getSlothToolHome(options), 'plugin-configs', 'slothvault-mcp.json');
 }
 
+/** Inspect profile storage paths without opening either document or triggering migration. */
+export function getConfigStorageStatus(options = {}) {
+    const targetPath = getConfigPath(options);
+    if (options.configPath) {
+        return {state: 'custom', targetPath, legacyPath: null};
+    }
+    const legacyPath = getLegacyConfigPath(options);
+    const canonicalExists = fs.existsSync(targetPath);
+    const legacyExists = fs.existsSync(legacyPath);
+    return {
+        state: canonicalExists && legacyExists
+            ? 'conflict'
+            : canonicalExists
+                ? 'current'
+                : legacyExists
+                    ? 'legacy-only'
+                    : 'absent',
+        targetPath,
+        legacyPath
+    };
+}
+
 /** Move a v1 profile file only when the canonical target has not been created yet. */
 function migrateLegacyConfigIfNeeded(options = {}) {
     if (options.configPath) {
@@ -406,6 +428,7 @@ export function getConfigSummary(options = {}) {
 export default {
     addProfile,
     getConfigPath,
+    getConfigStorageStatus,
     getConfigSummary,
     getDefaultConfig,
     getProfile,

@@ -20,6 +20,7 @@ import {
     addProfile,
     API_KEY_PATTERN,
     getConfigMigrationStatus,
+    getConfigStorageStatus,
     getProfile,
     listProfiles,
     maskApiKey,
@@ -40,6 +41,7 @@ import {
     createHistorySummary,
     HISTORY_LIMIT,
     getHistoryMigrationStatus,
+    getHistoryStorageStatus,
     listHistory,
     redactSensitive,
     SUMMARY_LIMIT
@@ -337,16 +339,25 @@ test('Profile and history move from legacy locations without merging conflicting
     fs.writeFileSync(legacyConfigPath, JSON.stringify({schemaVersion: 1, defaultProfile: null, profiles: {}}), 'utf8');
     fs.writeFileSync(legacyHistoryPath, JSON.stringify({schemaVersion: 1, entries: []}), 'utf8');
 
+    assert.equal(getConfigStorageStatus({slothToolHome: root}).state, 'legacy-only');
+    assert.equal(getHistoryStorageStatus({slothToolHome: root}).state, 'legacy-only');
+    assert.equal(fs.existsSync(canonicalConfigPath), false);
+    assert.equal(fs.existsSync(canonicalHistoryPath), false);
+
     assert.equal(getConfigMigrationStatus({slothToolHome: root}).state, 'migrated');
     assert.equal(getHistoryMigrationStatus({slothToolHome: root}).state, 'migrated');
     assert.equal(fs.existsSync(legacyConfigPath), false);
     assert.equal(fs.existsSync(legacyHistoryPath), false);
     assert.equal(fs.existsSync(canonicalConfigPath), true);
     assert.equal(fs.existsSync(canonicalHistoryPath), true);
+    assert.equal(getConfigStorageStatus({slothToolHome: root}).state, 'current');
+    assert.equal(getHistoryStorageStatus({slothToolHome: root}).state, 'current');
 
     fs.writeFileSync(legacyConfigPath, '{"legacy":true}', 'utf8');
     fs.mkdirSync(path.dirname(legacyHistoryPath), {recursive: true});
     fs.writeFileSync(legacyHistoryPath, '{"legacy":true}', 'utf8');
+    assert.equal(getConfigStorageStatus({slothToolHome: root}).state, 'conflict');
+    assert.equal(getHistoryStorageStatus({slothToolHome: root}).state, 'conflict');
     assert.equal(getConfigMigrationStatus({slothToolHome: root}).state, 'conflict');
     assert.equal(getHistoryMigrationStatus({slothToolHome: root}).state, 'conflict');
     assert.equal(fs.readFileSync(canonicalConfigPath, 'utf8').includes('"legacy":true'), false);
@@ -424,7 +435,7 @@ test('Deployment runner reports missing entrypoints and preserves arguments, exi
     assert.equal(result.code, 7);
     assert.deepEqual(JSON.parse(fs.readFileSync(resultPath, 'utf8')), {
         args: ['--action', 'status'],
-        version: '2.0.0'
+        version: '2.0.1'
     });
     assert.equal(getDeploymentPaths().entryPath.endsWith(path.join('deploy', 'install.py')), true);
 });
@@ -906,6 +917,7 @@ test('CLI help, JSON errors, input-source exclusivity, key handling, and exit co
     assert.match(help.stdout, /tools call <tool>/u);
     assert.match(help.stdout, /resources list \[--profile/u);
     assert.match(help.stdout, /resources read <uri> --output <path>/u);
+    assert.match(help.stdout, /storage status/u);
     assert.doesNotMatch(help.stdout, /skill status\|install\|uninstall/u);
     assert.match(help.stdout, /--args-file <path>/u);
 
@@ -950,6 +962,55 @@ test('CLI help, JSON errors, input-source exclusivity, key handling, and exit co
     const cleared = runCli(['history', 'clear', '--yes', '--json']);
     assert.equal(cleared.status, 0, cleared.stderr);
     assert.equal(JSON.parse(cleared.stdout).cleared, 0);
+});
+
+test('storage status reports path state without reading, migrating, or exposing local credentials', context => {
+    const homeDirectory = makeTemporaryDirectory('storage-status-cli');
+    const slothToolHome = path.join(homeDirectory, '.pipker', 'slothtool');
+    const canonicalConfigPath = path.join(slothToolHome, 'plugin-configs', 'slothvault.json');
+    const legacyConfigPath = path.join(slothToolHome, 'plugin-configs', 'slothvault-mcp.json');
+    const canonicalHistoryPath = path.join(slothToolHome, 'data', 'slothvault', 'history.json');
+    const legacyHistoryPath = path.join(slothToolHome, 'data', 'slothvault-mcp', 'history.json');
+
+    const absent = runCli(['storage', 'status', '--json'], {homeDirectory});
+    if (skipIfProcessCreationIsBlocked(context, absent)) return;
+    assert.equal(absent.status, 0, absent.stderr);
+    assert.equal(JSON.parse(absent.stdout).config.state, 'absent');
+    assert.equal(JSON.parse(absent.stdout).history.state, 'absent');
+
+    fs.mkdirSync(path.dirname(legacyConfigPath), {recursive: true});
+    fs.mkdirSync(path.dirname(canonicalHistoryPath), {recursive: true});
+    fs.mkdirSync(path.dirname(legacyHistoryPath), {recursive: true});
+    fs.writeFileSync(legacyConfigPath, JSON.stringify({
+        schemaVersion: 1,
+        defaultProfile: 'legacy',
+        profiles: {legacy: makeProfile({name: 'legacy'})}
+    }), 'utf8');
+    fs.writeFileSync(canonicalHistoryPath, JSON.stringify({schemaVersion: 1, entries: []}), 'utf8');
+    fs.writeFileSync(legacyHistoryPath, JSON.stringify({schemaVersion: 1, entries: [{summary: VALID_KEY}]}), 'utf8');
+
+    const mixed = runCli(['storage', 'status', '--json'], {homeDirectory});
+    assert.equal(mixed.status, 0, mixed.stderr);
+    const result = JSON.parse(mixed.stdout);
+    assert.equal(result.config.state, 'legacy-only');
+    assert.equal(result.history.state, 'conflict');
+    assert.equal(fs.existsSync(canonicalConfigPath), false);
+    assert.doesNotMatch(`${mixed.stdout}\n${mixed.stderr}`, new RegExp(VALID_KEY, 'u'));
+});
+
+test('the multifunction entry rejects MCP execution groups without forwarding or writing local data', context => {
+    const homeDirectory = makeTemporaryDirectory('manager-mcp-contract');
+    for (const command of ['profile', 'doctor', 'tools', 'prompts', 'resources', 'history', 'storage']) {
+        const result = runManager([command, '--json'], {homeDirectory});
+        if (skipIfProcessCreationIsBlocked(context, result)) return;
+        assert.equal(result.status, 2, `${command}: ${result.stderr}`);
+        const response = JSON.parse(result.stdout);
+        assert.equal(response.ok, false);
+        assert.equal(response.error.code, 'SLOTHVAULT_MCP_COMMAND_REQUIRED');
+        assert.match(response.error.message, /slothvault-mcp/u);
+    }
+    assert.equal(fs.existsSync(path.join(homeDirectory, '.pipker', 'slothtool', 'plugin-configs', 'slothvault.json')), false);
+    assert.equal(fs.existsSync(path.join(homeDirectory, '.pipker', 'slothtool', 'plugin-configs', 'slothvault-mcp.json')), false);
 });
 
 test('multifunction CLI exposes stable Skill status, install, conflict replacement, and uninstall contracts', context => {
@@ -1028,7 +1089,7 @@ test('MCP TUI has a smoke exit, stable narrow layout, local Profile management, 
     assert.equal(smoke.status, 0, smoke.stderr);
     const renderSmoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'render-exit'}});
     assert.equal(renderSmoke.status, 0, renderSmoke.stderr);
-    assert.match(renderSmoke.stdout, /SlothVault MCP 2\.0\.0/u);
+    assert.match(renderSmoke.stdout, /SlothVault MCP 2\.0\.1/u);
 
     const narrow = resolveSlothVaultTuiLayout(30, 10);
     assert.equal(narrow.columns, 40);

@@ -13,6 +13,7 @@ Concise repo rules for Codex working on SlothTool.
 - `plugins/codex-models` ships as an official CLI + TUI plugin workspace for Codex custom-provider diagnostics, cross-vendor model metadata, reasoning-level switching, catalog sync, and safe Desktop offline repair-script generation.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
 - `plugins/slothvault` ships as the official SlothVault multifunction workspace: `slothtool slothvault` manages Linux deployment, user-installable Codex/Claude Code Skill links, and explicit standalone MCP command registration; the independently registered `slothvault-mcp` executable dynamically discovers and safely invokes the administrator MCP while its TUI manages only local profiles and read-only remote inspection.
+- Root alias migration moves only the SlothVault plugin identity, registry entry, and installed directory; Profile and redacted-history path migration belongs exclusively to a current SlothVault multifunction plugin.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
 - Runtime baseline:
@@ -112,6 +113,7 @@ SlothVault multifunction package rules:
 - Never load a stored raw MCP Key into TUI state or render typed Key content; clear transient Key input after save, cancellation, or validation failure.
 - Never print or persist complete credentials, request arguments, results, or Resource payloads outside their explicit output file.
 - Register `slothvault-mcp` only beside the verified, PATH-resolved running `slothtool` command. Direct source execution must report that registration is unavailable; Unix/macOS launchers are managed links, Windows launchers are marked `.cmd` shims, and non-managed targets are never replaced or deleted without the explicit registration flow.
+- Do not forward MCP operations from `slothtool slothvault`; reject them with the standalone-command guidance. Before launching SlothVault, reject any installed package that is not the current dual-executable `@holic512/plugin-slothvault` runtime so it cannot recreate the legacy configuration path.
 
 ## 5. Fast Change Map
 

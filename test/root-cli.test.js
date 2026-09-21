@@ -271,19 +271,51 @@ test('canonical SlothVault launch upgrades a registry-only legacy entry to the m
     assert.equal(persistedRegistry.plugins.slothvault.binPath, slothVaultBin);
 });
 
-test('canonical SlothVault launch atomically migrates the legacy installed directory and registry entry', () => {
+test('canonical SlothVault launch migrates the legacy install identity but refuses its MCP-only runtime', () => {
     const homeDir = createTempHome();
     const legacy = addLegacySlothVaultInstall(homeDir);
-    const output = runNode(rootBin, ['slothvault'], {HOME: homeDir});
     const canonicalDirectory = path.join(homeDir, '.pipker', 'slothtool', 'plugins', 'slothvault');
+    const slothToolDirectory = path.join(homeDir, '.pipker', 'slothtool');
+    const canonicalConfigPath = path.join(slothToolDirectory, 'plugin-configs', 'slothvault.json');
+    const legacyConfigPath = path.join(slothToolDirectory, 'plugin-configs', 'slothvault-mcp.json');
+    const canonicalHistoryPath = path.join(slothToolDirectory, 'data', 'slothvault', 'history.json');
+    const legacyHistoryPath = path.join(slothToolDirectory, 'data', 'slothvault-mcp', 'history.json');
+    const sensitiveKey = `svmcp_${'X'.repeat(24)}.${'Y'.repeat(43)}`;
+    fs.mkdirSync(path.dirname(canonicalConfigPath), {recursive: true});
+    fs.mkdirSync(path.dirname(canonicalHistoryPath), {recursive: true});
+    fs.mkdirSync(path.dirname(legacyHistoryPath), {recursive: true});
+    fs.writeFileSync(canonicalConfigPath, JSON.stringify({
+        schemaVersion: 1,
+        defaultProfile: 'local',
+        profiles: {local: {apiKey: sensitiveKey}}
+    }), 'utf8');
+    fs.writeFileSync(legacyConfigPath, JSON.stringify({schemaVersion: 1, defaultProfile: null, profiles: {}}), 'utf8');
+    fs.writeFileSync(canonicalHistoryPath, JSON.stringify({schemaVersion: 1, entries: []}), 'utf8');
+    fs.writeFileSync(legacyHistoryPath, JSON.stringify({schemaVersion: 1, entries: []}), 'utf8');
+
+    assert.throws(() => runNode(rootBin, ['slothvault', 'doctor'], {HOME: homeDir}), error => {
+        const output = `${error.stdout || ''}\n${error.stderr || ''}`;
+        assert.match(output, /SLOTHVAULT_PLUGIN_UPGRADE_REQUIRED/u);
+        assert.doesNotMatch(output, new RegExp(sensitiveKey, 'u'));
+        return true;
+    });
     const persistedRegistry = JSON.parse(fs.readFileSync(legacy.registryPath, 'utf8'));
 
-    assert.match(output, /LEGACY_SLOTHVAULT_MIGRATED/u);
     assert.equal(fs.existsSync(legacy.pluginDirectory), false);
     assert.equal(fs.existsSync(canonicalDirectory), true);
     assert.equal(persistedRegistry.plugins['slothvault-mcp'], undefined);
     assert.equal(persistedRegistry.plugins.slothvault.binPath, path.join(canonicalDirectory, 'bin', 'slothvault.js'));
     assert.equal(persistedRegistry.plugins.slothvault.packageName, '@holic512/plugin-slothvault');
+    assert.equal(fs.existsSync(canonicalConfigPath), true);
+    assert.equal(fs.existsSync(legacyConfigPath), true);
+    assert.equal(fs.existsSync(canonicalHistoryPath), true);
+    assert.equal(fs.existsSync(legacyHistoryPath), true);
+
+    assert.doesNotThrow(() => runNode(rootBin, ['uninstall', 'slothvault'], {HOME: homeDir}));
+    const afterUninstall = JSON.parse(fs.readFileSync(legacy.registryPath, 'utf8'));
+    assert.equal(afterUninstall.plugins.slothvault, undefined);
+    assert.equal(fs.existsSync(canonicalHistoryPath), true);
+    assert.equal(fs.existsSync(legacyHistoryPath), true);
 });
 
 test('canonical SlothVault commands stop on an existing legacy/canonical migration conflict without changing either install', () => {
@@ -294,7 +326,7 @@ test('canonical SlothVault commands stop on an existing legacy/canonical migrati
     fs.writeFileSync(path.join(canonicalDirectory, 'keep.txt'), 'canonical install');
 
     assert.throws(() => runNode(rootBin, ['slothvault', '--help'], {HOME: homeDir}), error => {
-        assert.match(String(error.stderr || ''), /旧版 SlothVault 数据与新位置同时存在/u);
+        assert.match(String(error.stderr || ''), /旧版与规范 SlothVault 插件安装同时存在/u);
         return true;
     });
     const persistedRegistry = JSON.parse(fs.readFileSync(legacy.registryPath, 'utf8'));

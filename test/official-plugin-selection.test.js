@@ -105,11 +105,11 @@ test('official catalog exposes canonical slothvault metadata and resolves its de
     assert.equal(plugin.releaseTagPrefix, 'plugin-slothvault-v');
     assert.equal(plugin.assetNamePrefix, 'holic512-plugin-slothvault-');
     assert.equal(plugin.assetStrategy, undefined);
-    assert.equal(rootPackage.version, '2.5.0');
+    assert.equal(rootPackage.version, '2.5.1');
     assert.ok(rootPackage.workspaces.includes('plugins/slothvault'));
     assert.equal(rootPackage.scripts['dev:slothvault'], 'node plugins/slothvault/bin/slothvault.js');
     assert.equal(pluginPackage.name, '@holic512/plugin-slothvault');
-    assert.equal(pluginPackage.version, '2.0.0');
+    assert.equal(pluginPackage.version, '2.0.1');
     assert.equal(pluginPackage.bin.slothvault, 'bin/slothvault.js');
     assert.equal(pluginPackage.bin['slothvault-mcp'], 'bin/slothvault-mcp.js');
     assert.equal(pluginPackage.dependencies['@modelcontextprotocol/sdk'], '1.30.0');

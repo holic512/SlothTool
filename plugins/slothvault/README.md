@@ -17,6 +17,8 @@ Registration creates a managed symbolic link on Unix/macOS or a managed `.cmd` l
 
 The prior `slothtool slothvault-mcp …` shorthand remains a deprecated compatibility entry: MCP arguments use the new MCP executable and its old `skill …` subcommand is forwarded to `slothtool slothvault skill …`.
 
+`slothtool slothvault` is intentionally limited to the local multifunction manager, deployment, Skill management, and MCP command registration. It rejects `profile`, `doctor`, `tools`, `prompts`, `resources`, `history`, and `storage` arguments rather than forwarding them or writing a legacy configuration path. Use the registered `slothvault-mcp` command for every MCP operation.
+
 ## Deployment
 
 ```bash
@@ -56,9 +58,21 @@ slothvault-mcp profile show production
 slothvault-mcp profile use staging
 slothvault-mcp profile update staging --timeout 60000
 slothvault-mcp profile remove staging
+slothvault-mcp storage status --json
 ```
 
 Profiles are stored in `~/.pipker/slothtool/plugin-configs/slothvault.json`. Profile output masks the stored key. On first use, an existing `slothvault-mcp.json` is atomically moved only if the canonical path does not exist; if both paths exist, neither is overwritten or merged.
+
+`storage status` reads only path existence and reports `absent`, `legacy-only`, `current`, or `conflict` separately for Profiles and redacted history. It never reads, prints, merges, or overwrites a Key or historical content. A `SLOTHVAULT_PLUGIN_UPGRADE_REQUIRED` root error means an old MCP-only plugin package is installed under the new alias; run `slothtool update slothvault`, register the standalone command again, and use `slothvault-mcp` rather than retrying profile creation through the manager command.
+
+For a deliberate development-only reset, first decide explicitly to discard local Profiles, Keys, and redacted history. Delete the following four fixed paths yourself, then run the uninstall/install/register sequence above and create a new Profile with `--key-stdin`:
+
+```text
+~/.pipker/slothtool/plugin-configs/slothvault.json
+~/.pipker/slothtool/plugin-configs/slothvault-mcp.json
+~/.pipker/slothtool/data/slothvault/
+~/.pipker/slothtool/data/slothvault-mcp/
+```
 
 ## Discovery and calls
 
@@ -100,6 +114,7 @@ Run `slothtool slothvault skill uninstall` before uninstalling the SlothTool plu
 slothvault-mcp history list
 slothvault-mcp history show <id>
 slothvault-mcp history clear --yes
+slothvault-mcp storage status
 slothvault-mcp
 ```
 

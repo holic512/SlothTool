@@ -16,6 +16,7 @@ import {createInterface} from 'node:readline/promises';
 import process from 'node:process';
 import {
     addProfile,
+    getConfigStorageStatus,
     getProfile,
     listProfiles,
     maskApiKey,
@@ -23,7 +24,7 @@ import {
     updateProfile,
     useProfile
 } from '../lib/config.js';
-import {clearHistory, getHistory, listHistory} from '../lib/history.js';
+import {clearHistory, getHistory, getHistoryStorageStatus, listHistory} from '../lib/history.js';
 import {
     callTool,
     classifyError,
@@ -298,6 +299,26 @@ function printDoctor(result, json) {
     console.log(`${t('resources')}: ${safeResult.capabilities?.resourceTemplates ?? 0}`);
 }
 
+/** Print local storage-path migration state without reading profiles, history, or credentials. */
+function printStorageStatus(json) {
+    const result = {
+        config: getConfigStorageStatus(),
+        history: getHistoryStorageStatus()
+    };
+    if (json) {
+        printJson(result);
+        return;
+    }
+    console.log(t('storageStatusTitle'));
+    for (const [name, status] of Object.entries(result)) {
+        console.log(`${t(`storage.${name}`)}: ${t(`storage.states.${status.state}`)}`);
+        console.log(`  ${t('storage.canonicalPath')}: ${status.targetPath}`);
+        if (status.legacyPath) {
+            console.log(`  ${t('storage.legacyPath')}: ${status.legacyPath}`);
+        }
+    }
+}
+
 /** Ask for a write-capable Tool confirmation in an interactive terminal. */
 async function confirmTool({tool, argumentsSummary, signal}) {
     if (!isInteractiveTerminal()) {
@@ -333,6 +354,7 @@ function printHelp() {
     console.log('  slothvault-mcp resources list [--profile <name>] [--json]');
     console.log('  slothvault-mcp resources read <uri> --output <path> [--profile <name>] [--json]');
     console.log('  slothvault-mcp history list|show <id>|clear [--json] [--yes]');
+    console.log('  slothvault-mcp storage status [--json]');
     console.log('');
     console.log(t('options'));
     console.log(`  -h, --help          ${t('help')}`);
@@ -512,6 +534,15 @@ async function runHistoryCommand(args, json) {
     throw usageError(t('unknownCommand', {command: `history ${subcommand}`}));
 }
 
+/** Run local metadata-only storage inspection without touching profile or history contents. */
+async function runStorageCommand(args, json) {
+    const subcommand = args[1] || 'status';
+    if (subcommand !== 'status') {
+        throw usageError(t('unknownCommand', {command: `storage ${subcommand}`}));
+    }
+    printStorageStatus(json);
+}
+
 /** Dispatch the complete CLI after removing global flags. */
 async function runCli(args) {
     const json = hasFlag(args, '--json');
@@ -524,6 +555,10 @@ async function runCli(args) {
     }
     if (command === 'history') {
         await runHistoryCommand(commandArgs, json);
+        return;
+    }
+    if (command === 'storage') {
+        await runStorageCommand(commandArgs, json);
         return;
     }
     await runRemoteCommand(commandArgs, json, profileName);

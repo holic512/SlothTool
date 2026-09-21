@@ -5,7 +5,7 @@ description: Safely inspect and operate the SlothVault administrator MCP through
 
 # SlothVault MCP
 
-Use the registered `slothvault-mcp` CLI as the only SlothVault MCP execution surface. Do not fall back to `slothtool slothvault-mcp`.
+Use the registered `slothvault-mcp` CLI as the only SlothVault MCP execution surface. Do not fall back to `slothtool slothvault-mcp`, and do not use `slothtool slothvault profile`, `doctor`, `tools`, `prompts`, `resources`, `history`, or `storage`: those MCP groups belong to the standalone executable and the multifunction command rejects them.
 
 ## Establish the connection
 
@@ -18,6 +18,32 @@ Use the registered `slothvault-mcp` CLI as the only SlothVault MCP execution sur
    Do not substitute the deprecated SlothTool shorthand.
 3. Run `slothvault-mcp doctor --json`, adding `--profile <name>` when the user selected a non-default profile.
 4. If no usable profile exists, ask the user to configure one in their own interactive terminal. Direct them to hidden input, `--key-stdin`, or `--key-env`. Never ask them to paste an MCP Key into the conversation, and never place a Key in command arguments or output.
+
+## Diagnose local configuration safely
+
+- Run `slothvault-mcp storage status --json` before treating a configuration failure as a Key issue. It reports only the canonical and legacy path states; it never opens or prints profile Keys or history content.
+- If root output contains `SLOTHVAULT_PLUGIN_UPGRADE_REQUIRED`, the installed plugin is the former MCP-only package under the new alias. Do not retry profile creation. Direct the user to run `slothtool update slothvault`, then `slothtool slothvault mcp register`, and retry the standalone command.
+- If `doctor` returns `DEFAULT_PROFILE_NOT_SET`, run `slothvault-mcp profile list --json` and `slothvault-mcp storage status --json`. A missing default profile, a legacy-only profile file, and a storage conflict are separate conditions; do not infer that the MCP Key is invalid.
+- For a `conflict` storage state, preserve both files. The canonical path is the active v2 location; do not merge, overwrite, read, or echo either file merely to resolve the warning.
+
+Only when the user explicitly asks to discard local Profiles, Keys, and redacted history for a development reset, identify these exact targets for the user to delete manually in their own terminal, then let them uninstall, install, register, and reconfigure the plugin:
+
+```text
+~/.pipker/slothtool/plugin-configs/slothvault.json
+~/.pipker/slothtool/plugin-configs/slothvault-mcp.json
+~/.pipker/slothtool/data/slothvault/
+~/.pipker/slothtool/data/slothvault-mcp/
+```
+
+The agent must not perform those deletions. After the user has completed their chosen reset, use this single command sequence:
+
+```bash
+slothtool uninstall slothvault
+slothtool install slothvault
+slothtool slothvault mcp register
+slothvault-mcp profile add <name> --url <url> --default --key-stdin
+slothvault-mcp doctor --json
+```
 
 ## Discover before acting
 

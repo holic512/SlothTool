@@ -147,7 +147,7 @@ async function createClient(profile, options) {
         return await options.clientFactory({profile, options});
     }
     return new Client(
-        {name: '@holic512/plugin-slothvault', version: options.clientVersion || '2.0.0'},
+        {name: '@holic512/plugin-slothvault', version: options.clientVersion || '2.0.1'},
         {capabilities: {}}
     );
 }

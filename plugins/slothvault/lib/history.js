@@ -36,6 +36,28 @@ export function getLegacyHistoryPath(options = {}) {
     return options.legacyHistoryPath || path.join(slothToolHome, 'data', 'slothvault-mcp', 'history.json');
 }
 
+/** Inspect redacted-history storage paths without opening content or triggering migration. */
+export function getHistoryStorageStatus(options = {}) {
+    const targetPath = getHistoryPath(options);
+    if (options.historyPath) {
+        return {state: 'custom', targetPath, legacyPath: null};
+    }
+    const legacyPath = getLegacyHistoryPath(options);
+    const canonicalExists = fs.existsSync(targetPath);
+    const legacyExists = fs.existsSync(legacyPath);
+    return {
+        state: canonicalExists && legacyExists
+            ? 'conflict'
+            : canonicalExists
+                ? 'current'
+                : legacyExists
+                    ? 'legacy-only'
+                    : 'absent',
+        targetPath,
+        legacyPath
+    };
+}
+
 /** Move v1 redacted history only when no canonical history exists. */
 function migrateLegacyHistoryIfNeeded(options = {}) {
     if (options.historyPath) {
@@ -240,6 +262,7 @@ export default {
     clearHistory,
     createHistorySummary,
     getHistory,
+    getHistoryStorageStatus,
     getHistoryPath,
     listHistory,
     redactSensitive

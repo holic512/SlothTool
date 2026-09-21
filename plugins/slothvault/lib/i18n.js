@@ -55,6 +55,21 @@ export const messages = {
         yes: '是',
         no: '否',
         none: '无',
+        mcpExecutableRequired: 'MCP 配置、诊断、发现与调用必须使用已注册的 slothvault-mcp。请先运行：slothtool slothvault mcp register；然后运行：slothvault-mcp <MCP 子命令>。',
+        storageStatusTitle: 'SlothVault 本地存储状态',
+        storage: {
+            config: '配置档案',
+            history: '脱敏历史',
+            canonicalPath: '规范路径',
+            legacyPath: '旧版路径',
+            states: {
+                absent: '不存在',
+                current: '仅规范位置存在',
+                'legacy-only': '仅旧版位置存在（将在首次使用时安全迁移）',
+                conflict: '新旧位置同时存在（未合并、未覆盖）',
+                custom: '自定义测试路径'
+            }
+        },
         unknownCommand: '未知命令：{command}。请运行 slothvault-mcp --help。',
         tuiRequiresTerminal: '当前终端不是交互式 TTY，无法启动 SlothVault MCP TUI。',
         confirmationRequired: '该工具可能修改远端数据；非交互调用必须使用 --yes。',
@@ -343,6 +358,21 @@ export const messages = {
         yes: 'Yes',
         no: 'No',
         none: 'None',
+        mcpExecutableRequired: 'MCP profiles, diagnostics, discovery, and calls require the registered slothvault-mcp command. First run: slothtool slothvault mcp register; then run: slothvault-mcp <MCP subcommand>.',
+        storageStatusTitle: 'SlothVault local storage status',
+        storage: {
+            config: 'Profiles',
+            history: 'Redacted history',
+            canonicalPath: 'Canonical path',
+            legacyPath: 'Legacy path',
+            states: {
+                absent: 'absent',
+                current: 'canonical location only',
+                'legacy-only': 'legacy location only (migrates safely on first use)',
+                conflict: 'both locations exist (not merged or overwritten)',
+                custom: 'custom test path'
+            }
+        },
         unknownCommand: 'Unknown command: {command}. Run slothvault-mcp --help.',
         tuiRequiresTerminal: 'The current terminal is not interactive, so the SlothVault MCP TUI cannot start.',
         confirmationRequired: 'This tool may mutate remote data; non-interactive calls require --yes.',

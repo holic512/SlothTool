@@ -17,6 +17,9 @@ import {runDeployment} from '../lib/deploy-runner.js';
 import {getSkillStatus, installSkill, uninstallSkill} from '../lib/skill-manager.js';
 import {getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from '../lib/mcp-command-manager.js';
 import {startSlothVaultManagerTui} from '../lib/manager-tui.js';
+import {t} from '../lib/i18n.js';
+
+const MCP_EXECUTION_COMMANDS = new Set(['profile', 'doctor', 'tools', 'prompts', 'resources', 'history', 'storage']);
 
 function interactive() {
     return Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -55,6 +58,15 @@ async function confirm(question) {
     } finally {
         reader.close();
     }
+}
+
+/** Keep MCP execution on the separately registered executable without forwarding or local writes. */
+function mcpExecutableRequiredError() {
+    const error = new Error(t('mcpExecutableRequired'));
+    error.code = 'SLOTHVAULT_MCP_COMMAND_REQUIRED';
+    error.category = 'usage';
+    error.exitCode = 2;
+    return error;
 }
 
 async function runSkill(args, json) {
@@ -110,6 +122,7 @@ async function main() {
     }
     const [command, ...rest] = args;
     const json = hasFlag(rest, '--json');
+    if (MCP_EXECUTION_COMMANDS.has(command)) throw mcpExecutableRequiredError();
     if (command === 'deploy') {
         const result = await runDeployment(rest);
         process.exitCode = result.code;
