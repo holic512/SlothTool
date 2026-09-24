@@ -1,6 +1,6 @@
 # SlothVault Linux 部署程序
 
-这个目录由 `@holic512/plugin-slothvault` 随 SlothTool 一同安装，包含完整的纯标准库 Python 部署程序。它不依赖 SlothVault 源码目录或第三方 Python 包；必须通过 `slothtool slothvault deploy` 启动，以便接收插件版本并保持统一的更新路径。
+这个目录由 `@holic512/plugin-slothvault` 随 SlothTool 一同安装，包含完整的纯标准库 Python 部署程序。它不依赖 SlothVault 源码目录或第三方 Python 包；可从 `slothtool slothvault` 的“部署”页选择操作，或通过 `slothtool slothvault deploy` 直接启动。两种入口都传入插件版本并保持统一的更新路径。
 
 ## 快速安装
 
@@ -11,6 +11,8 @@ npm install -g @holic512/slothtool
 slothtool install slothvault
 sudo env HOME="$HOME" "$(command -v slothtool)" slothvault deploy
 ```
+
+也可以将上面命令末尾的 `deploy` 去掉，进入全屏管理页后切换到“部署”，选择“安装新实例”。
 
 首次安装选择 SQLite、MySQL 或 PostgreSQL 后，脚本会创建私有持久化目录和 `/data/slothvault/compose.yml`，再拉取并启动发布镜像。默认应用数据目录为 `/data/slothvault/data`；MySQL、PostgreSQL 数据分别位于 `/data/slothvault/mysql`、`/data/slothvault/postgresql`。Compose 文件权限为 `0600`，持久化数据目录权限为 `0700`。
 

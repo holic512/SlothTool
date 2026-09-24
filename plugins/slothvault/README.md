@@ -2,7 +2,7 @@
 
 SlothVault's multifunction package for SlothTool. It provides the standard-library Linux deployment program, Codex/Claude Code Skill management, and an administrator MCP client that can be registered as the standalone `slothvault-mcp` command. The MCP client discovers tools, prompts, and resource templates from the server at runtime; it does not embed a fixed SlothVault tool catalog.
 
-`slothtool slothvault` opens the local multifunction manager. It never deploys, invokes an MCP Tool, fetches Prompt content, or reads Resources automatically. The separately registered `slothvault-mcp` command is the only remote MCP execution surface; its full-screen TUI displays connection state, live capabilities, redacted local call history, and local connection profiles.
+`slothtool slothvault` opens the local multifunction manager. Deployment starts only when you select an action on its Deploy page and confirm a changing action; opening the manager never starts deployment. The manager does not invoke MCP Tools, fetch Prompt content, or read Resources. The separately registered `slothvault-mcp` command is the only remote MCP execution surface; its full-screen TUI displays connection state, live capabilities, redacted local call history, and local connection profiles.
 
 ## Install and command registration
 
@@ -20,6 +20,10 @@ The prior `slothtool slothvault-mcp …` shorthand remains a deprecated compatib
 `slothtool slothvault` is intentionally limited to the local multifunction manager, deployment, Skill management, and MCP command registration. It rejects `profile`, `doctor`, `tools`, `prompts`, `resources`, `history`, and `storage` arguments rather than forwarding them or writing a legacy configuration path. Use the registered `slothvault-mcp` command for every MCP operation.
 
 ## Deployment
+
+In the manager TUI, switch to **Deploy** with Tab, choose an action with Up/Down, and press Enter. Set the deployment root with `e`; cycle system or official Docker Nginx mode with `m`, and enter a Docker container name with `c`. The manager releases its full-screen view while the bundled installer asks for any remaining configuration and confirmations. After the action, control returns to the calling terminal or the root SlothTool TUI. Launch the TUI with the preserved-user-home `sudo env HOME="$HOME" "$(command -v slothtool)" slothvault` form when the chosen action needs host administration.
+
+The CLI remains available for scripts and explicit installer arguments:
 
 ```bash
 slothtool slothvault deploy

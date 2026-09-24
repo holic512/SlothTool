@@ -4,7 +4,7 @@
  * @module SlothVault Multifunction Plugin / MCP Services
  * @description 通过官方 MCP SDK 为独立 slothvault-mcp 命令提供 SlothVault 管理员服务发现、调用、诊断与受保护 Resource 下载。
  * @logic 1. 每次操作建立独立无状态连接并验证服务端身份；2. 实时发现能力和 Tool 风险；3. 写 Tool 强制确认且不重试；4. Resource 经校验后排他式原子落盘。
- * @dependencies MCP SDK Client/StreamableHTTPClientTransport, Node: fs/path, Config: ./config.js, History: ./history.js
+ * @dependencies MCP SDK Client/StreamableHTTPClientTransport, Node: fs/path, Config: ./config.js, History: ./history.js, Plugin: package.json
  * @index_tags slothvault,mcp,client,streamable-http,tools,resources
  * @author holic512
  */
@@ -14,6 +14,7 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import pluginPackage from '../package.json' with {type: 'json'};
 import {getProfileWarnings, resolveProfile, SlothVaultConfigError} from './config.js';
 import {appendHistory, createHistorySummary, redactSensitive} from './history.js';
 
@@ -147,7 +148,7 @@ async function createClient(profile, options) {
         return await options.clientFactory({profile, options});
     }
     return new Client(
-        {name: '@holic512/plugin-slothvault', version: options.clientVersion || '2.0.1'},
+        {name: '@holic512/plugin-slothvault', version: options.clientVersion || pluginPackage.version},
         {capabilities: {}}
     );
 }

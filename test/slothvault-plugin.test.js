@@ -74,6 +74,7 @@ import {
     unregisterMcpCommand
 } from '../plugins/slothvault/lib/mcp-command-manager.js';
 import {getDeploymentPaths, runDeployment} from '../plugins/slothvault/lib/deploy-runner.js';
+import {buildDeploymentArguments, DEPLOY_ACTIONS, resolveSlothVaultManagerLayout} from '../plugins/slothvault/lib/manager-tui.js';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '..');
@@ -435,9 +436,27 @@ test('Deployment runner reports missing entrypoints and preserves arguments, exi
     assert.equal(result.code, 7);
     assert.deepEqual(JSON.parse(fs.readFileSync(resultPath, 'utf8')), {
         args: ['--action', 'status'],
-        version: '2.0.1'
+        version: '2.0.2'
     });
     assert.equal(getDeploymentPaths().entryPath.endsWith(path.join('deploy', 'install.py')), true);
+});
+
+test('manager TUI exposes every installer action and passes only relevant deployment options', context => {
+    assert.deepEqual(DEPLOY_ACTIONS, ['install', 'status', 'check-update', 'update', 'start', 'stop', 'nginx', 'https', 'renew']);
+    assert.deepEqual(buildDeploymentArguments('status', {root: '/srv/vault', nginxMode: 'docker', nginxContainer: 'proxy'}),
+        ['--action', 'status', '--root', '/srv/vault']);
+    assert.deepEqual(buildDeploymentArguments('https', {root: '/srv/vault', nginxMode: 'docker', nginxContainer: 'proxy'}),
+        ['--action', 'https', '--root', '/srv/vault', '--nginx-mode', 'docker', '--nginx-container', 'proxy']);
+    assert.deepEqual(buildDeploymentArguments('nginx', {nginxMode: 'system'}),
+        ['--action', 'nginx', '--root', '/data/slothvault', '--nginx-mode', 'system']);
+    assert.throws(() => buildDeploymentArguments('delete'), /Unsupported deployment action/u);
+    assert.equal(resolveSlothVaultManagerLayout(60, 24).compact, true);
+    assert.equal(resolveSlothVaultManagerLayout(25, 10).tooSmall, true);
+
+    const smoke = runManager([], {environment: {SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION: 'render-exit'}});
+    if (skipIfProcessCreationIsBlocked(context, smoke)) return;
+    assert.equal(smoke.status, 0, smoke.stderr);
+    assert.match(smoke.stdout, /Overview|概览/u);
 });
 
 test('Skill manager detects agent homes, installs every detected agent link, and uninstalls only those links', () => {
@@ -1089,7 +1108,7 @@ test('MCP TUI has a smoke exit, stable narrow layout, local Profile management, 
     assert.equal(smoke.status, 0, smoke.stderr);
     const renderSmoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'render-exit'}});
     assert.equal(renderSmoke.status, 0, renderSmoke.stderr);
-    assert.match(renderSmoke.stdout, /SlothVault MCP 2\.0\.1/u);
+    assert.match(renderSmoke.stdout, /SlothVault MCP 2\.0\.2/u);
 
     const narrow = resolveSlothVaultTuiLayout(30, 10);
     assert.equal(narrow.columns, 40);
