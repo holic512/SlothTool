@@ -23,6 +23,35 @@ from typing import Callable, Optional, Sequence
 
 
 VALID_IMAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/@:-]*$")
+_progress_callback: Optional[Callable[[str], None]] = None
+_event_callback: Optional[Callable[[str, dict[str, object]], None]] = None
+
+
+def set_progress_callback(callback: Optional[Callable[[str], None]]) -> None:
+    """Route safe command phase names to an interactive frontend."""
+    global _progress_callback
+    _progress_callback = callback
+
+
+def set_event_callback(callback: Optional[Callable[[str, dict[str, object]], None]]) -> None:
+    global _event_callback
+    _event_callback = callback
+
+
+def publish_event(kind: str, data: dict[str, object]) -> None:
+    if _event_callback is not None:
+        _event_callback(kind, data)
+
+
+def _command_phase(command: Sequence[str]) -> str:
+    executable = os.path.basename(command[0])
+    if executable == "docker" and len(command) > 1 and command[1] == "compose":
+        operation = next((part for part in command[2:] if part in ("pull", "up", "ps", "stop", "config")), "check")
+        return "docker compose " + operation
+    if executable in ("certbot", "nginx", "systemctl", "apt-get", "dnf"):
+        operation = next((part for part in command[1:] if not part.startswith("-")), "check")
+        return executable + " " + operation
+    return executable
 
 
 class InstallerError(RuntimeError):
@@ -176,14 +205,16 @@ def read_text_file(path: Path, label: str) -> str:
 
 
 def run_command(command: Sequence[str], quiet: bool = False) -> None:
-    if not quiet:
+    if _progress_callback is not None:
+        _progress_callback(_command_phase(command))
+    elif not quiet:
         print_info("执行命令：{0}".format(" ".join(command)))
     try:
         subprocess.run(
             list(command),
             check=True,
-            stdout=subprocess.DEVNULL if quiet else None,
-            stderr=subprocess.DEVNULL if quiet else None,
+            stdout=subprocess.DEVNULL if quiet or _progress_callback is not None else None,
+            stderr=subprocess.DEVNULL if quiet or _progress_callback is not None else None,
         )
     except FileNotFoundError as error:
         raise InstallerError("未找到命令：{0}".format(command[0])) from error

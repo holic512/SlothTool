@@ -32,6 +32,7 @@ Concise repo rules for Codex working on SlothTool.
 ## 2. Product Invariants
 
 - TUI is the default product entry.
+- The SlothVault manager TUI shows structured state for the selected managed deployment and handles deployment prompts, progress, and results inside Ink; its CLI and TUI reuse the bundled Python deployment service.
 - CLI remains the capability layer for scripting and automation.
 - `slothtool` with no args launches the root full-screen TUI.
 - `slothtool <plugin>` with no extra args launches that plugin's default TUI.

@@ -1,6 +1,6 @@
 # SlothVault Linux 部署程序
 
-这个目录由 `@holic512/plugin-slothvault` 随 SlothTool 一同安装，包含完整的纯标准库 Python 部署程序。它不依赖 SlothVault 源码目录或第三方 Python 包；可从 `slothtool slothvault` 的“部署”页选择操作，或通过 `slothtool slothvault deploy` 直接启动。两种入口都传入插件版本并保持统一的更新路径。
+这个目录由 `@holic512/plugin-slothvault` 随 SlothTool 一同安装，包含完整的纯标准库 Python 部署程序。它不依赖 SlothVault 源码目录或第三方 Python 包；可从 `slothtool slothvault` 的“概览”页查看实例，在“部署”页完成配置、确认和进度查看，或通过 `slothtool slothvault deploy` 直接启动 CLI。两种入口复用同一套 Python 部署服务，传入插件版本并保持统一的更新路径。
 
 ## 快速安装
 

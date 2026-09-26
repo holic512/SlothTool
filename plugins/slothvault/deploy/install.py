@@ -20,7 +20,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 if str(PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_ROOT))
 
-from slothvault_deploy.cli import main  # noqa: E402
+from slothvault_deploy.bridge import main  # noqa: E402
 
 
 if __name__ == "__main__":

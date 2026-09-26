@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import {spawn} from 'node:child_process';
+import readline from 'node:readline';
 import {fileURLToPath} from 'node:url';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -81,4 +82,67 @@ export function runDeployment(deploymentArguments = [], options = {}) {
     });
 }
 
-export default {getDeploymentPaths, runDeployment, SlothVaultDeployError};
+/** Open the private JSON-line channel used by the TUI; CLI stdio remains unchanged. */
+export function createDeploymentSession(deploymentArguments = [], options = {}) {
+    const paths = getDeploymentPaths(options);
+    if (!fs.existsSync(paths.entryPath)) throw new SlothVaultDeployError(`Bundled SlothVault deployment entrypoint is missing: ${paths.entryPath}`, {code: 'DEPLOY_ENTRY_MISSING'});
+    const python = options.pythonCommand || process.env.SLOTHTOOL_SLOTHVAULT_PYTHON || 'python3';
+    const child = spawn(python, [paths.entryPath, '--bridge', ...deploymentArguments], {
+        cwd: options.cwd || process.cwd(), stdio: ['pipe', 'pipe', 'pipe'],
+        env: {...process.env, ...(options.env || {}), SLOTHTOOL_SLOTHVAULT_PLUGIN_VERSION: readPluginVersion(paths)}
+    });
+    let settled = false;
+    let protocolError = null;
+    const result = new Promise((resolve, reject) => {
+        child.on('error', error => {
+            if (settled) return;
+            settled = true;
+            reject(new SlothVaultDeployError(error.code === 'ENOENT'
+                ? 'python3 is required for SlothVault deployment. Install Python 3.8 or newer and retry.'
+                : `Unable to start SlothVault deployment: ${error.message}`,
+            {code: error.code === 'ENOENT' ? 'DEPLOY_PYTHON_UNAVAILABLE' : 'DEPLOY_START_FAILED', cause: error}));
+        });
+        child.on('close', (code, signal) => {
+            if (settled) return;
+            settled = true;
+            if (protocolError) reject(protocolError);
+            else resolve({code: code ?? 1, signal: signal || null});
+        });
+    });
+    const lines = readline.createInterface({input: child.stdout});
+    lines.on('line', line => {
+        if (line.length > 1_000_000) {
+            protocolError = new SlothVaultDeployError('Deployment response exceeded the supported size.', {code: 'DEPLOY_PROTOCOL_ERROR'});
+            child.kill();
+            return;
+        }
+        try {
+            const event = JSON.parse(line);
+            if (event && typeof event.type === 'string') options.onEvent?.(event);
+            else throw new Error('Missing event type');
+        } catch {
+            protocolError = new SlothVaultDeployError('Invalid deployment response from Python.', {code: 'DEPLOY_PROTOCOL_ERROR'});
+            child.kill();
+        }
+    });
+    // Python reports safe errors on the JSON channel. Its raw stderr is never rendered.
+    child.stderr.resume();
+    return {
+        result,
+        respond(value) {if (!child.stdin.destroyed) child.stdin.write(`${JSON.stringify({type: 'answer', value: String(value)})}\n`);},
+        cancel() {if (!child.stdin.destroyed) child.stdin.write('{"type":"cancel"}\n');},
+        stop() {child.kill();}
+    };
+}
+
+export async function inspectDeployment(root = '/data/slothvault', options = {}) {
+    let snapshot = null;
+    const session = createDeploymentSession(['--action', 'status', '--root', root], {
+        ...options, onEvent(event) {if (event.type === 'snapshot') snapshot = event.data; options.onEvent?.(event);}
+    });
+    const outcome = await session.result;
+    if (outcome.code !== 0 || !snapshot) throw new SlothVaultDeployError('Unable to inspect the selected deployment.', {code: 'DEPLOY_INSPECT_FAILED'});
+    return snapshot;
+}
+
+export default {getDeploymentPaths, runDeployment, createDeploymentSession, inspectDeployment, SlothVaultDeployError};

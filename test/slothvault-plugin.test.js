@@ -73,7 +73,7 @@ import {
     SlothVaultMcpCommandError,
     unregisterMcpCommand
 } from '../plugins/slothvault/lib/mcp-command-manager.js';
-import {getDeploymentPaths, runDeployment} from '../plugins/slothvault/lib/deploy-runner.js';
+import {createDeploymentSession, getDeploymentPaths, inspectDeployment, runDeployment} from '../plugins/slothvault/lib/deploy-runner.js';
 import {buildDeploymentArguments, DEPLOY_ACTIONS, resolveSlothVaultManagerLayout} from '../plugins/slothvault/lib/manager-tui.js';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -436,9 +436,71 @@ test('Deployment runner reports missing entrypoints and preserves arguments, exi
     assert.equal(result.code, 7);
     assert.deepEqual(JSON.parse(fs.readFileSync(resultPath, 'utf8')), {
         args: ['--action', 'status'],
-        version: '2.0.2'
+        version: JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'plugins', 'slothvault', 'package.json'), 'utf8')).version
     });
     assert.equal(getDeploymentPaths().entryPath.endsWith(path.join('deploy', 'install.py')), true);
+});
+
+test('deployment JSON session returns a snapshot and keeps prompt input inside the session', async () => {
+    const root = makeTemporaryDirectory('deploy-session');
+    const driverPath = path.join(root, 'driver.js');
+    fs.writeFileSync(driverPath, [
+        "import readline from 'node:readline';",
+        "process.stdout.write(JSON.stringify({type:'prompt',label:'Database',secret:true}) + '\\n');",
+        "const lines = readline.createInterface({input:process.stdin});",
+        "lines.once('line', line => { const answer = JSON.parse(line);",
+        "process.stdout.write(JSON.stringify({type:'snapshot',data:{state:'managed',root:'/srv/vault'}}) + '\\n');",
+        "process.exit(answer.value === 'secret-value' ? 0 : 7); });"
+    ].join('\n'), 'utf8');
+    const events = [];
+    let session;
+    session = createDeploymentSession(['--action', 'status'], {
+        entryPath: driverPath, pythonCommand: process.execPath,
+        onEvent(event) {
+            events.push(event);
+            if (event.type === 'prompt') session.respond('secret-value');
+        }
+    });
+    assert.equal((await session.result).code, 0);
+    assert.deepEqual(events.map(event => event.type), ['prompt', 'snapshot']);
+    assert.equal(events[1].data.state, 'managed');
+    const snapshotDriver = path.join(root, 'snapshot.js');
+    fs.writeFileSync(snapshotDriver,
+        "process.stdout.write(JSON.stringify({type:'snapshot',data:{state:'managed',root:'/srv/vault'}}) + '\\n');",
+    'utf8');
+    const snapshot = await inspectDeployment('/srv/vault', {
+        entryPath: snapshotDriver, pythonCommand: process.execPath
+    });
+    assert.equal(snapshot.root, '/srv/vault');
+});
+
+test('TUI deployment protocol completes an isolated install with in-page answers', async () => {
+    const sandbox = makeTemporaryDirectory('deploy-interactive');
+    const fakeBin = path.join(sandbox, 'bin');
+    const root = path.join(sandbox, 'instance');
+    fs.mkdirSync(fakeBin);
+    const fakeDocker = path.join(fakeBin, 'docker');
+    fs.writeFileSync(fakeDocker, '#!/bin/sh\nexit 0\n', {mode: 0o755});
+    const prompts = [];
+    const events = [];
+    let session;
+    session = createDeploymentSession(['--action', 'install', '--root', root], {
+        env: {PATH: fakeBin + path.delimiter + process.env.PATH, PYTHONDONTWRITEBYTECODE: '1'},
+        onEvent(event) {
+            events.push(event);
+            if (event.type === 'prompt') {
+                prompts.push({label: event.label, secret: event.secret});
+                session.respond(event.label.includes('确认创建') ? 'y' : '');
+            }
+        }
+    });
+    const result = await session.result;
+    assert.equal(result.code, 0);
+    assert.equal(fs.existsSync(path.join(root, 'compose.yml')), true);
+    assert.equal(prompts.some(item => item.secret), true);
+    assert.equal(prompts.some(item => item.label.includes('确认创建')), true);
+    assert.equal(events.find(event => event.type === 'preview')?.data.provider, 'sqlite');
+    assert.equal(JSON.stringify(events).includes('ENCRYPTION_KEY='), false);
 });
 
 test('manager TUI exposes every installer action and passes only relevant deployment options', context => {
@@ -1108,7 +1170,7 @@ test('MCP TUI has a smoke exit, stable narrow layout, local Profile management, 
     assert.equal(smoke.status, 0, smoke.stderr);
     const renderSmoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'render-exit'}});
     assert.equal(renderSmoke.status, 0, renderSmoke.stderr);
-    assert.match(renderSmoke.stdout, /SlothVault MCP 2\.0\.2/u);
+    assert.match(renderSmoke.stdout, /SlothVault MCP 2\.0\.3/u);
 
     const narrow = resolveSlothVaultTuiLayout(30, 10);
     assert.equal(narrow.columns, 40);

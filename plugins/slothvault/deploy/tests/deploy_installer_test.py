@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+import json
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,8 +14,45 @@ from unittest.mock import patch
 DEPLOY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(DEPLOY_ROOT))
 
-from slothvault_deploy import certbot, cli, compose, nginx, release  # noqa: E402
+from slothvault_deploy import certbot, cli, compose, instance, nginx, release  # noqa: E402
 from slothvault_deploy.system import InstallerError  # noqa: E402
+
+
+class InstanceSnapshotTests(unittest.TestCase):
+    def test_absent_and_unmanaged_directories_do_not_invoke_docker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(instance, "_run") as command:
+                self.assertEqual(instance.inspect_instance(directory)["state"], "absent")
+                (Path(directory) / "compose.yml").write_text("services: {}\n", encoding="utf-8")
+                self.assertEqual(instance.inspect_instance(directory)["state"], "unmanaged")
+                command.assert_not_called()
+
+    def test_managed_snapshot_selects_safe_fields_and_reports_partial_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "compose.yml").write_text(
+                compose.render_compose(compose.DeploymentConfig(
+                    root=root, data_dir=root / "data", provider="sqlite",
+                    image="holic512/slothvault:v2.0.0", port=3000, encryption_key="secret-value",
+                )), encoding="utf-8",
+            )
+            records = [{
+                "Name": "/slothvault", "State": {"Status": "running", "Health": {"Status": "healthy"}},
+                "Config": {"Image": "holic512/slothvault:v2.0.0", "Env": ["ENCRYPTION_KEY=secret-value"],
+                           "Labels": {"com.docker.compose.service": "slothvault"}},
+            }]
+            with patch.object(instance, "_run", side_effect=[
+                subprocess.CompletedProcess([], 0, "abc\n", ""),
+                subprocess.CompletedProcess([], 0, json.dumps(records), ""),
+            ]):
+                snapshot = instance.inspect_instance(directory)
+            self.assertEqual(snapshot["state"], "managed")
+            self.assertEqual(snapshot["containers"][0]["health"], "healthy")
+            self.assertEqual(snapshot["appVersion"], "v2.0.0")
+            self.assertNotIn("secret-value", json.dumps(snapshot))
+            with patch.object(instance, "_run", return_value=subprocess.CompletedProcess([], 1, "", "denied")):
+                partial = instance.inspect_instance(directory)
+            self.assertEqual(partial["errors"][0]["code"], "COMPOSE_PS_FAILED")
 
 
 class ComposeRenderingTests(unittest.TestCase):

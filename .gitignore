@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+# Python runtime cache from the bundled deployment program
+__pycache__/
+*.pyc
 # package-lock.json - Keep this file for CI/CD
 
 # Logs
