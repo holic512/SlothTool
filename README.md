@@ -256,7 +256,7 @@ slothvault-mcp storage status --json
 
 多功能入口包括 `deploy`、`skill status|install|uninstall` 与 `mcp status|register|unregister`。它不会转发 `profile`、`doctor`、Tool、Prompt、Resource、History 或 Storage 参数；这些 MCP 调用会明确提示改用已注册的独立命令。独立 `slothvault-mcp` 命令组包括 `profile add|update|list|show|use|remove`、`doctor`、`tools list|show|call`、`prompts list|get`、`resources list|read`、`history list|show|clear` 与只读的 `storage status`。JSON 参数可由 `--args` 或 `--args-file <path|->` 提供；凭据只通过隐藏输入、`--key-stdin` 或 `--key-env` 接收，不提供会泄漏到进程参数和 shell 历史中的 `--key`。
 
-`slothtool slothvault` 的全屏管理页默认展示当前部署目录的受管状态、数据库、镜像、端口、数据目录、容器运行及健康状态。按 `e` 切换部署目录，按 `r` 刷新。通过 Tab 进入“部署”，用 ↑↓ 选择安装、状态、检查更新、更新、启停、Nginx、HTTPS 或证书续约，按 Enter 执行；检查更新后可用 `[` / `]` 翻阅下一版本的提交说明。按 `m` 切换系统级或官方 Docker Nginx 模式，Docker 模式按 `c` 输入容器名。配置输入、确认与执行进度在 TUI 内完成，操作结束后刷新实例；CLI 仍可直接调用相同的 Python 部署服务。需要管理员权限时以保留用户 HOME 的 `sudo env HOME="$HOME" "$(command -v slothtool)" slothvault` 启动管理页。
+`slothtool slothvault` 的全屏管理页默认展示当前部署目录的受管状态、数据库、镜像、端口、数据目录、容器运行及健康状态。按 `e` 切换部署目录，按 `r` 刷新。通过 Tab 进入“部署”，用 ↑↓ 选择安装、状态、检查更新、更新、启停、Nginx、HTTPS 或证书续约，按 Enter 执行；检查更新后可用 `[` / `]` 翻阅直到最新正式版本的全部提交说明。按 `m` 切换系统级或官方 Docker Nginx 模式，Docker 模式按 `c` 输入容器名。配置输入、确认与执行进度在 TUI 内完成，操作结束后刷新实例；CLI 仍可直接调用相同的 Python 部署服务。需要管理员权限时以保留用户 HOME 的 `sudo env HOME="$HOME" "$(command -v slothtool)" slothvault` 启动管理页。
 
 旧的 `slothtool slothvault-mcp …` 仍是带迁移提示的兼容入口：普通 MCP 参数会转发给独立 `slothvault-mcp` executable，而旧 `skill …` 参数会转发给 `slothtool slothvault skill …`。新脚本应只使用规范的 `slothvault` 插件别名和已注册的独立 MCP 命令。
 

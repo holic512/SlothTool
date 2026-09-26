@@ -1170,7 +1170,8 @@ test('MCP TUI has a smoke exit, stable narrow layout, local Profile management, 
     assert.equal(smoke.status, 0, smoke.stderr);
     const renderSmoke = runCli([], {environment: {SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'render-exit'}});
     assert.equal(renderSmoke.status, 0, renderSmoke.stderr);
-    assert.match(renderSmoke.stdout, /SlothVault MCP 2\.0\.3/u);
+    const pluginVersion = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'plugins', 'slothvault', 'package.json'), 'utf8')).version;
+    assert.ok(renderSmoke.stdout.includes(`SlothVault MCP ${pluginVersion}`));
 
     const narrow = resolveSlothVaultTuiLayout(30, 10);
     assert.equal(narrow.columns, 40);

@@ -122,6 +122,17 @@ function InstanceDetails({instance, layout}) {
         ...(instance.errors || []).slice(0, 2).map((item, index) => h(Text, {key: index, color: COLORS.warning},
             t('manager.readError', {scope: item.scope, code: item.code}))));
 }
+function updateReleaseLines(update) {
+    const releases = Array.isArray(update?.newer_application_releases) && update.newer_application_releases.length
+        ? update.newer_application_releases
+        : update?.next_application_release ? [update.next_application_release] : [];
+    return releases.flatMap(release => [
+        `[${release.tag}] ${release.title || release.tag}`,
+        ...(release.notes ? release.notes.split(/\r?\n/gu) : [t('manager.noReleaseNotes')]),
+        release.html_url
+    ].filter(Boolean));
+}
+
 function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, editing, draft, pending, instance, update, preview, noteOffset, logs, prompt, promptValue, busy}) {
     const action = DEPLOY_ACTIONS[selectedIndex];
     const usesNginx = NGINX_ACTIONS.has(action);
@@ -135,7 +146,7 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
             h(Text, {color: READ_ONLY_ACTIONS.has(item) ? COLORS.secondary : COLORS.warning, dimColor: true},
                 t('manager.actionKinds.' + (READ_ONLY_ACTIONS.has(item) ? 'read' : 'change'))))));
     const release = preview ? null : update?.next_application_release;
-    const releaseLines = release?.notes ? release.notes.split(/\r?\n/gu).filter(Boolean) : [];
+    const releaseLines = preview ? [] : updateReleaseLines(update);
     const shownNotes = releaseLines.slice(noteOffset, noteOffset + (layout.short ? 1 : 3));
     const previewEntries = preview ? Object.entries(preview).filter(([key, value]) =>
         key !== 'kind' && value !== null && value !== undefined && value !== '') : [];
@@ -160,9 +171,10 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
                     layout.compact ? layout.width - 22 : layout.width - layout.sidebarWidth - 22)})),
             previewEntries.length > shownPreview.length ? h(Text, {color: COLORS.secondary},
                 t('manager.previewPage', {current: Math.min(noteOffset + shownPreview.length, previewEntries.length), total: previewEntries.length})) : null) : null,
+        update?.latest_published_release ? h(Text, {color: COLORS.secondary},
+            t('manager.latestRelease', {tag: update.latest_published_release.tag})) : null,
         release ? h(Box, {flexDirection: 'column', marginTop: 1},
-            h(Text, {color: COLORS.success}, t('manager.nextRelease', {tag: release.tag})),
-            h(Text, {dimColor: true}, clip(release.title || '', layout.compact ? layout.width - 12 : 48)),
+            h(Text, {color: COLORS.success}, t('manager.targetRelease', {tag: release.tag})),
             ...shownNotes.map((line, index) => h(Text, {key: index, dimColor: true},
                 clip(line, layout.compact ? layout.width - 12 : layout.width - layout.sidebarWidth - 12))),
             releaseLines.length > shownNotes.length ? h(Text, {color: COLORS.secondary},
@@ -311,7 +323,7 @@ function ManagerApp() {
             if (key.upArrow || key.downArrow) {
                 const length = preview
                     ? Object.entries(preview).filter(([name, value]) => name !== 'kind' && value !== null && value !== undefined && value !== '').length
-                    : (update?.next_application_release?.notes || '').split(/\r?\n/gu).filter(Boolean).length;
+                    : updateReleaseLines(update).length;
                 setNoteOffset(index => key.upArrow ? Math.max(0, index - 3) : Math.min(Math.max(0, length - 1), index + 3));
                 return;
             }
@@ -354,7 +366,7 @@ function ManagerApp() {
             if (input === ']') {
                 const length = preview
                     ? Object.entries(preview).filter(([key, value]) => key !== 'kind' && value !== null && value !== undefined && value !== '').length
-                    : (update?.next_application_release?.notes || '').split(/\r?\n/gu).filter(Boolean).length;
+                    : updateReleaseLines(update).length;
                 setNoteOffset(index => Math.min(Math.max(0, length - 1), index + 3));
                 return;
             }

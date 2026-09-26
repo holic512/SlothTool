@@ -7,6 +7,8 @@ import tempfile
 import unittest
 import json
 import subprocess
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -128,7 +130,7 @@ class ReleaseUpdateTests(unittest.TestCase):
         self.assertEqual(release.compare_release_versions(newer_minor, newer_build), 1)
         self.assertIsNone(release.parse_release_tag("v2.0-build.76"))
 
-    def test_selects_only_the_adjacent_release_when_multiple_newer_releases_exist(self):
+    def test_selects_latest_release_and_all_newer_logs(self):
         payload = [
             self.release_payload("v2.0.0-build.77", "newest"),
             self.release_payload("v2.0.0-build.76", "middle"),
@@ -145,10 +147,9 @@ class ReleaseUpdateTests(unittest.TestCase):
         self.assertEqual([item.tag for item in releases], ["v2.0.0-build.77", "v2.0.0-build.76", "v2.0.0-build.75"])
         current = release.parse_release_tag("v2.0.0-build.75")
         self.assertIsNotNone(current)
-        next_release = release.next_release_after(current, releases)
-        self.assertIsNotNone(next_release)
-        self.assertEqual(next_release.tag, "v2.0.0-build.76")
-        self.assertEqual(next_release.notes, "middle")
+        newer_releases = release.newer_releases_after(current, releases)
+        self.assertEqual([item.tag for item in newer_releases], ["v2.0.0-build.76", "v2.0.0-build.77"])
+        self.assertEqual([item.notes for item in newer_releases], ["middle", "newest"])
 
     def test_reads_application_identity_only_from_the_managed_container(self):
         tag, commit_sha, image = release.application_identity({
@@ -163,30 +164,74 @@ class ReleaseUpdateTests(unittest.TestCase):
         self.assertTrue(release.is_official_image(image))
         self.assertFalse(release.is_official_image("example.com/custom/slothvault:latest"))
 
+    def test_check_targets_latest_only_when_current_release_is_known(self):
+        package, root = self.managed_root()
+        try:
+            releases = [release._release_from_payload(self.release_payload(tag, tag)) for tag in (
+                "v2.0.0-build.77", "v2.0.0-build.76", "v2.0.0-build.75"
+            )]
+            container = {"Config": {"Image": "holic512/slothvault:latest", "Env": [
+                "SLOTHVAULT_RELEASE_TAG=v2.0.0-build.75"
+            ]}}
+            with patch.object(release, "inspect_managed_application", return_value=container), patch.object(
+                release, "fetch_published_releases", return_value=releases
+            ):
+                checked = release.check_deployment_update(root)
+            self.assertEqual(checked.latest_published_release.tag, "v2.0.0-build.77")
+            self.assertEqual(checked.next_application_release.tag, "v2.0.0-build.77")
+            self.assertEqual([item.tag for item in checked.newer_application_releases], [
+                "v2.0.0-build.76", "v2.0.0-build.77"
+            ])
+            output = StringIO()
+            with redirect_stdout(output):
+                release.print_update_check(checked)
+            self.assertLess(output.getvalue().index("[v2.0.0-build.76]"), output.getvalue().index("[v2.0.0-build.77]"))
+
+            container["Config"]["Env"] = ["SLOTHVAULT_RELEASE_TAG=v2.0.0-build.74"]
+            with patch.object(release, "inspect_managed_application", return_value=container), patch.object(
+                release, "fetch_published_releases", return_value=releases
+            ):
+                unknown = release.check_deployment_update(root)
+            self.assertEqual(unknown.status, "UNVERIFIABLE")
+            self.assertIsNone(unknown.next_application_release)
+            self.assertEqual(unknown.newer_application_releases, ())
+        finally:
+            package.cleanup()
+
     def test_update_requires_confirmation_and_rechecks_target_release(self):
         package, root = self.managed_root()
         try:
-            next_release = release.PublishedRelease(
-                tag="v2.0.0-build.76",
-                title="SlothVault v2.0.0-build.76",
+            target_release = release.PublishedRelease(
+                tag="v2.0.0-build.77",
+                title="SlothVault v2.0.0-build.77",
                 commit_sha="next-sha",
                 published_at=None,
+                html_url="https://github.com/holic512/SlothVault/releases/tag/v2.0.0-build.77",
+                notes="- newest update",
+            )
+            intermediate_release = release.PublishedRelease(
+                tag="v2.0.0-build.76",
+                title="SlothVault v2.0.0-build.76",
+                commit_sha="middle-sha",
+                published_at=None,
                 html_url="https://github.com/holic512/SlothVault/releases/tag/v2.0.0-build.76",
-                notes="- `abc` update",
+                notes="- middle update",
             )
             initial = release.DeploymentUpdateCheck(
                 repository="holic512/SlothVault",
                 application_tag="v2.0.0-build.75",
                 application_commit_sha="previous-sha",
                 application_image="holic512/slothvault:latest",
-                next_application_release=next_release,
+                next_application_release=target_release,
                 history_complete=True,
                 status="APPLICATION_UPDATE_AVAILABLE",
                 error=None,
                 application_update_available=True,
+                latest_published_release=target_release,
+                newer_application_releases=(intermediate_release, target_release),
             )
             verified = release.DeploymentUpdateCheck(
-                **{**initial.__dict__, "application_tag": next_release.tag, "status": "UP_TO_DATE", "next_application_release": None, "application_update_available": False}
+                **{**initial.__dict__, "application_tag": target_release.tag, "status": "UP_TO_DATE", "next_application_release": None, "application_update_available": False}
             )
             with patch.object(release, "check_deployment_update", side_effect=[initial, verified]), patch.object(
                 release, "prompt_yes_no", return_value=True
@@ -202,7 +247,7 @@ class ReleaseUpdateTests(unittest.TestCase):
                 ],
             )
             validate_compose.assert_called_once_with(("docker", "compose", "-f", str(root / "compose.yml"), "config"))
-            self.assertIn('image: "holic512/slothvault:v2.0.0-build.76"', (root / "compose.yml").read_text(encoding="utf-8"))
+            self.assertIn('image: "holic512/slothvault:v2.0.0-build.77"', (root / "compose.yml").read_text(encoding="utf-8"))
         finally:
             package.cleanup()
 

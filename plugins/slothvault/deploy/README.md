@@ -16,7 +16,7 @@ sudo env HOME="$HOME" "$(command -v slothtool)" slothvault deploy
 
 首次安装选择 SQLite、MySQL 或 PostgreSQL 后，脚本会创建私有持久化目录和 `/data/slothvault/compose.yml`，再拉取并启动发布镜像。默认应用数据目录为 `/data/slothvault/data`；MySQL、PostgreSQL 数据分别位于 `/data/slothvault/mysql`、`/data/slothvault/postgresql`。Compose 文件权限为 `0600`，持久化数据目录权限为 `0700`。
 
-安装菜单完全使用中文，提供安装、检查更新、更新、启动、停止、状态、Nginx HTTP 反代、Let’s Encrypt HTTPS 与立即续约操作。检查更新只比较运行中的应用镜像和 SlothVault GitHub 正式 Release；无论远程已有多少新版本，每次只显示紧邻的下一个 Release 及其提交日志。确认更新后，部署程序会把受管 Compose 中的官方镜像固定到这个版本，绝不会拉取 `latest` 后跨版本跳跃。再次执行更新才会进入下一个 Release：
+安装菜单完全使用中文，提供安装、检查更新、更新、启动、停止、状态、Nginx HTTP 反代、Let’s Encrypt HTTPS 与立即续约操作。检查更新比较运行中的应用镜像和 SlothVault GitHub 正式 Release，显示最新正式版本及当前版本之后每个正式 Release 的提交日志。确认更新后，部署程序会把受管 Compose 中的官方镜像固定到最新正式版本的 tag，一次完成跨版本更新；不会拉取可变的 `latest` tag：
 
 ```bash
 sudo env HOME="$HOME" "$(command -v slothtool)" slothvault deploy --action check-update

@@ -21,7 +21,7 @@ The prior `slothtool slothvault-mcp …` shorthand remains a deprecated compatib
 
 ## Deployment
 
-The manager TUI opens on an instance overview with managed state, database, image, port, data locations, container status and health. Press `e` to change the deployment root and `r` to refresh. Switch to **Deploy** with Tab, choose an action with Up/Down, and press Enter. Check updates before updating; `[` and `]` page through the next release notes. Cycle system or official Docker Nginx mode with `m`, and enter a Docker container name with `c`. Configuration prompts, confirmations and progress stay inside the full-screen manager, which refreshes the instance after the action. Launch the TUI with the preserved-user-home `sudo env HOME="$HOME" "$(command -v slothtool)" slothvault` form when the chosen action needs host administration.
+The manager TUI opens on an instance overview with managed state, database, image, port, data locations, container status and health. Press `e` to change the deployment root and `r` to refresh. Switch to **Deploy** with Tab, choose an action with Up/Down, and press Enter. Check updates before updating; `[` and `]` page through all release notes between the running version and the latest official release. Cycle system or official Docker Nginx mode with `m`, and enter a Docker container name with `c`. Configuration prompts, confirmations and progress stay inside the full-screen manager, which refreshes the instance after the action. Launch the TUI with the preserved-user-home `sudo env HOME="$HOME" "$(command -v slothtool)" slothvault` form when the chosen action needs host administration.
 
 The CLI remains available for scripts and explicit installer arguments:
 

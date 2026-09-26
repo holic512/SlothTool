@@ -2,8 +2,8 @@
 @file deploy/slothvault_deploy/release.py
 @project SlothTool
 @module Deployment release update checks
-@description Compares the managed SlothVault container with its immediately next published official GitHub Release.
-@logic Parse immutable application release tags, fetch only published records through the public API, select one adjacent upgrade target only when its history is known, pin the managed Compose image to that target, and leave plugin updates to SlothTool.
+@description Compares the managed SlothVault container with the latest published official GitHub Release.
+@logic Parse immutable application release tags, fetch published records through the public API, collect all newer releases when history is known, pin the managed Compose image to the latest target, and leave plugin updates to SlothTool.
 @dependencies Python standard library, Docker Compose v2, GitHub Releases REST API
 @index_tags deployment,update,release,github,version,docker,commit-log
 @author holic512
@@ -68,6 +68,8 @@ class DeploymentUpdateCheck:
     status: str
     error: Optional[str]
     application_update_available: bool
+    latest_published_release: Optional[PublishedRelease] = None
+    newer_application_releases: tuple[PublishedRelease, ...] = ()
 
 
 class ReleaseCheckError(RuntimeError):
@@ -145,8 +147,8 @@ def _sort_newest_first(releases: Iterable[PublishedRelease]) -> list[PublishedRe
     )
 
 
-def next_release_after(version: ReleaseVersion, releases: Iterable[PublishedRelease]) -> Optional[PublishedRelease]:
-    """Return the one published Release immediately after a known version."""
+def newer_releases_after(version: ReleaseVersion, releases: Iterable[PublishedRelease]) -> tuple[PublishedRelease, ...]:
+    """Return all published Releases newer than a known version, oldest first."""
 
     newer_releases = [
         release
@@ -154,12 +156,10 @@ def next_release_after(version: ReleaseVersion, releases: Iterable[PublishedRele
         if (release_version := parse_release_tag(release.tag))
         and compare_release_versions(release_version, version) > 0
     ]
-    if not newer_releases:
-        return None
-    return min(
+    return tuple(sorted(
         newer_releases,
         key=lambda item: _release_sort_key(parse_release_tag(item.tag) or ReleaseVersion(0, 0, 0, None, item.tag)),
-    )
+    ))
 
 
 def _release_check_error_for_status(status: int) -> ReleaseCheckError:
@@ -282,7 +282,7 @@ def _status_for(
 
 
 def check_deployment_update(root: Path) -> DeploymentUpdateCheck:
-    """Compare the managed application with its next published Release without writing state."""
+    """Compare the managed application with the latest published Release without writing state."""
 
     compose_path = root / COMPOSE_FILE_NAME
     require_managed_compose(compose_path)
@@ -329,7 +329,8 @@ def check_deployment_update(root: Path) -> DeploymentUpdateCheck:
     assert latest_version is not None
     application_comparison = compare_release_versions(application_version, latest_version) if application_version else None
     history_complete = application_release_tag is not None and any(release.tag == application_release_tag for release in releases)
-    next_application_release = next_release_after(application_version, releases) if application_version and history_complete else None
+    newer_application_releases = newer_releases_after(application_version, releases) if application_version and history_complete else ()
+    next_application_release = newer_application_releases[-1] if newer_application_releases else None
     application_update_available = next_application_release is not None
     return DeploymentUpdateCheck(
         repository=RELEASE_REPOSITORY,
@@ -341,12 +342,14 @@ def check_deployment_update(root: Path) -> DeploymentUpdateCheck:
         status=_status_for(
             application_update_available=application_update_available,
             application_local_newer=application_comparison is not None and application_comparison > 0,
-            application_verifiable=application_version is not None,
+            application_verifiable=application_version is not None and history_complete,
             error=None,
             custom_image=custom_image,
         ),
         error=application_problem,
         application_update_available=application_update_available,
+        latest_published_release=latest_release,
+        newer_application_releases=newer_application_releases,
     )
 
 
@@ -363,22 +366,24 @@ def release_image_reference(image: str, release_tag: str) -> str:
 
     version = parse_release_tag(release_tag)
     if version is None or not is_official_image(image):
-        raise InstallerError("无法为非官方或无效的 SlothVault 镜像生成逐版本更新目标。")
+        raise InstallerError("无法为非官方或无效的 SlothVault 镜像生成更新目标。")
     without_digest = image.split("@", 1)[0]
     repository = without_digest.rsplit(":", 1)[0] if ":" in without_digest else without_digest
     return "{0}:{1}".format(repository, version.tag)
 
 
 def print_update_check(check: DeploymentUpdateCheck) -> None:
-    """Print the human-readable read-only update result and one adjacent Release log."""
+    """Print the read-only update result and all newer official Release logs."""
 
     print_info("SlothTool SlothVault 插件版本：{0}（使用 slothtool update slothvault 更新插件）".format(__version__))
     print_info("当前应用版本：{0}（提交 {1}）".format(_display_tag(check.application_tag), _display_commit(check.application_commit_sha)))
     if check.application_image:
         print_info("当前应用镜像：{0}".format(check.application_image))
+    if check.latest_published_release is not None:
+        print_info("GitHub 最新正式版本：{0}".format(check.latest_published_release.tag))
     if check.next_application_release is not None:
         print_info(
-            "下一个可安装版本：{0}（提交 {1}）".format(
+            "本次更新目标版本：{0}（提交 {1}）".format(
                 check.next_application_release.tag,
                 _display_commit(check.next_application_release.commit_sha),
             )
@@ -387,18 +392,18 @@ def print_update_check(check: DeploymentUpdateCheck) -> None:
     if check.error:
         print_info("更新检查未完成：{0}".format(check.error))
     print_info("更新状态：{0}".format(check.status))
-    if check.next_application_release is not None:
-        release = check.next_application_release
-        print_info("下一步升级提交日志：")
-        print("\n[{0}] {1}".format(release.tag, release.title))
-        print(release.notes or "（该 Release 未提供提交日志）")
-        print(release.html_url)
+    if check.newer_application_releases:
+        print_info("本次跨版本更新包含的提交日志：")
+        for release in check.newer_application_releases:
+            print("\n[{0}] {1}".format(release.tag, release.title))
+            print(release.notes or "（该 Release 未提供提交日志）")
+            print(release.html_url)
     if not check.history_complete and check.application_tag:
-        print_info("当前应用版本不在已获取的正式 Release 历史中，无法安全确定下一个升级版本。")
+        print_info("当前应用版本不在已获取的正式 Release 历史中，无法安全确定更新目标。")
 
 
 def update_managed_application(root: Path) -> None:
-    """Advance a confirmed managed application by exactly one published Release."""
+    """Advance a confirmed managed application to the latest published Release."""
 
     initial = check_deployment_update(root)
     print_update_check(initial)
@@ -406,7 +411,7 @@ def update_managed_application(root: Path) -> None:
     target_release = initial.next_application_release
     if target_release is not None:
         if not initial.application_image:
-            raise InstallerError("无法读取当前应用镜像，无法安全执行逐版本更新。")
+            raise InstallerError("无法读取当前应用镜像，无法安全执行更新。")
         target_image = release_image_reference(initial.application_image, target_release.tag)
         if not prompt_yes_no("确认拉取 {0} 并重启受管应用".format(target_release.tag), default=False):
             print_info("已取消更新，未拉取镜像或重启容器。")
@@ -416,7 +421,7 @@ def update_managed_application(root: Path) -> None:
         print_info("当前应用已是最新正式版本，不拉取镜像或重启容器。")
         return
     else:
-        print_info("当前版本无法安全确定下一个 Release；不会拉取 latest 镜像或重启容器。")
+        print_info("当前版本无法安全确定最新更新目标；不会拉取 latest 镜像或重启容器。")
         return
 
     for command in (("pull",), ("up", "-d"), ("ps",)):

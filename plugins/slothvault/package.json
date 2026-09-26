@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-slothvault",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "SlothVault deployment, coding-agent Skill, and separately registrable administrator MCP tooling for SlothTool",
   "main": "lib/service.js",
   "type": "module",
