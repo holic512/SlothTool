@@ -10,6 +10,8 @@
  */
 
 import path from 'node:path';
+import {getDisplayWidth, truncateFromLeft, truncateFromRight} from './shared-interaction.js';
+export {getDisplayWidth, truncateFromLeft, truncateFromRight} from './shared-interaction.js';
 
 export const LOC_TUI_COLORS = Object.freeze({
     accent: 'cyanBright',
@@ -24,99 +26,9 @@ export const LOC_TUI_COLORS = Object.freeze({
 const COMPACT_WIDTH = 76;
 const SHORT_HEIGHT = 22;
 
-function isFullWidthCodePoint(codePoint) {
-    return codePoint >= 0x1100 && (
-        codePoint <= 0x115F
-        || codePoint === 0x2329
-        || codePoint === 0x232A
-        || (codePoint >= 0x2E80 && codePoint <= 0x303E)
-        || (codePoint >= 0x3040 && codePoint <= 0x3247)
-        || (codePoint >= 0x3250 && codePoint <= 0x4DBF)
-        || (codePoint >= 0x4E00 && codePoint <= 0xA4C6)
-        || (codePoint >= 0xA960 && codePoint <= 0xA97C)
-        || (codePoint >= 0xAC00 && codePoint <= 0xD7A3)
-        || (codePoint >= 0xF900 && codePoint <= 0xFAFF)
-        || (codePoint >= 0xFE10 && codePoint <= 0xFE19)
-        || (codePoint >= 0xFE30 && codePoint <= 0xFE6B)
-        || (codePoint >= 0xFF01 && codePoint <= 0xFF60)
-        || (codePoint >= 0xFFE0 && codePoint <= 0xFFE6)
-        || (codePoint >= 0x1B000 && codePoint <= 0x1B001)
-        || (codePoint >= 0x1F200 && codePoint <= 0x1F251)
-        || (codePoint >= 0x20000 && codePoint <= 0x3FFFD)
-    );
-}
-
 function normalizeDimension(value, fallback, minimum) {
     const parsedValue = Number.parseInt(value, 10);
     return Math.max(minimum, Number.isInteger(parsedValue) ? parsedValue : fallback);
-}
-
-export function getDisplayWidth(text = '') {
-    return Array.from(String(text)).reduce((width, character) => (
-        width + (isFullWidthCodePoint(character.codePointAt(0)) ? 2 : 1)
-    ), 0);
-}
-
-export function truncateFromLeft(text, maxWidth) {
-    const normalizedText = String(text || '');
-    if (maxWidth <= 0) {
-        return '';
-    }
-
-    if (getDisplayWidth(normalizedText) <= maxWidth) {
-        return normalizedText;
-    }
-
-    const ellipsis = '...';
-    if (maxWidth <= ellipsis.length) {
-        return ellipsis.slice(0, maxWidth);
-    }
-
-    let result = '';
-    let width = 0;
-
-    for (const character of Array.from(normalizedText).reverse()) {
-        const characterWidth = getDisplayWidth(character);
-        if (width + characterWidth + ellipsis.length > maxWidth) {
-            break;
-        }
-
-        result = `${character}${result}`;
-        width += characterWidth;
-    }
-
-    return `${ellipsis}${result}`;
-}
-
-export function truncateFromRight(text, maxWidth) {
-    const normalizedText = String(text || '');
-    if (maxWidth <= 0) {
-        return '';
-    }
-
-    if (getDisplayWidth(normalizedText) <= maxWidth) {
-        return normalizedText;
-    }
-
-    const ellipsis = '...';
-    if (maxWidth <= ellipsis.length) {
-        return ellipsis.slice(0, maxWidth);
-    }
-
-    let result = '';
-    let width = 0;
-
-    for (const character of Array.from(normalizedText)) {
-        const characterWidth = getDisplayWidth(character);
-        if (width + characterWidth + ellipsis.length > maxWidth) {
-            break;
-        }
-
-        result += character;
-        width += characterWidth;
-    }
-
-    return `${result}${ellipsis}`;
 }
 
 export function resolveLocTuiLayout(columns = 80, rows = 24) {

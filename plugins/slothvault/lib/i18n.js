@@ -223,7 +223,9 @@ export const messages = {
                 skillOperationFailed: 'Skill 操作失败：{message}',
                 skillCancelled: '已取消 Skill 操作。'
             },
-            footer: 'Tab 切换页面 | ↑↓ 选择 | r 刷新 | q 退出',
+            footer: 'Tab/Shift+Tab 切页 | ↑↓ 选择 | v 完整详情 | r 刷新 | q 退出',
+            resize: '终端空间不足', resizeHint: '请至少调整到 40 列 × 16 行。',
+            detailFooter: '↑↓/PgUp/PgDn 翻阅 | Esc 返回',
             empty: '暂无数据。',
             help: 'MCP TUI 可查看状态、能力和脱敏历史，并管理本地配置档案；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
             profile: {
@@ -235,12 +237,12 @@ export const messages = {
                 emptyValue: '（空）',
                 editKeyHint: '现有 Key 不会载入表单；新 Key 留空时保持不变。',
                 browseHelp: '本页只修改本地配置，不会自动连接 MCP 服务。',
-                formHelp: '↑↓ 切换字段；Enter 下一项/保存；Ctrl+U 清空；Space 切换默认；Esc 取消。',
+                formHelp: '↑↓/Tab/Shift+Tab 切字段；←→/Home/End 移光标；Enter 下一项/保存；Ctrl+U 清空；Space 切换默认；Esc 取消。',
                 deletePrompt: '确定删除配置档案 “{name}” 吗？',
                 deleteHistoryNote: '删除配置档案不会删除脱敏调用历史。',
                 deleteHelp: '按 y 确认；按 n 或 Esc 取消。',
                 browseFooter: '↑↓ 选择 | a 新增 | e/Enter 编辑 | u 设为默认 | d 删除 | r 刷新 | q 退出',
-                formFooter: '↑↓ 字段 | Enter 下一项/保存 | Ctrl+U 清空 | Space 切换 | Esc 取消',
+                formFooter: '↑↓/Tab 字段 | ←→/Home/End 光标 | Enter 下一项/保存 | Space 切换 | Esc 取消',
                 deleteFooter: 'y 确认删除 | n/Esc 取消'
             },
             skill: {
@@ -320,14 +322,15 @@ export const messages = {
             deployStartFailed: '无法启动部署程序：{message}',
             resize: '终端过小，请至少使用 30 列、18 行。',
             footers: {
-                overview: 'e 更换目录 | r 刷新 | Tab 切换 | q 退出',
-                deploy: '↑↓ 选择 | Enter 执行 | [/] 提交说明 | e 目录 | m Nginx | c 容器',
-                skill: 'i 安装 | u 卸载 | r 刷新 | Tab 切换 | q 退出',
-                mcp: 'i 注册 | u 注销 | r 刷新 | Tab 切换 | q 退出',
-                edit: '输入内容 | Backspace 删除 | Ctrl+U 清空 | Enter 保存 | Esc 取消',
+                overview: 'e 更换目录 | v 详情 | r 刷新 | Tab/Shift+Tab 切页 | q 退出',
+                deploy: '↑↓ 选择 | [/] 说明 | e 目录 | Space/m Nginx | c 容器 | v 详情 | q 退出',
+                skill: 'i 安装 | u 卸载 | v 路径 | Tab/Shift+Tab 切页 | q 退出',
+                mcp: 'i 注册 | u 注销 | v 路径 | Tab/Shift+Tab 切页 | q 退出',
+                edit: '输入/粘贴 | ←→/Home/End 光标 | Delete/Ctrl+U 编辑 | Enter 保存 | Esc 取消',
                 confirm: 'y 确认 | n/Esc 取消',
-                prompt: '输入内容 | ↑↓ 查看配置 | Enter 提交 | Esc 取消当前操作',
-                busy: '正在执行部署操作，请等待结果'
+                prompt: '输入/粘贴 | ←→/Home/End 光标 | Enter 提交 | Esc 向部署服务请求取消',
+                busy: '正在执行部署操作，请等待结果',
+                detail: '↑↓/PgUp/PgDn 翻阅 | Esc 返回'
             },
             states: {
                 unavailable: '不可用',
@@ -585,7 +588,9 @@ export const messages = {
                 skillOperationFailed: 'Skill operation failed: {message}',
                 skillCancelled: 'Skill operation cancelled.'
             },
-            footer: 'Tab switch page | Up/Down select | r refresh | q quit',
+            footer: 'Tab/Shift+Tab page | Up/Down select | v full details | r refresh | q quit',
+            resize: 'Terminal is too small', resizeHint: 'Resize to at least 40 columns × 16 rows.',
+            detailFooter: 'Up/Down/PgUp/PgDn read | Esc back',
             empty: 'No data.',
             help: 'The MCP TUI displays status, capabilities, and redacted history and manages local Profiles; it never calls Tools, fetches Prompt content, or reads Resources.',
             profile: {
@@ -597,12 +602,12 @@ export const messages = {
                 emptyValue: '(empty)',
                 editKeyHint: 'The existing key is never loaded into this form; leave the new key empty to keep it.',
                 browseHelp: 'This page only changes local configuration and never connects automatically.',
-                formHelp: 'Up/Down fields; Enter next/save; Ctrl+U clear; Space toggle default; Esc cancel.',
+                formHelp: 'Up/Down/Tab/Shift+Tab fields; Left/Right/Home/End cursor; Enter next/save; Ctrl+U clear; Space toggle default; Esc cancel.',
                 deletePrompt: 'Delete profile "{name}"?',
                 deleteHistoryNote: 'Removing a profile does not delete redacted call history.',
                 deleteHelp: 'Press y to confirm; press n or Esc to cancel.',
                 browseFooter: 'Up/Down select | a add | e/Enter edit | u default | d delete | r refresh | q quit',
-                formFooter: 'Up/Down fields | Enter next/save | Ctrl+U clear | Space toggle | Esc cancel',
+                formFooter: 'Up/Down/Tab fields | Left/Right/Home/End cursor | Enter next/save | Space toggle | Esc cancel',
                 deleteFooter: 'y confirm delete | n/Esc cancel'
             },
             skill: {
@@ -682,14 +687,15 @@ export const messages = {
             deployStartFailed: 'Unable to start deployment installer: {message}',
             resize: 'Terminal too small; use at least 30 columns and 18 rows.',
             footers: {
-                overview: 'e change root | r refresh | Tab switch | q quit',
-                deploy: 'Up/Down select | Enter run | [/] notes | e root | m Nginx | c container',
-                skill: 'i install | u uninstall | r refresh | Tab switch | q quit',
-                mcp: 'i register | u unregister | r refresh | Tab switch | q quit',
-                edit: 'Type | Backspace delete | Ctrl+U clear | Enter save | Esc cancel',
+                overview: 'e change root | v details | r refresh | Tab/Shift+Tab page | q quit',
+                deploy: 'Up/Down select | [/] notes | e root | Space/m Nginx | c container | v details | q quit',
+                skill: 'i install | u uninstall | v paths | Tab/Shift+Tab page | q quit',
+                mcp: 'i register | u unregister | v paths | Tab/Shift+Tab page | q quit',
+                edit: 'Type/paste | Left/Right/Home/End cursor | Delete/Ctrl+U edit | Enter save | Esc cancel',
                 confirm: 'y confirm | n/Esc cancel',
-                prompt: 'Type | Up/Down review | Enter submit | Esc cancel current action',
-                busy: 'Deployment operation in progress; wait for the result'
+                prompt: 'Type/paste | Left/Right/Home/End cursor | Enter submit | Esc request cancellation from installer',
+                busy: 'Deployment operation in progress; wait for the result',
+                detail: 'Up/Down/PgUp/PgDn read | Esc back'
             },
             states: {
                 unavailable: 'unavailable',

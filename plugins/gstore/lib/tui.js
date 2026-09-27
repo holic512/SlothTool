@@ -9,9 +9,10 @@
  * @author holic512
  */
 
-import React, {useEffect, useRef, useState} from 'react';
-import {Box, Spacer, Text, render, useApp, useInput, useWindowSize} from 'ink';
+import React, {useRef, useState} from 'react';
+import {Box, Spacer, Text, render, useApp, useInput, usePaste, useWindowSize} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
+import {editText, editorViewport, graphemes, nextTabIndex, statusSymbol, truncateFromLeft as truncateLeft, wrapText} from './shared-interaction.js';
 import {t} from './i18n.js';
 import {
     configureRepository,
@@ -36,7 +37,6 @@ const COLORS = {
     muted: 'gray',
     border: 'gray'
 };
-const RESULT_DISPLAY_MS = 1800;
 
 export function resolveGStoreTuiLayout(columns = 80, rows = 24) {
     const safeColumns = Math.max(1, Number(columns) || 80);
@@ -51,30 +51,6 @@ export function resolveGStoreTuiLayout(columns = 80, rows = 24) {
         sidebarWidth: Math.max(30, Math.min(42, Math.floor((safeColumns - 5) * 0.42))),
         bindingLimit: safeRows < 20 ? 4 : 8
     };
-}
-
-function displayWidth(value) {
-    return Array.from(String(value || '')).reduce((width, character) => (
-        width + (character.codePointAt(0) > 0xFF ? 2 : 1)
-    ), 0);
-}
-
-function truncateLeft(value, maxWidth) {
-    const text = String(value || '');
-    if (displayWidth(text) <= maxWidth) {
-        return text;
-    }
-    let result = '';
-    let width = 3;
-    for (const character of Array.from(text).reverse()) {
-        const characterWidth = displayWidth(character);
-        if (width + characterWidth > maxWidth) {
-            break;
-        }
-        result = `${character}${result}`;
-        width += characterWidth;
-    }
-    return `...${result}`;
 }
 
 function PanelHeader({title, summary, badge, badgeColor = COLORS.accent}) {
@@ -146,7 +122,7 @@ function ActionPanel({selectedIndex, status, layout}) {
                 Box,
                 {key: action},
                 h(Text, {bold: selected, color: selected ? COLORS.accent : COLORS.muted}, selected ? '› ' : '  '),
-                h(Text, {bold: selected, color: selected ? COLORS.accent : 'white', dimColor: !selected}, t(`tui.actions.${action}`)),
+                h(Text, {bold: selected, color: selected ? COLORS.accent : undefined, dimColor: !selected}, t(`tui.actions.${action}`)),
                 h(Spacer, {}),
                 layout.compact ? null : h(Text, {color: badgeColor, dimColor: !selected}, badges[action])
             );
@@ -202,7 +178,7 @@ function ResponsivePanels({left, right, layout}) {
     );
 }
 
-function RepositoryPage({summary, doctor, editing, repoInput, createPrivate}) {
+function RepositoryPage({summary, doctor, editing, repoInput, repoCursor, inputError, createPrivate, layout}) {
     return h(
         Box,
         {borderStyle: 'round', borderColor: editing ? COLORS.accent : COLORS.border, paddingX: 1, flexDirection: 'column', flexGrow: 1},
@@ -211,10 +187,13 @@ function RepositoryPage({summary, doctor, editing, repoInput, createPrivate}) {
             badge: doctor.authenticated ? t('ok') : t('notLoggedIn'),
             badgeColor: doctor.authenticated ? COLORS.success : COLORS.warning
         }),
-        h(Field, {label: t('tui.fields.repository'), value: editing ? repoInput : (summary.repository || t('noRemote')), color: editing ? COLORS.accent : undefined}),
+        h(Field, {label: t('tui.fields.repository'), value: editing
+            ? editorViewport(repoInput, repoCursor, Math.max(4, layout.contentWidth - 22))
+            : (summary.repository || t('noRemote')), color: editing ? COLORS.accent : undefined}),
         h(Field, {label: t('tui.fields.remoteUrl'), value: truncateLeft(summary.remote || '-', 72), dimColor: true}),
         h(Field, {label: t('tui.fields.cache'), value: truncateLeft(summary.cacheDir, 72), dimColor: true}),
         h(Field, {label: t('tui.fields.privateRepo'), value: createPrivate ? t('yes') : t('no'), color: createPrivate ? COLORS.warning : COLORS.muted}),
+        inputError ? h(Text, {color: COLORS.danger}, truncateLeft(inputError, layout.contentWidth - 4)) : null,
         h(Box, {marginTop: 1, flexDirection: 'column'},
             h(Text, {color: editing ? COLORS.accent : COLORS.muted}, editing ? t('tui.repository.editing') : t('tui.repository.ready')),
             h(Text, {dimColor: true}, t('tui.repository.authHint'))
@@ -233,7 +212,7 @@ function BindingsPage({bindings, selectedIndex, layout}) {
             Box,
             {key: `${binding.tool}/${binding.name}`},
             h(Text, {bold: index === selectedIndex, color: index === selectedIndex ? COLORS.accent : COLORS.muted}, index === selectedIndex ? '› ' : '  '),
-            h(Text, {color: binding.system ? COLORS.success : 'white'}, `${binding.tool}/${binding.name}`),
+            h(Text, {color: binding.system ? COLORS.success : undefined}, `${binding.tool}/${binding.name}`),
             h(Spacer, {}),
             h(Text, {dimColor: true}, binding.system ? 'SYSTEM' : 'CUSTOM')
         ))
@@ -291,12 +270,14 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
     const [statusState, setStatusState] = useState({tone: 'success', message: t('tui.status.ready')});
     const [busy, setBusy] = useState(false);
     const [pending, setPending] = useState('');
+    const pendingRef = useRef('');
     const [editingRepository, setEditingRepository] = useState(false);
     const [repositoryInput, setRepositoryInput] = useState(summary.repository || '');
+    const [repositoryCursor, setRepositoryCursor] = useState(graphemes(summary.repository || '').length);
+    const [repositoryError, setRepositoryError] = useState('');
     const [createPrivate, setCreatePrivate] = useState(false);
-    const statusTimer = useRef(null);
-
-    useEffect(() => () => clearTimeout(statusTimer.current), []);
+    const [detailLines, setDetailLines] = useState(null);
+    const [detailScroll, setDetailScroll] = useState(0);
 
     function refreshLocal(message = t('tui.status.refreshed')) {
         const nextSummary = getRepositorySummary();
@@ -308,12 +289,12 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
     }
 
     function showResult(tone, message) {
-        clearTimeout(statusTimer.current);
         setStatusState({tone, message});
-        statusTimer.current = setTimeout(() => setStatusState({tone: 'success', message: t('tui.status.ready')}), RESULT_DISPLAY_MS);
     }
 
     async function execute(action) {
+        pendingRef.current = '';
+        setPending('');
         setBusy(true);
         setStatusState({tone: 'warn', message: t('tui.status.loading')});
         try {
@@ -341,37 +322,53 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
     }
 
     useInput((input, key) => {
-        if (busy) {
+        if (busy) return;
+        if (layout.tooSmall) {
+            if (input === 'q') app.exit();
             return;
         }
 
         if (editingRepository) {
             if (key.escape) {
                 setEditingRepository(false);
+                setRepositoryError('');
                 setRepositoryInput(summary.repository || '');
+                setRepositoryCursor(graphemes(summary.repository || '').length);
             } else if (key.return) {
                 try {
                     configureRepository(repositoryInput, {create: createPrivate});
                     setEditingRepository(false);
+                    setRepositoryError('');
                     refreshLocal(t('repoSet', {repo: repositoryInput}));
                 } catch (error) {
+                    setRepositoryError(error.message);
                     showResult('error', error.message);
                 }
-            } else if (key.backspace || key.delete) {
-                setRepositoryInput(value => value.slice(0, -1));
-            } else if (input && !key.ctrl && !key.meta) {
-                setRepositoryInput(value => value + input);
+            } else {
+                const next = editText({value: repositoryInput, cursor: repositoryCursor}, input, key);
+                setRepositoryInput(next.value);
+                setRepositoryCursor(next.cursor);
+                setRepositoryError('');
             }
             return;
         }
 
-        if (pending) {
-            if (input.toLowerCase() === 'y' || key.return) {
-                execute(pending);
+        if (pendingRef.current) {
+            if (input.toLowerCase() === 'y') {
+                execute(pendingRef.current);
             } else if (input.toLowerCase() === 'n' || key.escape) {
+                pendingRef.current = '';
                 setPending('');
                 showResult('warn', t('tui.status.cancelled'));
             }
+            return;
+        }
+
+        if (detailLines) {
+            if (key.escape) setDetailLines(null);
+            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, value - (key.pageUp ? 5 : 1)));
+            else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
+                Math.max(0, detailLines.length - Math.max(1, layout.rows - 8)), value + (key.pageDown ? 5 : 1)));
             return;
         }
 
@@ -381,7 +378,7 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
         }
         if (key.tab) {
             const index = TABS.indexOf(activeTab);
-            setActiveTab(TABS[(index + 1) % TABS.length]);
+            setActiveTab(TABS[nextTabIndex(index, TABS.length, key)]);
             return;
         }
         if (key.escape) {
@@ -390,6 +387,20 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
         }
         if (input.toLowerCase() === 'r') {
             refreshLocal();
+            return;
+        }
+        if (input.toLowerCase() === 'v') {
+            const binding = summary.bindings[selectedBinding];
+            const lines = [t(`tui.tabs.${activeTab}`), statusState.message, ''];
+            if (activeTab === 'bindings' && binding) lines.push(
+                `${t('tui.fields.localPath')}: ${binding.localPath}`,
+                `${t('tui.fields.repoPath')}: ${binding.repoPath}`);
+            else lines.push(
+                `${t('tui.fields.repository')}: ${summary.repository || '-'}`,
+                `${t('tui.fields.remoteUrl')}: ${summary.remote || '-'}`,
+                `${t('tui.fields.cache')}: ${summary.cacheDir || '-'}`);
+            setDetailLines(lines.flatMap(line => wrapText(line, Math.max(2, layout.contentWidth - 4))));
+            setDetailScroll(0);
             return;
         }
 
@@ -401,6 +412,8 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
                 setCreatePrivate(value => !value);
             } else if (key.return) {
                 setRepositoryInput(summary.repository || '');
+                setRepositoryCursor(graphemes(summary.repository || '').length);
+                setRepositoryError('');
                 setEditingRepository(true);
             }
             return;
@@ -427,11 +440,20 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
             if (action === 'exit') {
                 app.exit();
             } else if (action === 'preferLocal' || action === 'preferRemote') {
+                pendingRef.current = action;
                 setPending(action);
             } else {
                 execute(action);
             }
         }
+    });
+
+    usePaste(value => {
+        if (!editingRepository || busy) return;
+        const next = editText({value: repositoryInput, cursor: repositoryCursor}, value);
+        setRepositoryInput(next.value);
+        setRepositoryCursor(next.cursor);
+        setRepositoryError('');
     });
 
     if (layout.tooSmall) {
@@ -441,14 +463,21 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
         );
     }
 
-    const content = activeTab === 'sync'
+    const content = detailLines
+        ? h(Box, {borderStyle: 'round', borderColor: COLORS.border, paddingX: 1, flexDirection: 'column',
+            height: Math.max(4, layout.rows - 6), overflow: 'hidden'},
+        h(Text, {bold: true, color: COLORS.accent}, t('tui.panels.details')),
+        ...detailLines.slice(detailScroll, detailScroll + Math.max(1, layout.rows - 9))
+            .map((line, index) => h(Text, {key: detailScroll + index}, line)))
+        : activeTab === 'sync'
         ? h(ResponsivePanels, {
             layout,
             left: h(ActionPanel, {selectedIndex: selectedAction, status: syncStatus, layout}),
             right: h(StatusPanel, {status: syncStatus, summary, busy, pending})
         })
         : activeTab === 'repository'
-            ? h(RepositoryPage, {summary, doctor, editing: editingRepository, repoInput: repositoryInput, createPrivate})
+            ? h(RepositoryPage, {summary, doctor, editing: editingRepository, repoInput: repositoryInput,
+                repoCursor: repositoryCursor, inputError: repositoryError, createPrivate, layout})
             : activeTab === 'bindings'
                 ? h(BindingsPage, {bindings: summary.bindings, selectedIndex: selectedBinding, layout})
                 : h(DoctorPage, {doctor, summary});
@@ -461,9 +490,12 @@ export function GStoreTuiApp({layoutOverride = null, initialTab = 'sync'} = {}) 
         h(Box, {marginY: 1}, h(Text, {color: COLORS.muted}, '─'.repeat(layout.contentWidth))),
         h(Box, {flexGrow: 1}, content),
         h(Box, {marginTop: 1},
-            h(Text, {color: toneColor}, statusState.message),
+            h(Text, {color: toneColor}, `${statusSymbol(busy ? 'running' : 'result', statusState.tone)} ${statusState.message}`),
             h(Spacer, {}),
-            h(Text, {dimColor: true}, editingRepository ? t('tui.footer.input') : t(`tui.footer.${activeTab}`))
+            h(Text, {dimColor: true}, busy ? t('tui.footer.busy') : editingRepository ? t('tui.footer.input')
+                : pending ? t('tui.confirm.footer') : detailLines ? t('tui.footer.detail')
+                    : t(`tui.footer.${activeTab}`, activeTab === 'sync'
+                        ? {action: t(`tui.actions.${ACTIONS[selectedAction]}`)} : {}))
         )
     );
 }

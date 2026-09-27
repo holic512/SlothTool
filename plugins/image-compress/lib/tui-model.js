@@ -11,6 +11,9 @@
 
 import path from 'node:path';
 
+import {getDisplayWidth, truncateFromLeft, truncateFromRight} from './shared-interaction.js';
+export {getDisplayWidth, truncateFromLeft, truncateFromRight} from './shared-interaction.js';
+
 export const IMAGE_COMPRESS_TUI_COLORS = Object.freeze({
     accent: 'cyanBright',
     secondary: 'magentaBright',
@@ -27,74 +30,6 @@ const SHORT_HEIGHT = 20;
 function normalizeDimension(value, fallback, minimum) {
     const parsedValue = Number.parseInt(value, 10);
     return Math.max(minimum, Number.isInteger(parsedValue) ? parsedValue : fallback);
-}
-
-function isFullWidthCodePoint(codePoint) {
-    return codePoint >= 0x1100 && (
-        codePoint <= 0x115F
-        || codePoint === 0x2329
-        || codePoint === 0x232A
-        || (codePoint >= 0x2E80 && codePoint <= 0x303E)
-        || (codePoint >= 0x3040 && codePoint <= 0x3247)
-        || (codePoint >= 0x3250 && codePoint <= 0x4DBF)
-        || (codePoint >= 0x4E00 && codePoint <= 0xA4C6)
-        || (codePoint >= 0xA960 && codePoint <= 0xA97C)
-        || (codePoint >= 0xAC00 && codePoint <= 0xD7A3)
-        || (codePoint >= 0xF900 && codePoint <= 0xFAFF)
-        || (codePoint >= 0xFE10 && codePoint <= 0xFE19)
-        || (codePoint >= 0xFE30 && codePoint <= 0xFE6B)
-        || (codePoint >= 0xFF01 && codePoint <= 0xFF60)
-        || (codePoint >= 0xFFE0 && codePoint <= 0xFFE6)
-        || (codePoint >= 0x1B000 && codePoint <= 0x1B001)
-        || (codePoint >= 0x1F200 && codePoint <= 0x1F251)
-        || (codePoint >= 0x20000 && codePoint <= 0x3FFFD)
-    );
-}
-
-export function getDisplayWidth(text = '') {
-    return Array.from(String(text)).reduce((width, character) => (
-        width + (isFullWidthCodePoint(character.codePointAt(0)) ? 2 : 1)
-    ), 0);
-}
-
-function truncateText(text, maxWidth, fromLeft) {
-    const normalizedText = String(text || '');
-    if (maxWidth <= 0) {
-        return '';
-    }
-    if (getDisplayWidth(normalizedText) <= maxWidth) {
-        return normalizedText;
-    }
-
-    const ellipsis = '...';
-    if (maxWidth <= ellipsis.length) {
-        return ellipsis.slice(0, maxWidth);
-    }
-
-    const characters = Array.from(normalizedText);
-    const orderedCharacters = fromLeft ? characters.reverse() : characters;
-    let result = '';
-    let width = 0;
-
-    for (const character of orderedCharacters) {
-        const characterWidth = getDisplayWidth(character);
-        if (width + characterWidth + ellipsis.length > maxWidth) {
-            break;
-        }
-
-        result = fromLeft ? `${character}${result}` : `${result}${character}`;
-        width += characterWidth;
-    }
-
-    return fromLeft ? `${ellipsis}${result}` : `${result}${ellipsis}`;
-}
-
-export function truncateFromLeft(text, maxWidth) {
-    return truncateText(text, maxWidth, true);
-}
-
-export function truncateFromRight(text, maxWidth) {
-    return truncateText(text, maxWidth, false);
 }
 
 export function resolveImageCompressTuiLayout(columns = 100, rows = 24) {

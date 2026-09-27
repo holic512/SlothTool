@@ -34,7 +34,7 @@ test('loc TUI shell keys exist in zh and en', () => {
 test('image-compress responsive TUI keys exist in zh and en', () => {
     assert.equal(imageCompressMessages.zh.tui.tabs.run, '运行');
     assert.equal(imageCompressMessages.en.tui.tabs.run, 'Run');
-    assert.match(imageCompressMessages.zh.tui.footer.options, /Space/u);
+    assert.match(imageCompressMessages.zh.tui.footer.options, /\{space\}/u);
     assert.match(imageCompressMessages.en.tui.footer.compactRun, /Enter/u);
     assert.equal(imageCompressMessages.zh.tui.panels.targets, '输入队列');
     assert.equal(imageCompressMessages.en.tui.result.wouldSave, 'Would save');

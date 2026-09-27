@@ -79,12 +79,13 @@ export const messages = {
                 exit: '退出'
             },
             footer: {
-                count: 'Tab 切页 | ↑↓ 选择 | Enter 执行 | Esc 返回 | ? 帮助 | q 退出',
-                config: 'Tab 切页 | ↑↓ 选择 | [/] 翻页 | Space 切换 | Esc 返回 | ? 帮助 | q 退出',
-                input: '输入或粘贴目录 | Enter 统计 | Esc 取消',
-                compactCount: 'Tab | ↑↓ | Enter | ? | q',
+                count: 'Tab/Shift+Tab 切页 | ↑↓ 选择 | Enter {action} | v 详情 | ? 帮助 | q 退出',
+                config: 'Tab/Shift+Tab 切页 | ↑↓ 选择 | [/] 翻页 | Space 切换 | v 详情 | q 退出',
+                input: '输入/粘贴 | ←→/Home/End 光标 | Delete/Ctrl+U 编辑 | Enter 统计 | Esc 取消',
+                detail: '↑↓/PgUp/PgDn 翻阅 | Esc 返回', help: 'Esc/? 关闭帮助', busy: '统计中，请等待结果',
+                compactCount: 'Tab | ↑↓ | Enter {action} | ? | q',
                 compactConfig: 'Tab | ↑↓ | [/] | Space | ? | q',
-                microCount: '↑↓ Enter ? q',
+                microCount: 'Enter {action} q',
                 microConfig: '↑↓ [/] Space q',
                 microInput: 'Enter | Esc'
             },
@@ -152,7 +153,7 @@ export const messages = {
             help: {
                 title: '快捷键',
                 lines: [
-                    'Tab: 切换顶部页面',
+                    'Tab/Shift+Tab: 正反向切换顶部页面',
                     'Up/Down: 移动',
                     '[/]: 上一页 / 下一页',
                     'Enter: 执行操作',
@@ -212,12 +213,13 @@ export const messages = {
                 exit: 'Exit'
             },
             footer: {
-                count: 'Tab page | Up/Down select | Enter run | Esc back | ? help | q quit',
-                config: 'Tab page | Up/Down select | [/] page | Space toggle | Esc back | ? help | q quit',
-                input: 'Type or paste a directory | Enter count | Esc cancel',
-                compactCount: 'Tab | Up/Down | Enter | ? | q',
+                count: 'Tab/Shift+Tab page | Up/Down select | Enter {action} | v details | ? help | q quit',
+                config: 'Tab/Shift+Tab page | Up/Down select | [/] page | Space toggle | v details | q quit',
+                input: 'Type/paste | Left/Right/Home/End cursor | Delete/Ctrl+U edit | Enter count | Esc cancel',
+                detail: 'Up/Down/PgUp/PgDn read | Esc back', help: 'Esc/? close help', busy: 'Counting; wait for the result',
+                compactCount: 'Tab | Up/Down | Enter {action} | ? | q',
                 compactConfig: 'Tab | Up/Down | [/] | Space | ? | q',
-                microCount: 'Up/Down Enter ? q',
+                microCount: 'Enter {action} q',
                 microConfig: 'Up/Down [/] Space q',
                 microInput: 'Enter | Esc'
             },
@@ -285,7 +287,7 @@ export const messages = {
             help: {
                 title: 'Keymap',
                 lines: [
-                    'Tab: switch top page',
+                    'Tab/Shift+Tab: switch top page in either direction',
                     'Up/Down: move',
                     '[/]: previous / next page',
                     'Enter: run action',

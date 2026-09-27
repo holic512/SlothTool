@@ -1174,10 +1174,11 @@ test('MCP TUI has a smoke exit, stable narrow layout, local Profile management, 
     assert.ok(renderSmoke.stdout.includes(`SlothVault MCP ${pluginVersion}`));
 
     const narrow = resolveSlothVaultTuiLayout(30, 10);
-    assert.equal(narrow.columns, 40);
-    assert.equal(narrow.rows, 16);
+    assert.equal(narrow.columns, 30);
+    assert.equal(narrow.rows, 10);
     assert.equal(narrow.compact, true);
-    assert.equal(narrow.listLimit, 3);
+    assert.equal(narrow.tooSmall, true);
+    assert.equal(narrow.listLimit, 1);
 
     const wide = resolveSlothVaultTuiLayout(120, 40);
     assert.equal(wide.columns, 120);

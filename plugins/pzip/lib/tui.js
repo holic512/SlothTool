@@ -11,8 +11,9 @@
 
 import path from 'node:path';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {Box, Text, render, useApp, useInput, useWindowSize} from 'ink';
+import {Box, Text, render, useApp, useInput, usePaste, useWindowSize} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
+import {wrapText as wrapLine, editText, editorViewport, graphemes, nextTabIndex, statusSymbol} from './shared-interaction.js';
 import {BUILT_IN_RULE_NAMES} from './config.js';
 import {
     addCustomRule,
@@ -50,34 +51,6 @@ function requestedOutput(sourceDirectory, outputPath) {
         ? path.resolve(outputPath)
         : path.join(path.dirname(source), `${path.basename(source)}.zip`);
     return target.toLowerCase().endsWith('.zip') ? target : `${target}.zip`;
-}
-
-function charWidth(char) {
-    if (/\p{Mark}/u.test(char)) return 0;
-    const code = char.codePointAt(0);
-    return code >= 0x1100 && (code <= 0x115f || code >= 0x2329 && code <= 0x232a
-        || code >= 0x2e80 && code <= 0xa4cf || code >= 0xac00 && code <= 0xd7a3
-        || code >= 0xf900 && code <= 0xfaff || code >= 0xfe10 && code <= 0xfe6f
-        || code >= 0xff01 && code <= 0xff60 || code >= 0xffe0 && code <= 0xffe6
-        || code >= 0x1f300 && code <= 0x1faff) ? 2 : 1;
-}
-
-function wrapLine(value, width) {
-    const lines = [];
-    let line = '';
-    let used = 0;
-    for (const char of Array.from(String(value))) {
-        const size = charWidth(char);
-        if (used + size > width && line) {
-            lines.push(line);
-            line = '';
-            used = 0;
-        }
-        line += char;
-        used += size;
-    }
-    lines.push(line);
-    return lines;
 }
 
 export function getRuleWindow(itemCount, selectedIndex, visibleCount) {
@@ -130,6 +103,7 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
     const [selectedFilterIndex, setSelectedFilterIndex] = useState(0);
     const [editing, setEditing] = useState(null);
     const [draft, setDraft] = useState('');
+    const [draftCursor, setDraftCursor] = useState(0);
     const [inputError, setInputError] = useState('');
     const [activeTask, setActiveTask] = useState(null);
     const [lastArchive, setLastArchive] = useState(null);
@@ -148,6 +122,7 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
     const mainHeight = Math.max(3, rows - 4);
     const innerRows = Math.max(0, mainHeight - 3);
     const compact = columns < 70 || rows < 15;
+    const tooSmall = columns < 30 || rows < 8;
 
     useEffect(() => {
         if (selectedFilterIndex >= filterItems.length) {
@@ -165,7 +140,9 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
 
     function beginEdit(type) {
         setEditing(type);
-        setDraft(type === 'source' ? sourceDirectory : type === 'output' ? outputPath : '');
+        const initial = type === 'source' ? sourceDirectory : type === 'output' ? outputPath : '';
+        setDraft(initial);
+        setDraftCursor(graphemes(initial).length);
         setInputError('');
     }
 
@@ -185,9 +162,12 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
             }
             setEditing(null);
             setDraft('');
+            setDraftCursor(0);
             setInputError('');
         } catch (error) {
-            setInputError(formatPzipError(error));
+            const message = formatPzipError(error);
+            setInputError(message);
+            setLastError({message, detail: error?.stack || String(error), kind: 'input'});
         }
     }
 
@@ -262,24 +242,24 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
 
     useInput((input, key) => {
         if (taskLock.current) return;
+        if (tooSmall) {
+            if (input === 'q') app.exit();
+            return;
+        }
         if (editing) {
             if (key.escape) {
                 setEditing(null);
                 setDraft('');
+                setDraftCursor(0);
                 setInputError('');
             } else if (key.return) {
                 commitEdit();
-            } else if (key.backspace || key.delete) {
-                setDraft(value => value.slice(0, -1));
-                setInputError('');
-            } else if (input && !key.ctrl && !key.meta) {
-                setDraft(value => value + input);
+            } else {
+                const next = editText({value: draft, cursor: draftCursor}, input, key);
+                setDraft(next.value);
+                setDraftCursor(next.cursor);
                 setInputError('');
             }
-            return;
-        }
-        if (input === 'q') {
-            app.exit();
             return;
         }
         if (detailView) {
@@ -291,12 +271,16 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
             }
             return;
         }
+        if (input === 'q') {
+            app.exit();
+            return;
+        }
         if (input === '?') {
             openDetail('help');
             return;
         }
         if (key.tab) {
-            setActiveTab(tab => tab === 'compress' ? 'filters' : 'compress');
+            setActiveTab(tab => ['compress', 'filters'][nextTabIndex(['compress', 'filters'].indexOf(tab), 2, key)]);
             return;
         }
         if (key.escape) {
@@ -330,9 +314,17 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
         else if (input === 'v' && selectedItem?.kind === 'custom') openDetail('pattern');
     });
 
-    const footerKeys = activeTask ? [] : editing ? ['Enter', 'Esc'] : detailView ? ['↑↓', 'Pg', 'Esc', 'q']
+    usePaste(value => {
+        if (!editing || taskLock.current) return;
+        const next = editText({value: draft, cursor: draftCursor}, value);
+        setDraft(next.value);
+        setDraftCursor(next.cursor);
+        setInputError('');
+    });
+
+    const footerKeys = activeTask ? [] : editing ? [t('tui.footer.compactInput')] : detailView ? ['↑↓', 'Pg', 'Esc']
         : activeTab === 'compress'
-            ? ['s', 'o', 'c', 'p', '↵', 'Tab', ...(lastArchive ? ['r'] : []), ...(lastPreview ? ['v'] : []),
+            ? ['s', 'o', 'c', 'p', `Enter ${t('tui.actions.run')}`, 'Tab', ...(lastArchive ? ['r'] : []), ...(lastPreview ? ['v'] : []),
                 ...(lastScan?.warnings.length ? ['w'] : []), ...(lastError ? ['e'] : []), '?', 'q']
             : ['↑↓', 'Pg', 'a', ...(selectedItem?.kind === 'builtIn' ? ['Space'] : []),
                 ...(selectedItem?.kind === 'custom' ? ['d', 'v'] : []), 'Tab', '?', 'q'];
@@ -342,10 +334,15 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
         : editing ? t('tui.footer.input') : detailView ? t('tui.footer.detail')
             : `${footerKeys.join(' · ')}  ${t('tui.footer.keyHelp')}`;
 
+    if (tooSmall) return h(Box, {flexDirection: 'column', width: columns, height: rows},
+        h(Text, {bold: true, color: COLORS.warning, wrap: 'truncate-end'}, t('tui.resize')),
+        rows > 1 ? h(Text, {wrap: 'truncate-end'}, t('tui.resizeHint')) : null,
+        rows > 2 ? h(Text, {}, 'q') : null);
+
     let content;
     if (editing) {
         content = h(Panel, {title: t(`tui.prompt.${editing}`), height: mainHeight, color: inputError ? COLORS.danger : COLORS.accent},
-            h(Text, {bold: true, wrap: 'truncate-start'}, `› ${draft}`),
+            h(Text, {bold: true}, `› ${editorViewport(draft, draftCursor, Math.max(2, columns - 6))}`),
             inputError ? h(Text, {color: COLORS.danger, wrap: 'truncate-end'}, inputError) : null);
     } else if (detailView) {
         const title = `${t(`tui.panels.${detailView}`)}  ${detailLines.length ? visibleDetailScroll + 1 : 0}/${detailLines.length}`;
@@ -363,7 +360,8 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
             lastArchive ? h(Line, {key: 'archive', label: t('tui.labels.lastArchive'), value: lastArchive.archivePath, color: COLORS.success}) : null,
             lastPreview ? h(Line, {key: 'preview', label: t('tui.labels.lastPreview'), value: t('tui.result.previewSummary', {count: lastPreview.includedFileCount}), color: COLORS.accent}) : null,
             lastScan?.warnings.length ? h(Line, {key: 'warnings', label: t('warningsTitle'), value: String(lastScan.warnings.length), color: COLORS.warning}) : null,
-            lastError ? h(Line, {key: 'error', label: t('error'), value: lastError.message, color: COLORS.danger}) : null,
+            lastError && lastError.kind !== 'input'
+                ? h(Line, {key: 'error', label: t('error'), value: lastError.message, color: COLORS.danger}) : null,
             h(Text, {key: 'hint', dimColor: true, wrap: 'truncate-end'}, t('tui.result.actionHint'))
         ].filter(Boolean);
         content = h(Panel, {title: t('tui.panels.source'), height: mainHeight}, ...lines.slice(0, innerRows));
@@ -389,7 +387,8 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
         h(Text, {bold: true, color: COLORS.accent, wrap: 'truncate-end'}, columns >= 55 ? `${tabs}  v${pluginPackage.version}` : tabs),
         h(Text, {color: COLORS.muted, wrap: 'truncate-end'}, '─'.repeat(Math.max(1, columns - 1))),
         content,
-        h(Text, {color: status.color, wrap: 'truncate-end'}, status.text),
+        h(Text, {color: status.color, wrap: 'truncate-end'}, `${statusSymbol(activeTask ? 'running' : 'result',
+            status.color === COLORS.danger ? 'error' : status.color === COLORS.warning ? 'warn' : 'success')} ${status.text}`),
         h(Text, {dimColor: true, wrap: activeTask && innerRows < 2 ? 'truncate-middle' : 'truncate-end'}, footer));
 }
 

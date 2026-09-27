@@ -9,9 +9,10 @@
  * @author holic512
  */
 
-import React, {useEffect, useRef, useState} from 'react';
-import {Box, Spacer, Text, render, useApp, useInput, useWindowSize} from 'ink';
+import React, {useEffect, useState} from 'react';
+import {Box, Spacer, Text, render, useApp, useInput, usePaste, useWindowSize} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
+import {editText, editorViewport, nextTabIndex, statusSymbol, wrapText} from './shared-interaction.js';
 import {getLanguage, t} from './i18n.js';
 import {
     createPagedState,
@@ -42,7 +43,6 @@ import {
 const h = React.createElement;
 const TABS = ['count', 'extensions', 'excludes'];
 const COUNT_MENU_ITEMS = ['current', 'custom', 'reset', 'exit'];
-const RESULT_DISPLAY_MS = 1600;
 const SPINNER_INTERVAL_MS = 120;
 const TASK_START_RENDER_DELAY_MS = 16;
 const SPINNER_FRAMES = ['-', '\\', '|', '/'];
@@ -150,7 +150,7 @@ function CountActionPanel({selectedIndex, result = null, layout = null}) {
                 }, selected ? '› ' : '  '),
                 h(Text, {
                     bold: selected,
-                    color: selected ? LOC_TUI_COLORS.accent : 'white',
+                    color: selected ? LOC_TUI_COLORS.accent : undefined,
                     dimColor: !selected
                 }, t(`tui.menu.${item}`)),
                 h(Spacer, {}),
@@ -168,7 +168,7 @@ function CountActionPanel({selectedIndex, result = null, layout = null}) {
     );
 }
 
-function DirectoryInputPanel({value}) {
+function DirectoryInputPanel({value, cursor, width, error}) {
     return h(
         Box,
         {
@@ -182,7 +182,8 @@ function DirectoryInputPanel({value}) {
             badge: t('tui.menuBadges.custom'),
             badgeColor: LOC_TUI_COLORS.secondary
         }),
-        h(Box, {marginTop: 1}, h(Text, {bold: true, color: LOC_TUI_COLORS.accent}, `› ${value || '.'}`)),
+        h(Box, {marginTop: 1}, h(Text, {bold: true, color: LOC_TUI_COLORS.accent}, `› ${editorViewport(value, cursor, width)}`)),
+        error ? h(Text, {color: LOC_TUI_COLORS.danger}, truncateFromRight(error, width)) : null,
         h(Text, {dimColor: true}, t('tui.prompt'))
     );
 }
@@ -376,7 +377,7 @@ function ToggleListPanel({activeTab, items, page, localSelectedIndex, layout}) {
                 }, item.enabled ? '● ' : '○ '),
                 h(Text, {
                     bold: selected,
-                    color: selected ? LOC_TUI_COLORS.accent : 'white',
+                    color: selected ? LOC_TUI_COLORS.accent : undefined,
                     dimColor: !selected
                 }, item.name)
             );
@@ -478,7 +479,7 @@ function ResponsivePanels({left, right, layout, showRight = true}) {
     );
 }
 
-function HelpPanel() {
+function HelpPanel({lines, scroll, height}) {
     return h(
         Box,
         {
@@ -489,7 +490,7 @@ function HelpPanel() {
             flexGrow: 1
         },
         h(Text, {bold: true, color: LOC_TUI_COLORS.accent}, t('tui.help.title')),
-        ...t('tui.help.lines').map(line => h(Text, {key: line}, line))
+        ...lines.slice(scroll, scroll + Math.max(1, height - 4)).map((line, index) => h(Text, {key: scroll + index}, line))
     );
 }
 
@@ -519,13 +520,13 @@ function Header({activeTab, columns}) {
     );
 }
 
-function getFooterText(activeTab, inputMode, layout) {
+function getFooterText(activeTab, inputMode, layout, action) {
     if (layout.microFooter) {
         if (inputMode) {
             return t('tui.footer.microInput');
         }
 
-        return t(`tui.footer.${activeTab === 'count' ? 'microCount' : 'microConfig'}`);
+        return t(`tui.footer.${activeTab === 'count' ? 'microCount' : 'microConfig'}`, {action});
     }
 
     if (inputMode) {
@@ -533,10 +534,10 @@ function getFooterText(activeTab, inputMode, layout) {
     }
 
     if (layout.compactFooter) {
-        return t(`tui.footer.${activeTab === 'count' ? 'compactCount' : 'compactConfig'}`);
+        return t(`tui.footer.${activeTab === 'count' ? 'compactCount' : 'compactConfig'}`, {action});
     }
 
-    return t(`tui.footer.${activeTab === 'count' ? 'count' : 'config'}`);
+    return t(`tui.footer.${activeTab === 'count' ? 'count' : 'config'}`, {action});
 }
 
 export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialResult = null} = {}) {
@@ -550,8 +551,12 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         excludes: createPagedState(0, 0)
     });
     const [directoryInput, setDirectoryInput] = useState('');
+    const [directoryCursor, setDirectoryCursor] = useState(0);
+    const [directoryError, setDirectoryError] = useState('');
     const [inputMode, setInputMode] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
+    const [detailLines, setDetailLines] = useState(null);
+    const [detailScroll, setDetailScroll] = useState(0);
     const [result, setResult] = useState(initialResult);
     const [spinnerFrameIndex, setSpinnerFrameIndex] = useState(0);
     const [statusState, setStatusState] = useState({
@@ -560,7 +565,6 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         message: '',
         label: ''
     });
-    const resultTimeoutRef = useRef(null);
 
     const config = getConfigSummary();
     const extensionItems = Object.entries(config.fileExtensions).map(([name, enabled]) => ({name, enabled}));
@@ -590,10 +594,6 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         };
     }, [statusState.mode]);
 
-    useEffect(() => () => {
-        clearTimeout(resultTimeoutRef.current);
-    }, []);
-
     useEffect(() => {
         if (process.env.SLOTHTOOL_LOC_TUI_TEST_ACTION === 'render-exit') {
             app.exit();
@@ -615,36 +615,19 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         }));
     }, [extensionItems.length, excludeItems.length, layout.pageSize]);
 
-    function clearPendingStatus() {
-        clearTimeout(resultTimeoutRef.current);
-        resultTimeoutRef.current = null;
-    }
-
     function showResultStatus(tone, message) {
-        clearPendingStatus();
         setStatusState({
             mode: 'result',
             tone,
             message,
             label: ''
         });
-
-        resultTimeoutRef.current = setTimeout(() => {
-            setStatusState({
-                mode: 'idle',
-                tone: 'success',
-                message: '',
-                label: ''
-            });
-        }, RESULT_DISPLAY_MS);
     }
 
     async function runTask(label, task, options = {}) {
         if (statusState.mode === 'progress') {
             return null;
         }
-
-        clearPendingStatus();
 
         if (options.useSpinner) {
             setSpinnerFrameIndex(0);
@@ -677,6 +660,7 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
 
     function performCount(targetDir) {
         const normalizedTarget = normalizeDirectoryInput(targetDir);
+        setDirectoryError('');
 
         return runTask(t('tui.status.countingLabel'), async () => {
             try {
@@ -685,7 +669,9 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
                 setResult(nextResult);
                 return nextResult;
             } catch (error) {
-                throw new Error(t('invalidDirectory', {dir: error.message}));
+                const message = t('invalidDirectory', {dir: error.message});
+                setDirectoryError(message);
+                throw new Error(message);
             }
         }, {
             useSpinner: true,
@@ -695,6 +681,9 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
                     message: t('tui.status.countDone', {dir: nextResult.resolvedDir})
                 };
             }
+        }).then(value => {
+            if (value) setInputMode(false);
+            return value;
         });
     }
 
@@ -741,6 +730,18 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
     }
 
     useInput((input, key) => {
+        if (statusState.mode === 'progress') return;
+        if (layout.tooSmall) {
+            if (input === 'q') app.exit();
+            return;
+        }
+        if (detailLines) {
+            if (key.escape) setDetailLines(null);
+            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, value - (key.pageUp ? 5 : 1)));
+            else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
+                Math.max(0, detailLines.length - Math.max(1, layout.rows - 8)), value + (key.pageDown ? 5 : 1)));
+            return;
+        }
         if (helpOpen) {
             if (key.escape || input === '?') {
                 setHelpOpen(false);
@@ -748,36 +749,38 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
             return;
         }
 
-        if (statusState.mode === 'progress') {
-            return;
-        }
-
         if (inputMode) {
             if (key.escape) {
                 setInputMode(false);
+                setDirectoryError('');
                 return;
             }
 
             if (key.return) {
-                setInputMode(false);
                 performCount(directoryInput);
                 return;
             }
 
-            if (key.backspace || key.delete) {
-                setDirectoryInput(currentValue => currentValue.slice(0, -1));
-                return;
-            }
-
-            if (input && !key.ctrl && !key.meta) {
-                setDirectoryInput(currentValue => currentValue + input);
-            }
-
+            const next = editText({value: directoryInput, cursor: directoryCursor}, input, key);
+            setDirectoryInput(next.value);
+            setDirectoryCursor(next.cursor);
+            setDirectoryError('');
             return;
         }
 
         if (input === '?') {
             setHelpOpen(true);
+            return;
+        }
+
+        if (input === 'v') {
+            const lines = [statusState.message || t('tui.status.ready')];
+            if (activeTab === 'count') {
+                lines.push(`${t('tui.result.target')}: ${result?.resolvedDir || process.cwd()}`,
+                    ...(result?.warnings || []), ...(result?.files || []).map(file => `${file.path}: ${file.lines}`));
+            } else if (selectedConfigItem) lines.push(selectedConfigItem.name);
+            setDetailLines(lines.flatMap(line => wrapText(line, Math.max(2, layout.contentWidth - 4))));
+            setDetailScroll(0);
             return;
         }
 
@@ -788,7 +791,7 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
 
         if (key.tab) {
             const currentIndex = TABS.indexOf(activeTab);
-            setActiveTabSafe(TABS[(currentIndex + 1) % TABS.length]);
+            setActiveTabSafe(TABS[nextTabIndex(currentIndex, TABS.length, key)]);
             return;
         }
 
@@ -853,6 +856,8 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
 
         if (selectedItem === 'custom') {
             setDirectoryInput('');
+            setDirectoryCursor(0);
+            setDirectoryError('');
             setInputMode(true);
             return;
         }
@@ -865,6 +870,14 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         if (selectedItem === 'exit') {
             app.exit();
         }
+    });
+
+    usePaste(value => {
+        if (!inputMode || statusState.mode === 'progress') return;
+        const next = editText({value: directoryInput, cursor: directoryCursor}, value);
+        setDirectoryInput(next.value);
+        setDirectoryCursor(next.cursor);
+        setDirectoryError('');
     });
 
     const activeItems = activeTab === 'extensions' ? extensionItems : excludeItems;
@@ -892,11 +905,14 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
 
     let mainContent;
 
-    if (helpOpen) {
-        mainContent = h(HelpPanel);
+    if (detailLines) {
+        mainContent = h(HelpPanel, {lines: detailLines, scroll: detailScroll, height: layout.viewportHeight});
+    } else if (helpOpen) {
+        mainContent = h(HelpPanel, {lines: t('tui.help.lines'), scroll: 0, height: layout.viewportHeight});
     } else if (activeTab === 'count') {
         const leftPane = inputMode
-            ? h(DirectoryInputPanel, {value: directoryInput})
+            ? h(DirectoryInputPanel, {value: directoryInput, cursor: directoryCursor, error: directoryError,
+                width: Math.max(4, (layout.compact ? layout.contentWidth : layout.sidebarWidth) - 7)})
             : h(CountActionPanel, {
                 selectedIndex: countMenuIndex,
                 result,
@@ -945,7 +961,9 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
             ? statusState.message
             : t('tui.status.ready');
     const statusColor = resolveStatusColor(statusState.mode, statusState.tone);
-    const footerText = getFooterText(activeTab, inputMode, layout);
+    const footerText = statusState.mode === 'progress' ? t('tui.footer.busy')
+        : detailLines ? t('tui.footer.detail') : helpOpen ? t('tui.footer.help')
+            : getFooterText(activeTab, inputMode, layout, t('tui.menu.' + COUNT_MENU_ITEMS[countMenuIndex]));
 
     return h(
         Box,
@@ -964,7 +982,7 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         h(
             Box,
             {},
-            h(Text, {color: statusColor}, truncateFromRight(statusText, Math.max(12, Math.floor(layout.contentWidth * 0.42)))),
+            h(Text, {color: statusColor}, truncateFromRight(`${statusSymbol(statusState.mode, statusState.tone)} ${statusText}`, Math.max(12, Math.floor(layout.contentWidth * 0.42)))),
             h(Spacer, {}),
             h(Text, {dimColor: true, wrap: 'truncate-end'}, footerText)
         )

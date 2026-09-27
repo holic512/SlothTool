@@ -11,8 +11,9 @@
 
 import process from 'node:process';
 import React, {createElement as h, useEffect, useRef, useState} from 'react';
-import {Box, Spacer, Text, useApp, useInput, useWindowSize, render} from 'ink';
+import {Box, Spacer, Text, useApp, useInput, usePaste, useWindowSize, render} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
+import {editText, editorViewport, graphemes, nextTabIndex, statusSymbol, truncateFromRight, wrapText} from './shared-interaction.js';
 import {createDeploymentSession, inspectDeployment} from './deploy-runner.js';
 import {getSkillStatus, installSkill, uninstallSkill} from './skill-manager.js';
 import {getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from './mcp-command-manager.js';
@@ -46,18 +47,7 @@ export function buildDeploymentArguments(action, {root = '/data/slothvault', ngi
 
 function stateText(value) {return t(`manager.states.${value || 'unavailable'}`);}
 function clip(value, width) {
-    const limit = Math.max(4, width);
-    const source = String(value ?? '').replace(/\x1b\[[0-9;]*[A-Za-z]/gu, '').replace(/[\r\n\t]/gu, ' ');
-    const cells = character => character.codePointAt(0) > 0xFF ? 2 : 1;
-    if (Array.from(source).reduce((total, character) => total + cells(character), 0) <= limit) return source;
-    let result = '';
-    let used = 0;
-    for (const character of source) {
-        if (used + cells(character) > limit - 1) break;
-        result += character;
-        used += cells(character);
-    }
-    return `${result}…`;
+    return truncateFromRight(String(value ?? '').replace(/\x1b\[[0-9;]*[A-Za-z]/gu, '').replace(/[\r\n\t]/gu, ' '), Math.max(4, width));
 }
 function Panel({title, children, color = COLORS.border, badge = null}) {
     return h(Box, {borderStyle: 'round', borderColor: color, paddingX: 1, flexDirection: 'column', flexGrow: 1},
@@ -133,7 +123,7 @@ function updateReleaseLines(update) {
     ].filter(Boolean));
 }
 
-function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, editing, draft, pending, instance, update, preview, noteOffset, logs, prompt, promptValue, busy}) {
+function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, editing, draft, draftCursor, pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy}) {
     const action = DEPLOY_ACTIONS[selectedIndex];
     const usesNginx = NGINX_ACTIONS.has(action);
     const listLimit = layout.compact ? layout.short ? 3 : 5 : DEPLOY_ACTIONS.length;
@@ -156,13 +146,17 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
         h(Text, {bold: true}, t('manager.actions.' + action)),
         layout.short ? null : h(Text, {dimColor: true}, t('manager.actionDetails.' + action)),
         h(Box, {flexDirection: 'column'},
-            h(Field, {label: t('manager.fields.root'), value: clip(editing === 'root' ? draft + '█' : root, layout.compact ? layout.width - 13 : layout.width - layout.sidebarWidth - 14), color: editing === 'root' ? COLORS.accent : undefined}),
+            h(Field, {label: t('manager.fields.root'), value: editing === 'root'
+                ? editorViewport(draft, draftCursor, Math.max(4, layout.compact ? layout.width - 13 : layout.width - layout.sidebarWidth - 14))
+                : clip(root, layout.compact ? layout.width - 13 : layout.width - layout.sidebarWidth - 14), color: editing === 'root' ? COLORS.accent : undefined}),
             usesNginx ? h(Field, {label: t('manager.fields.nginxMode'), value: t('manager.nginxModes.' + nginxMode), color: nginxMode === 'docker' ? COLORS.warning : undefined}) : null,
-            usesNginx && nginxMode === 'docker' ? h(Field, {label: t('manager.fields.container'), value: clip(editing === 'container' ? draft + '█' : nginxContainer || t('manager.containerPrompt'), 35), color: editing === 'container' ? COLORS.accent : undefined}) : null),
+            usesNginx && nginxMode === 'docker' ? h(Field, {label: t('manager.fields.container'), value: editing === 'container'
+                ? editorViewport(draft, draftCursor, 35) : clip(nginxContainer || t('manager.containerPrompt'), 35), color: editing === 'container' ? COLORS.accent : undefined}) : null),
         prompt ? h(Box, {flexDirection: 'column', marginTop: 1},
             h(Text, {bold: true, color: COLORS.warning}, clip(prompt.label, layout.compact ? layout.width - 10 : 50)),
-            h(Text, {color: COLORS.accent}, '› ' + clip(prompt.secret ? '●'.repeat(promptValue.length) : promptValue,
-                layout.compact ? layout.width - 14 : layout.width - layout.sidebarWidth - 14) + '█')) : null,
+            h(Text, {color: COLORS.accent}, '› ' + editorViewport(promptValue, promptCursor,
+                Math.max(4, layout.compact ? layout.width - 14 : layout.width - layout.sidebarWidth - 14),
+                {secret: prompt.secret}))) : null,
         pending ? h(Text, {color: COLORS.warning}, t('manager.deployConfirm', {action: t('manager.actions.' + pending)})) : null,
         preview ? h(Box, {flexDirection: 'column', marginTop: 1},
             h(Text, {bold: true, color: COLORS.secondary}, t('manager.previewKinds.' + preview.kind)),
@@ -187,7 +181,7 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
     return h(TwoPanels, {left: list, right: details, layout});
 }
 
-function ManagerApp() {
+export function ManagerApp({inspect = inspectDeployment, createSession = createDeploymentSession} = {}) {
     const {exit} = useApp();
     const {columns = 80, rows = 24} = useWindowSize();
     const layout = resolveSlothVaultManagerLayout(columns, rows);
@@ -206,9 +200,14 @@ function ManagerApp() {
     const [nginxContainer, setNginxContainer] = useState('');
     const [editing, setEditing] = useState(null);
     const [draft, setDraft] = useState('');
+    const [draftCursor, setDraftCursor] = useState(0);
     const [pending, setPending] = useState(null);
+    const pendingRef = useRef(null);
     const [prompt, setPrompt] = useState(null);
     const [promptValue, setPromptValue] = useState('');
+    const [promptCursor, setPromptCursor] = useState(0);
+    const [detailLines, setDetailLines] = useState(null);
+    const [detailScroll, setDetailScroll] = useState(0);
     const [busy, setBusy] = useState(false);
     const [logs, setLogs] = useState([]);
     const sessionRef = useRef(null);
@@ -218,7 +217,7 @@ function ManagerApp() {
         if (process.env.SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION === 'render-exit') {exit(); return;}
         let active = true;
         const id = ++inspectionIdRef.current;
-        inspectDeployment(root).then(value => {if (active && id === inspectionIdRef.current) setInstance(value);})
+        inspect(root).then(value => {if (active && id === inspectionIdRef.current) setInstance(value);})
             .catch(error => {if (active && id === inspectionIdRef.current) {setMessage(error.message); setMessageColor(COLORS.warning);}});
         return () => {active = false; inspectionIdRef.current++; sessionRef.current?.stop();};
     }, [exit]);
@@ -226,7 +225,7 @@ function ManagerApp() {
     async function refreshInstance(nextRoot = root) {
         const id = ++inspectionIdRef.current;
         try {
-            const value = await inspectDeployment(nextRoot);
+            const value = await inspect(nextRoot);
             if (id === inspectionIdRef.current) setInstance(value);
             return id === inspectionIdRef.current ? value : null;
         } catch (error) {
@@ -266,6 +265,7 @@ function ManagerApp() {
         } catch (error) {setMessage(t('manager.mcpActionFailed', {message: error.message})); setMessageColor(COLORS.warning);}
     }
     async function runAction(action) {
+        pendingRef.current = null;
         setPending(null);
         if (action === 'status') {
             setMessage(t('manager.loadingInstance'));
@@ -281,9 +281,9 @@ function ManagerApp() {
         setMessageColor(COLORS.accent);
         try {
             let actionError = null;
-            const session = createDeploymentSession(buildDeploymentArguments(action, {root, nginxMode, nginxContainer}), {
+            const session = createSession(buildDeploymentArguments(action, {root, nginxMode, nginxContainer}), {
                 onEvent(event) {
-                    if (event.type === 'prompt') {setPrompt(event); setPromptValue('');}
+                    if (event.type === 'prompt') {setPrompt(event); setPromptValue(''); setPromptCursor(0);}
                     if (event.type === 'snapshot') setInstance(event.data);
                     if (event.type === 'update') {setUpdate(event.data); setNoteOffset(0);}
                     if (event.type === 'preview') {setPreview(event.data); setNoteOffset(0);}
@@ -306,33 +306,37 @@ function ManagerApp() {
             setBusy(false);
             setPrompt(null);
             setPromptValue('');
+            setPromptCursor(0);
             await refreshInstance();
         }
     }
-    function changeInput(input, key, value, setter) {
-        if (key.ctrl && input === 'u') {setter(''); return;}
-        if (key.backspace || key.delete) {setter(value.slice(0, -1)); return;}
-        const printable = input.replace(/[\u0000-\u001f\u007f]/gu, '');
-        if (printable && !key.ctrl && !key.meta) setter((value + printable).slice(0, 512));
+    function changeInput(input, key, value, cursor, setter, setCursor) {
+        const next = editText({value, cursor}, input, key, 512);
+        setter(next.value);
+        setCursor(next.cursor);
     }
     useInput((input, key) => {
         if (key.ctrl && input === 'c') {sessionRef.current?.stop(); exit(); return;}
+        if (layout.tooSmall) {
+            if (input === 'q' && !busy) exit();
+            return;
+        }
         if (prompt) {
-            if (key.escape) {sessionRef.current?.cancel(); setPrompt(null); setPromptValue(''); return;}
-            if (key.return) {sessionRef.current?.respond(promptValue); setPrompt(null); setPromptValue(''); return;}
-            if (key.upArrow || key.downArrow) {
-                const length = preview
-                    ? Object.entries(preview).filter(([name, value]) => name !== 'kind' && value !== null && value !== undefined && value !== '').length
-                    : updateReleaseLines(update).length;
-                setNoteOffset(index => key.upArrow ? Math.max(0, index - 3) : Math.min(Math.max(0, length - 1), index + 3));
-                return;
-            }
-            changeInput(input, key, promptValue, setPromptValue);
+            if (key.escape) {sessionRef.current?.cancel(); setPrompt(null); setPromptValue(''); setPromptCursor(0); return;}
+            if (key.return) {sessionRef.current?.respond(promptValue); setPrompt(null); setPromptValue(''); setPromptCursor(0); return;}
+            changeInput(input, key, promptValue, promptCursor, setPromptValue, setPromptCursor);
             return;
         }
         if (busy) return;
+        if (detailLines) {
+            if (key.escape) setDetailLines(null);
+            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, value - (key.pageUp ? 5 : 1)));
+            else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
+                Math.max(0, detailLines.length - Math.max(1, layout.height - 8)), value + (key.pageDown ? 5 : 1)));
+            return;
+        }
         if (editing) {
-            if (key.escape) {setEditing(null); setDraft(''); return;}
+            if (key.escape) {setEditing(null); setDraft(''); setDraftCursor(0); return;}
             if (key.return) {
                 if (editing === 'root') {
                     const nextRoot = draft.trim() || '/data/slothvault';
@@ -344,22 +348,38 @@ function ManagerApp() {
                 } else setNginxContainer(draft.trim());
                 setEditing(null);
                 setDraft('');
+                setDraftCursor(0);
                 return;
             }
-            changeInput(input, key, draft, setDraft);
+            changeInput(input, key, draft, draftCursor, setDraft, setDraftCursor);
             return;
         }
-        if (pending) {
-            if (input.toLowerCase() === 'y') runAction(pending);
-            else if (input.toLowerCase() === 'n' || key.escape) {setPending(null); setMessage(t('manager.deployCancelled')); setMessageColor(COLORS.warning);}
+        if (pendingRef.current) {
+            if (input.toLowerCase() === 'y') runAction(pendingRef.current);
+            else if (input.toLowerCase() === 'n' || key.escape) {pendingRef.current = null; setPending(null); setMessage(t('manager.deployCancelled')); setMessageColor(COLORS.warning);}
             return;
         }
         if (input === 'q') {exit(); return;}
-        if (key.tab || key.rightArrow) {setTab(current => TABS[(TABS.indexOf(current) + 1) % TABS.length]); return;}
+        if (key.tab || key.rightArrow) {setTab(current => TABS[nextTabIndex(TABS.indexOf(current), TABS.length, key)]); return;}
         if (key.leftArrow) {setTab(current => TABS[(TABS.indexOf(current) - 1 + TABS.length) % TABS.length]); return;}
+        if (key.escape) {setTab('overview'); return;}
         if (input === 'r') {refresh(); return;}
+        if (input === 'v') {
+            const lines = [t('manager.tabs.' + tab), message, ''];
+            if (tab === 'deploy') lines.push(`${t('manager.fields.root')}: ${root}`,
+                ...updateReleaseLines(update), ...Object.entries(preview || {}).filter(([name]) => name !== 'kind')
+                    .map(([name, value]) => `${t('manager.previewFields.' + name)}: ${value}`), ...logs);
+            else if (tab === 'skill') lines.push(...skill.agents.map(agent => `${agent.name}: ${agent.targetPath}`));
+            else if (tab === 'mcp') lines.push(mcp.targetPath || mcp.reason || '-');
+            else lines.push(`${t('manager.fields.root')}: ${instance?.root || root}`,
+                `${t('manager.fields.dataDir')}: ${instance?.dataDir || '-'}`,
+                `${t('manager.fields.databaseDir')}: ${instance?.databaseDir || '-'}`);
+            setDetailLines(lines.filter(Boolean).flatMap(line => wrapText(line, Math.max(2, layout.width - 5))));
+            setDetailScroll(0);
+            return;
+        }
         if (tab === 'deploy' || tab === 'overview') {
-            if (input === 'e') {setTab('deploy'); setEditing('root'); setDraft(root); return;}
+            if (input === 'e') {setTab('deploy'); setEditing('root'); setDraft(root); setDraftCursor(graphemes(root).length); return;}
         }
         if (tab === 'deploy') {
             if (input === '[') {setNoteOffset(index => Math.max(0, index - 3)); return;}
@@ -372,15 +392,15 @@ function ManagerApp() {
             }
             if (key.upArrow) {setPreview(null); setSelectedAction(index => (index - 1 + DEPLOY_ACTIONS.length) % DEPLOY_ACTIONS.length); return;}
             if (key.downArrow) {setPreview(null); setSelectedAction(index => (index + 1) % DEPLOY_ACTIONS.length); return;}
-            if (input === 'm' && NGINX_ACTIONS.has(DEPLOY_ACTIONS[selectedAction])) {setNginxMode(mode => NGINX_MODES[(NGINX_MODES.indexOf(mode) + 1) % NGINX_MODES.length]); return;}
-            if (input === 'c' && NGINX_ACTIONS.has(DEPLOY_ACTIONS[selectedAction]) && nginxMode === 'docker') {setEditing('container'); setDraft(nginxContainer); return;}
+            if ((input === 'm' || input === ' ') && NGINX_ACTIONS.has(DEPLOY_ACTIONS[selectedAction])) {setNginxMode(mode => NGINX_MODES[(NGINX_MODES.indexOf(mode) + 1) % NGINX_MODES.length]); return;}
+            if (input === 'c' && NGINX_ACTIONS.has(DEPLOY_ACTIONS[selectedAction]) && nginxMode === 'docker') {setEditing('container'); setDraft(nginxContainer); setDraftCursor(graphemes(nginxContainer).length); return;}
             if (key.return) {
                 const action = DEPLOY_ACTIONS[selectedAction];
                 if (action === 'update' && !update?.application_update_available) {
                     setMessage(t('manager.checkFirst'));
                     setMessageColor(COLORS.warning);
                 } else if (READ_ONLY_ACTIONS.has(action)) runAction(action);
-                else setPending(action);
+                else {pendingRef.current = action; setPending(action);}
                 return;
             }
         }
@@ -388,6 +408,11 @@ function ManagerApp() {
         if (tab === 'skill' && input === 'u') operateSkill('uninstall');
         if (tab === 'mcp' && input === 'i') operateMcp('register');
         if (tab === 'mcp' && input === 'u') operateMcp('unregister');
+    });
+
+    usePaste(value => {
+        if (prompt) changeInput(value, {}, promptValue, promptCursor, setPromptValue, setPromptCursor);
+        else if (editing && !busy) changeInput(value, {}, draft, draftCursor, setDraft, setDraftCursor);
     });
 
     if (layout.tooSmall) return h(Panel, {title: t('manager.title'), color: COLORS.warning}, h(Text, {}, t('manager.resize')));
@@ -398,8 +423,10 @@ function ManagerApp() {
     ]).filter(Boolean);
     const detailWidth = layout.compact ? layout.width - 8 : layout.width - layout.sidebarWidth - 12;
     let content;
-    if (tab === 'deploy') content = h(DeployPage, {layout, selectedIndex: selectedAction, root, nginxMode, nginxContainer, editing, draft,
-        pending, instance, update, preview, noteOffset, logs, prompt, promptValue, busy});
+    if (detailLines) content = h(Panel, {title: t('manager.panels.details')}, ...detailLines.slice(detailScroll,
+        detailScroll + Math.max(1, layout.height - 8)).map((line, index) => h(Text, {key: detailScroll + index}, line)));
+    else if (tab === 'deploy') content = h(DeployPage, {layout, selectedIndex: selectedAction, root, nginxMode, nginxContainer, editing, draft, draftCursor,
+        pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy});
     else if (tab === 'skill') content = h(TwoPanels, {layout,
         left: h(Panel, {title: t('manager.panels.skill')}, h(Field, {label: t('manager.fields.status'), value: stateText(skill.state)}), h(Text, {dimColor: true}, t('manager.skillGuide'))),
         right: h(Panel, {title: t('manager.panels.targets')}, ...skill.agents.map(agent => h(Box, {key: agent.id, flexDirection: 'column'},
@@ -417,13 +444,18 @@ function ManagerApp() {
         left: h(InstanceSummary, {instance, layout}),
         right: h(InstanceDetails, {instance, layout})
     });
-    const footer = prompt ? t('manager.footers.prompt') : editing ? t('manager.footers.edit') : pending
-        ? t('manager.footers.confirm') : busy ? t('manager.footers.busy') : t('manager.footers.' + tab);
+    const footer = prompt ? t('manager.footers.prompt') : busy ? t('manager.footers.busy')
+        : editing ? t('manager.footers.edit') : pending ? t('manager.footers.confirm')
+            : detailLines ? t('manager.footers.detail') : tab === 'deploy'
+                ? `${t('manager.footers.deploy')} | Enter ${t('manager.actions.' + DEPLOY_ACTIONS[selectedAction])}`
+                : t('manager.footers.' + tab);
     return h(Box, {flexDirection: 'column', height: layout.height, paddingX: 1, paddingY: 1},
         h(Box, {}, ...tabs, h(Spacer, {}), layout.width > 65 ? h(Text, {dimColor: true}, 'v' + pluginPackage.version) : null),
         h(Box, {marginBottom: 1}, h(Text, {color: COLORS.muted}, '─'.repeat(layout.width - 4))),
         h(Box, {flexGrow: 1, flexDirection: 'column'}, content),
-        h(Box, {marginTop: 1}, h(Text, {color: pending ? COLORS.warning : messageColor}, clip(message, layout.width - 4))),
+        h(Box, {marginTop: 1}, h(Text, {color: pending ? COLORS.warning : messageColor}, clip(
+            `${statusSymbol(busy ? 'running' : 'result', pending || messageColor === COLORS.warning ? 'warn'
+                : messageColor === COLORS.danger ? 'error' : 'success')} ${message}`, layout.width - 4))),
         h(Text, {inverse: true}, clip(footer, layout.width - 4)));
 }
 

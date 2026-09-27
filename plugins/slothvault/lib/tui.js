@@ -10,8 +10,9 @@
  */
 
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {Box, Spacer, Text, render, useApp, useInput, useWindowSize} from 'ink';
+import {Box, Spacer, Text, render, useApp, useInput, usePaste, useWindowSize} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
+import {editText, editorViewport, graphemes, nextTabIndex, statusSymbol, truncateFromRight, wrapText} from './shared-interaction.js';
 import {
     addProfile,
     getConfigSummary,
@@ -46,22 +47,19 @@ const COLORS = {
 
 /** Resolve stable responsive dimensions for tests and narrow terminals. */
 export function resolveSlothVaultTuiLayout(columns = 80, rows = 24) {
+    const width = Math.max(1, Number(columns) || 80);
+    const height = Math.max(1, Number(rows) || 24);
     return {
-        columns: Math.max(40, Number(columns) || 80),
-        rows: Math.max(16, Number(rows) || 24),
-        compact: (Number(columns) || 80) < 78,
-        listLimit: Math.max(3, Math.min(12, (Number(rows) || 24) - 12))
+        columns: width,
+        rows: height,
+        compact: width < 78,
+        tooSmall: width < 40 || height < 16,
+        listLimit: Math.max(1, Math.min(12, height - 12))
     };
 }
 
 /** Constrain terminal text to the available width without resizing the layout. */
-function truncate(value, maxLength) {
-    const text = String(value ?? '');
-    if (text.length <= maxLength) {
-        return text;
-    }
-    return `${text.slice(0, Math.max(1, maxLength - 1))}…`;
-}
+const truncate = truncateFromRight;
 
 /** Draw one reusable rounded panel. */
 function Panel({title, children, grow = false, color = COLORS.border}) {
@@ -131,11 +129,6 @@ function createProfileForm(mode, profile = null, profileCount = 0) {
 /** Return the ordered fields for the active profile form. */
 function profileFormFields(mode) {
     return PROFILE_FORM_FIELDS[mode] || [];
-}
-
-/** Remove control characters from terminal text before appending it to a form value. */
-function printableInput(input) {
-    return String(input || '').replace(/[\u0000-\u001f\u007f]/gu, '');
 }
 
 /** Resolve a localized label for one profile form field. */
@@ -251,7 +244,7 @@ function HistoryPage({history, selectedIndex, layout}) {
 }
 
 /** Render the profile add/edit form with secret-safe field values. */
-function ProfileFormPage({mode, form, fieldIndex, layout}) {
+function ProfileFormPage({mode, form, fieldIndex, cursor, inputError, layout}) {
     const fields = profileFormFields(mode);
     const maxValueWidth = Math.max(12, layout.columns - 28);
     return h(
@@ -263,14 +256,19 @@ function ProfileFormPage({mode, form, fieldIndex, layout}) {
             ...fields.map((field, index) => h(
                 Text,
                 {key: field, color: index === fieldIndex ? COLORS.accent : undefined},
-                `${index === fieldIndex ? '›' : ' '} ${profileFieldLabel(field, mode)}: ${truncate(profileFieldValue(field, form, mode), maxValueWidth)}`
+                `${index === fieldIndex ? '›' : ' '} ${profileFieldLabel(field, mode)}: ${index === fieldIndex && field !== 'makeDefault'
+                    ? field === 'apiKey'
+                        ? editorViewport(form.apiKey, cursor, maxValueWidth, {secret: true})
+                        : editorViewport(form[field], cursor, maxValueWidth)
+                    : truncate(profileFieldValue(field, form, mode), maxValueWidth)}`
             )),
             mode === 'edit'
                 ? h(Text, {dimColor: true}, t('tui.profile.editKeyHint'))
                 : null,
             form.endpoint.trim().startsWith('http://')
                 ? h(Text, {color: COLORS.warning}, t('httpWarning'))
-                : null
+                : null,
+            inputError ? h(Text, {color: COLORS.danger}, truncate(inputError, maxValueWidth)) : null
         ),
         h(Text, {color: COLORS.warning}, t('plaintextConfigWarning')),
         h(Text, {dimColor: true}, t('tui.profile.formHelp'))
@@ -293,11 +291,11 @@ function ProfileDeletePage({profile}) {
 }
 
 /** Render stored profile metadata and local management actions with every key masked. */
-function ProfilesPage({config, selectedIndex, layout, mode, form, fieldIndex}) {
+function ProfilesPage({config, selectedIndex, layout, mode, form, fieldIndex, cursor, inputError}) {
     const profiles = config.profiles || [];
     const selected = profiles[selectedIndex] || null;
     if ((mode === 'add' || mode === 'edit') && form) {
-        return h(ProfileFormPage, {mode, form, fieldIndex, layout});
+        return h(ProfileFormPage, {mode, form, fieldIndex, cursor, inputError, layout});
     }
     if (mode === 'delete') {
         return h(ProfileDeletePage, {profile: selected});
@@ -349,8 +347,13 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     const [status, setStatus] = useState(t('tui.status.ready'));
     const [statusTone, setStatusTone] = useState('success');
     const [profileMode, setProfileMode] = useState('browse');
+    const deleteProfileRef = useRef(false);
     const [profileForm, setProfileForm] = useState(null);
     const [profileFieldIndex, setProfileFieldIndex] = useState(0);
+    const [profileCursor, setProfileCursor] = useState(0);
+    const [profileInputError, setProfileInputError] = useState('');
+    const [detailLines, setDetailLines] = useState(null);
+    const [detailScroll, setDetailScroll] = useState(0);
     const refreshGeneration = useRef(0);
 
     /** Refresh local display data and perform exactly one remote discovery connection. */
@@ -409,9 +412,12 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
 
     /** Clear every transient form value, including a typed MCP key. */
     function closeProfileInteraction() {
+        deleteProfileRef.current = false;
         setProfileMode('browse');
         setProfileForm(null);
         setProfileFieldIndex(0);
+        setProfileCursor(0);
+        setProfileInputError('');
     }
 
     /** Open a clean form for a new local profile. */
@@ -419,6 +425,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         setProfileMode('add');
         setProfileForm(createProfileForm('add', null, config.profiles.length));
         setProfileFieldIndex(0);
+        setProfileCursor(0);
         setStatus(t('tui.status.profileAddReady'));
         setStatusTone('warning');
     }
@@ -432,6 +439,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         setProfileMode('edit');
         setProfileForm(createProfileForm('edit', selected, config.profiles.length));
         setProfileFieldIndex(0);
+        setProfileCursor(graphemes(selected.endpoint || '').length);
         setStatus(t('tui.status.profileEditReady', {name: selected.name}));
         setStatusTone('warning');
     }
@@ -475,8 +483,11 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             setStatusTone('success');
         } catch (saveError) {
             // Step 3: Retain non-secret fields for correction, but immediately discard the typed key.
+            const safeError = formatSlothVaultError(saveError).replaceAll(profileForm.apiKey || '\u0000', '[redacted]');
             setProfileForm(current => current ? {...current, apiKey: ''} : null);
-            setStatus(t('tui.status.profileOperationFailed', {message: formatSlothVaultError(saveError)}));
+            if (profileFormFields(profileMode)[profileFieldIndex] === 'apiKey') setProfileCursor(0);
+            setProfileInputError(safeError);
+            setStatus(t('tui.status.profileOperationFailed', {message: safeError}));
             setStatusTone('danger');
         }
     }
@@ -505,6 +516,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         if (!config.profiles[selectedIndices.profiles]) {
             return;
         }
+        deleteProfileRef.current = true;
         setProfileMode('delete');
         setProfileForm(null);
         setStatus(t('tui.status.profileDeleteReady'));
@@ -557,9 +569,11 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             setStatusTone('warning');
             return;
         }
-        if (key.upArrow || key.downArrow) {
-            const delta = key.upArrow ? -1 : 1;
-            setProfileFieldIndex(index => (index + delta + fields.length) % fields.length);
+        if (key.upArrow || key.downArrow || key.tab) {
+            const delta = key.upArrow || key.tab && key.shift ? -1 : 1;
+            const nextIndex = (profileFieldIndex + delta + fields.length) % fields.length;
+            setProfileFieldIndex(nextIndex);
+            setProfileCursor(graphemes(profileForm[fields[nextIndex]] || '').length);
             return;
         }
         if (field === 'makeDefault' && input === ' ') {
@@ -573,29 +587,15 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
                 saveProfileForm();
             } else {
                 setProfileFieldIndex(index => index + 1);
+                setProfileCursor(graphemes(profileForm[fields[profileFieldIndex + 1]] || '').length);
             }
             return;
         }
-        if (key.backspace || key.delete) {
-            if (field !== 'makeDefault') {
-                setProfileForm(current => ({...current, [field]: current[field].slice(0, -1)}));
-            }
-            return;
-        }
-        if (key.ctrl && input.toLowerCase() === 'u' && field !== 'makeDefault') {
-            setProfileForm(current => ({...current, [field]: ''}));
-            return;
-        }
-        if (field === 'makeDefault' || key.ctrl || key.meta || key.tab) {
-            return;
-        }
-        const addition = printableInput(input);
-        if (addition) {
-            setProfileForm(current => ({
-                ...current,
-                [field]: `${current[field]}${addition}`.slice(0, PROFILE_FIELD_LIMITS[field])
-            }));
-        }
+        if (field === 'makeDefault') return;
+        const next = editText({value: profileForm[field], cursor: profileCursor}, input, key, PROFILE_FIELD_LIMITS[field]);
+        setProfileForm(current => ({...current, [field]: next.value}));
+        setProfileCursor(next.cursor);
+        setProfileInputError('');
     }
 
     useEffect(() => {
@@ -615,8 +615,13 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     }), [config.profiles.length, discovery, history.length]);
 
     useInput((input, key) => {
+        if (layout.tooSmall) {
+            if (input === 'q') app.exit();
+            return;
+        }
         if (activeTab === 'profiles' && profileMode !== 'browse') {
             if (profileMode === 'delete') {
+                if (!deleteProfileRef.current) return;
                 if (input.toLowerCase() === 'y') {
                     confirmProfileRemoval();
                 } else if (input.toLowerCase() === 'n' || key.escape) {
@@ -629,6 +634,40 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             handleProfileFormInput(input, key);
             return;
         }
+        if (detailLines) {
+            if (key.escape) setDetailLines(null);
+            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, value - (key.pageUp ? 5 : 1)));
+            else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
+                Math.max(0, detailLines.length - Math.max(1, layout.rows - 7)), value + (key.pageDown ? 5 : 1)));
+            return;
+        }
+        if (input === 'v') {
+            const lines = [t(`tui.tabs.${activeTab}`), status, ''];
+            if (activeTab === 'status') {
+                const profile = discovery?.profile || config.profiles.find(item => item.isDefault);
+                lines.push(`${t('tui.labels.profile')}: ${profile?.name || '-'}`,
+                    `${t('tui.labels.endpoint')}: ${profile?.endpoint || '-'}`,
+                    `${t('tui.labels.server')}: ${discovery?.server?.name || '-'}`, error);
+            } else if (activeTab === 'capabilities') {
+                const item = capabilityItems(discovery)[selectedIndices.capabilities];
+                lines.push(`${t('tui.labels.name')}: ${capabilityName(item)}`,
+                    `${t('tui.labels.risk')}: ${capabilityRisk(item)}`,
+                    `${t('tui.labels.description')}: ${item?.value?.description || '-'}`,
+                    `${t('tui.labels.uri')}: ${item?.value?.uriTemplate || item?.value?.uri || '-'}`);
+            } else if (activeTab === 'history') {
+                const entry = history[selectedIndices.history];
+                lines.push(`ID: ${entry?.id || '-'}`, `${t('tui.labels.name')}: ${entry?.name || '-'}`,
+                    `${t('tui.labels.risk')}: ${entry?.risk || '-'}`, entry?.summary || '-');
+            } else {
+                const profile = config.profiles[selectedIndices.profiles];
+                lines.push(`${t('tui.labels.profile')}: ${profile?.name || '-'}`,
+                    `${t('tui.labels.endpoint')}: ${profile?.endpoint || '-'}`,
+                    `${t('tui.labels.timeout')}: ${profile?.timeoutMs || '-'} ms`);
+            }
+            setDetailLines(lines.filter(Boolean).flatMap(line => wrapText(line, Math.max(2, layout.columns - 5))));
+            setDetailScroll(0);
+            return;
+        }
         if (input === 'q') {
             app.exit();
             return;
@@ -638,13 +677,14 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             return;
         }
         if (key.tab || key.rightArrow) {
-            setActiveTab(tab => TABS[(TABS.indexOf(tab) + 1) % TABS.length]);
+            setActiveTab(tab => TABS[nextTabIndex(TABS.indexOf(tab), TABS.length, key)]);
             return;
         }
         if (key.leftArrow) {
             setActiveTab(tab => TABS[(TABS.indexOf(tab) - 1 + TABS.length) % TABS.length]);
             return;
         }
+        if (key.escape) {setActiveTab('status'); return;}
         if (activeTab === 'profiles') {
             if (input === 'a') {
                 startAddingProfile();
@@ -672,7 +712,20 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         }
     });
 
-    const content = activeTab === 'status'
+    usePaste(value => {
+        if (!['add', 'edit'].includes(profileMode) || !profileForm) return;
+        const field = profileFormFields(profileMode)[profileFieldIndex];
+        if (!field || field === 'makeDefault') return;
+        const next = editText({value: profileForm[field], cursor: profileCursor}, value, {}, PROFILE_FIELD_LIMITS[field]);
+        setProfileForm(current => ({...current, [field]: next.value}));
+        setProfileCursor(next.cursor);
+        setProfileInputError('');
+    });
+
+    const content = detailLines
+        ? h(Panel, {title: t('tui.panels.details')}, ...detailLines.slice(detailScroll,
+            detailScroll + Math.max(1, layout.rows - 7)).map((line, index) => h(Text, {key: detailScroll + index}, line)))
+        : activeTab === 'status'
         ? h(StatusPage, {config, discovery, loading, error, width: layout.columns})
         : activeTab === 'capabilities'
             ? h(CapabilitiesPage, {discovery, selectedIndex: selectedIndices.capabilities, layout})
@@ -684,16 +737,24 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
                     layout,
                     mode: profileMode,
                     form: profileForm,
-                    fieldIndex: profileFieldIndex
+                    fieldIndex: profileFieldIndex,
+                    cursor: profileCursor,
+                    inputError: profileInputError
                 });
 
-    const footerKey = activeTab === 'profiles'
+    const footerKey = detailLines ? 'tui.detailFooter' : activeTab === 'profiles'
         ? profileMode === 'delete'
             ? 'tui.profile.deleteFooter'
             : profileMode === 'browse'
                 ? 'tui.profile.browseFooter'
                 : 'tui.profile.formFooter'
         : 'tui.footer';
+
+    if (layout.tooSmall) return h(Box, {flexDirection: 'column', width: layout.columns,
+        height: layout.rows, paddingX: 1},
+    h(Text, {bold: true, color: COLORS.warning}, truncate(t('tui.resize'), layout.columns - 2)),
+    h(Text, {}, truncate(t('tui.resizeHint'), layout.columns - 2)),
+    h(Text, {dimColor: true}, 'q'));
 
     return h(
         Box,
@@ -702,7 +763,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         h(Text, {dimColor: true}, '─'.repeat(Math.max(1, layout.columns - 1))),
         content,
         h(Spacer),
-        h(Text, {color: COLORS[statusTone] || COLORS.success}, truncate(status, layout.columns - 1)),
+        h(Text, {color: COLORS[statusTone] || COLORS.success}, truncate(`${statusSymbol(loading ? 'running' : 'result', statusTone)} ${status}`, layout.columns - 1)),
         h(Text, {inverse: true}, truncate(t(footerKey), layout.columns - 1))
     );
 }

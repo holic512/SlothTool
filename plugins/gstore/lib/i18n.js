@@ -112,7 +112,7 @@ export const messages = {
                 actions: '云同步操作',
                 status: '同步洞察',
                 repository: '远端仓库与认证',
-                bindings: '同步范围'
+                bindings: '同步范围', details: '完整详情'
             },
             actions: {
                 status: '检查远端与本地状态',
@@ -139,15 +139,16 @@ export const messages = {
                 title: '确认覆盖冲突文件',
                 preferRemote: '云端版本将覆盖存在冲突的本地文件。',
                 preferLocal: '本地版本将覆盖存在冲突的云端文件。',
-                footer: '按 y 或 Enter 确认，n 或 Esc 取消。'
+                footer: '按 y 明确确认，n 或 Esc 取消。'
             },
             resize: {title: '终端空间不足', description: '请至少调整到 30 列 × 14 行。'},
             footer: {
-                sync: 'Tab 切页  Up/Down 移动  Enter 执行  r 刷新  q 退出',
-                repository: 'Tab 切页  Enter 编辑仓库  Space 私有仓库  a 登录  q 退出',
-                bindings: 'Tab 切页  Up/Down 移动  r 刷新  q 退出',
-                doctor: 'Tab 切页  r 刷新  q 退出',
-                input: '输入仓库地址  Enter 保存  Esc 取消'
+                sync: 'Tab/Shift+Tab 切页  ↑↓ 选择  Enter {action}  v 详情  q 退出',
+                repository: 'Tab/Shift+Tab 切页  Enter 编辑仓库  Space 私有仓库  v 详情  q 退出',
+                bindings: 'Tab/Shift+Tab 切页  ↑↓ 选择  v 完整路径  r 刷新  q 退出',
+                doctor: 'Tab/Shift+Tab 切页  v 详情  r 刷新  q 退出',
+                input: '输入/粘贴  ←→/Home/End 光标  Delete/Ctrl+U 编辑  Enter 保存  Esc 取消',
+                detail: '↑↓/PgUp/PgDn 翻阅  Esc 返回', busy: '处理中，请等待结果'
             },
             status: {
                 ready: '就绪',
@@ -240,7 +241,7 @@ export const messages = {
                 bindings: 'Bindings',
                 sync: 'Sync'
             },
-            panels: {actions: 'Cloud sync actions', status: 'Sync insights', repository: 'Remote and authentication', bindings: 'Sync scopes'},
+            panels: {actions: 'Cloud sync actions', status: 'Sync insights', repository: 'Remote and authentication', bindings: 'Sync scopes', details: 'Full details'},
             actions: {
                 status: 'Check local and remote state', pull: 'Pull cloud configuration', push: 'Push local configuration', sync: 'Safe two-way sync',
                 preferRemote: 'Keep cloud on conflicts', preferLocal: 'Keep local on conflicts', exit: 'Exit gstore'
@@ -256,13 +257,13 @@ export const messages = {
             },
             confirm: {
                 title: 'Confirm conflict overwrite', preferRemote: 'Cloud versions will overwrite conflicting local files.',
-                preferLocal: 'Local versions will overwrite conflicting cloud files.', footer: 'Press y or Enter to confirm; n or Esc cancels.'
+                preferLocal: 'Local versions will overwrite conflicting cloud files.', footer: 'Press y to confirm; n or Esc cancels.'
             },
             resize: {title: 'Terminal is too small', description: 'Resize it to at least 30 columns × 14 rows.'},
             footer: {
-                sync: 'Tab page  Up/Down move  Enter action  r refresh  q quit',
-                repository: 'Tab page  Enter edit repo  Space private  a auth  q quit',
-                bindings: 'Tab page  Up/Down move  r refresh  q quit', doctor: 'Tab page  r refresh  q quit', input: 'Type repository  Enter save  Esc cancel'
+                sync: 'Tab/Shift+Tab page  Up/Down select  Enter {action}  v details  q quit',
+                repository: 'Tab/Shift+Tab page  Enter edit repo  Space private  v details  q quit',
+                bindings: 'Tab/Shift+Tab page  Up/Down select  v full path  r refresh  q quit', doctor: 'Tab/Shift+Tab page  v details  r refresh  q quit', input: 'Type/paste  Left/Right/Home/End cursor  Delete/Ctrl+U edit  Enter save  Esc cancel', detail: 'Up/Down/PgUp/PgDn read  Esc back', busy: 'Working; wait for the result'
             },
             status: {
                 ready: 'Ready',

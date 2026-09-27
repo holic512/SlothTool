@@ -66,15 +66,16 @@ export const messages = {
                 history: '历史'
             },
             footer: {
-                run: 'Tab 切页 | ↑↓ 选择 | Enter 执行 | Esc 返回 | ? 帮助 | q 退出',
-                options: 'Tab 切页 | ↑↓ 选择 | ←→ 调整 | Space 切换 | Enter 编辑 | Esc 返回 | q 退出',
-                history: 'Tab 切页 | Esc 返回 | ? 帮助 | q 退出',
-                input: '输入或拖拽路径 | Enter 确认 | Esc 取消',
-                compactRun: 'Tab | ↑↓ | Enter | ? | q',
-                compactOptions: 'Tab | ↑↓ | ←→ | Space | Enter | q',
+                run: 'Tab/Shift+Tab 切页 | ↑↓ 选择 | Enter {action} | v 详情 | ? 帮助 | q 退出',
+                options: 'Tab/Shift+Tab 切页 | ↑↓ 选择{adjust}{space}{enter} | v 详情 | q 退出',
+                history: 'Tab/Shift+Tab 切页 | v 详情 | ? 帮助 | q 退出',
+                input: '输入/粘贴 | ←→/Home/End 光标 | Delete/Ctrl+U 编辑 | Enter 确认 | Esc 取消',
+                detail: '↑↓/PgUp/PgDn 翻阅 | Esc 返回', help: 'Esc/? 关闭帮助', busy: '压缩中，请等待结果',
+                compactRun: 'Tab | ↑↓ | Enter {action} | ? | q',
+                compactOptions: 'Tab | ↑↓{adjust}{space}{enter} | q',
                 compactHistory: 'Tab | Esc | ? | q',
-                microRun: '↑↓ Enter ? q',
-                microOptions: '↑↓ ←→ Space q',
+                microRun: 'Enter {action} q',
+                microOptions: '↑↓{adjust}{space}{enter} q',
                 microHistory: 'Tab Esc q',
                 microInput: 'Enter | Esc'
             },
@@ -211,7 +212,7 @@ export const messages = {
             help: {
                 title: '快捷键',
                 lines: [
-                    'Tab: 切换顶部页面',
+                    'Tab/Shift+Tab: 正反向切换顶部页面',
                     'Up/Down: 移动菜单或选项',
                     'Left/Right: 调整数值或开关',
                     'Enter: 执行操作 / 编辑路径',
@@ -276,15 +277,16 @@ export const messages = {
                 history: 'History'
             },
             footer: {
-                run: 'Tab page | Up/Down select | Enter action | Esc back | ? help | q quit',
-                options: 'Tab page | Up/Down select | Left/Right adjust | Space toggle | Enter edit | Esc back | q quit',
-                history: 'Tab page | Esc back | ? help | q quit',
-                input: 'Type or drop a path | Enter confirm | Esc cancel',
-                compactRun: 'Tab | Up/Down | Enter | ? | q',
-                compactOptions: 'Tab | Up/Down | Left/Right | Space | Enter | q',
+                run: 'Tab/Shift+Tab page | Up/Down select | Enter {action} | v details | ? help | q quit',
+                options: 'Tab/Shift+Tab page | Up/Down select{adjust}{space}{enter} | v details | q quit',
+                history: 'Tab/Shift+Tab page | v details | ? help | q quit',
+                input: 'Type/paste | Left/Right/Home/End cursor | Delete/Ctrl+U edit | Enter confirm | Esc cancel',
+                detail: 'Up/Down/PgUp/PgDn read | Esc back', help: 'Esc/? close help', busy: 'Compressing; wait for the result',
+                compactRun: 'Tab | Up/Down | Enter {action} | ? | q',
+                compactOptions: 'Tab | Up/Down{adjust}{space}{enter} | q',
                 compactHistory: 'Tab | Esc | ? | q',
-                microRun: 'Up/Down Enter ? q',
-                microOptions: 'Up/Down Left/Right Space q',
+                microRun: 'Enter {action} q',
+                microOptions: 'Up/Down{adjust}{space}{enter} q',
                 microHistory: 'Tab Esc q',
                 microInput: 'Enter | Esc'
             },
@@ -421,7 +423,7 @@ export const messages = {
             help: {
                 title: 'Keymap',
                 lines: [
-                    'Tab: switch top page',
+                    'Tab/Shift+Tab: switch top page in either direction',
                     'Up/Down: move in menus or options',
                     'Left/Right: adjust numbers or toggles',
                     'Enter: run the action or edit a path',

@@ -73,6 +73,7 @@ export const messages = {
         },
         tuiRequiresTerminal: '当前终端不是交互式 TTY，无法启动 pzip TUI。',
         tui: {
+            resize: '终端空间不足', resizeHint: '请至少调整到 30 列 × 8 行。',
             tabs: {
                 compress: '压缩',
                 filters: '过滤规则'
@@ -123,8 +124,9 @@ export const messages = {
                 removePattern: '删除选中模式'
             },
             footer: {
-                input: '输入或粘贴 | Enter 保存 | Esc 取消',
-                detail: '↑↓/PgUp/PgDn 滚动 | Esc 返回 | q 退出',
+                input: '输入/粘贴 | ←→/Home/End 光标 | Delete/Ctrl+U 编辑 | Enter 保存 | Esc 取消',
+                compactInput: 'Enter 保存 Esc 取消',
+                detail: '↑↓/PgUp/PgDn 滚动 | Esc 返回',
                 busy: '任务执行中，请等待…',
                 keyHelp: '? 查看完整快捷键'
             },
@@ -149,7 +151,7 @@ export const messages = {
                 actionHint: 'p 扫描预演 · Enter 创建 ZIP · r/v/w/e 查看详情'
             },
             help: [
-                'Tab：切换压缩页与过滤规则页',
+                'Tab/Shift+Tab：正反向切换压缩页与过滤规则页',
                 '压缩页：s 源目录，o 输出，c 当前目录，p 扫描预演，Enter 创建 ZIP',
                 'r 最近归档，v 最近预演，w 告警，e 完整错误',
                 '过滤页：↑↓/PgUp/PgDn 选择，Space 切换默认规则，a 添加，d 删除，v 查看完整模式',
@@ -202,6 +204,7 @@ export const messages = {
         },
         tuiRequiresTerminal: 'The current terminal is not interactive, so the pzip TUI cannot be launched.',
         tui: {
+            resize: 'Terminal is too small', resizeHint: 'Resize to at least 30 columns × 8 rows.',
             tabs: {
                 compress: 'Compress',
                 filters: 'Filters'
@@ -252,8 +255,9 @@ export const messages = {
                 removePattern: 'Delete selected pattern'
             },
             footer: {
-                input: 'Type or paste | Enter save | Esc cancel',
-                detail: 'Up/Down/PgUp/PgDn scroll | Esc back | q quit',
+                input: 'Type/paste | Left/Right/Home/End cursor | Delete/Ctrl+U edit | Enter save | Esc cancel',
+                compactInput: 'Enter save Esc cancel',
+                detail: 'Up/Down/PgUp/PgDn scroll | Esc back',
                 busy: 'Task running; please wait…',
                 keyHelp: '? for keyboard help'
             },
@@ -278,7 +282,7 @@ export const messages = {
                 actionHint: 'p scan preview · Enter create ZIP · r/v/w/e details'
             },
             help: [
-                'Tab: switch between Compress and Filters',
+                'Tab/Shift+Tab: switch between Compress and Filters in either direction',
                 'Compress: s source, o output, c current dir, p scan preview, Enter create ZIP',
                 'r last archive, v last preview, w warnings, e full error',
                 'Filters: Up/Down/PgUp/PgDn select, Space toggle a default, a add, d delete, v show full pattern',

@@ -9,9 +9,10 @@
  * @author holic512
  */
 
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Box, Spacer, Text, render, useApp, useInput, usePaste, useWindowSize} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
+import {editText, editorViewport, graphemes, nextTabIndex, statusSymbol, wrapText} from './shared-interaction.js';
 import {getLanguage, t} from './i18n.js';
 import {
     dedupePaths,
@@ -34,7 +35,6 @@ const h = React.createElement;
 const TABS = ['run', 'options', 'history'];
 const RUN_MENU_ITEMS = ['compress', 'addCurrentDir', 'editTargets', 'clearTargets', 'openOptions', 'exit'];
 const OPTION_ITEMS = ['outputDir', 'quality', 'maxWidth', 'maxHeight', 'recursive', 'overwrite', 'allowLarger', 'dryRun', 'concurrency'];
-const RESULT_DISPLAY_MS = 1800;
 const SPINNER_INTERVAL_MS = 120;
 const SPINNER_FRAMES = ['-', '\\', '|', '/'];
 const HEADER_SEPARATOR = ' | ';
@@ -243,7 +243,7 @@ function ActionPanel({selectedIndex, requestState, layout, lastSummary}) {
                 }, selected ? '› ' : '  '),
                 h(Text, {
                     bold: selected,
-                    color: selected ? IMAGE_COMPRESS_TUI_COLORS.accent : 'white',
+                    color: selected ? IMAGE_COMPRESS_TUI_COLORS.accent : undefined,
                     dimColor: !selected
                 }, t(`tui.menu.${item}`)),
                 h(Spacer, {}),
@@ -256,7 +256,7 @@ function ActionPanel({selectedIndex, requestState, layout, lastSummary}) {
     );
 }
 
-function TargetPanel({requestState, inputMode, inputValue, layout}) {
+function TargetPanel({requestState, inputMode, inputValue, inputCursor, inputError, layout}) {
     const paths = requestState.sourcePaths;
     const visiblePaths = paths.slice(0, layout.targetLimit);
     const badge = inputMode
@@ -281,7 +281,8 @@ function TargetPanel({requestState, inputMode, inputValue, layout}) {
             ? h(
                 React.Fragment,
                 {},
-                h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, `› ${inputValue || ''}`),
+                h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, `› ${editorViewport(inputValue, inputCursor, Math.max(4, layout.detailTextWidth - 4))}`),
+                inputError ? h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.danger}, truncateFromRight(inputError, layout.detailTextWidth - 4)) : null,
                 h(Text, {dimColor: true}, t('tui.inputHint'))
             )
             : paths.length === 0
@@ -421,7 +422,7 @@ function OptionListPanel({requestState, selectedIndex, outputInputMode, outputIn
                 }, selected ? '› ' : '  '),
                 h(Text, {
                     bold: selected,
-                    color: selected ? IMAGE_COMPRESS_TUI_COLORS.accent : 'white',
+                    color: selected ? IMAGE_COMPRESS_TUI_COLORS.accent : undefined,
                     dimColor: !selected
                 }, line.label),
                 h(Spacer, {}),
@@ -431,7 +432,7 @@ function OptionListPanel({requestState, selectedIndex, outputInputMode, outputIn
     );
 }
 
-function OptionDetailPanel({requestState, selectedOption, outputInputMode, outputInputValue, layout}) {
+function OptionDetailPanel({requestState, selectedOption, outputInputMode, outputInputValue, outputCursor, layout}) {
     const optionLine = describeOptionValue(selectedOption, requestState, outputInputMode, outputInputValue);
     const helpText = selectedOption === 'outputDir'
         ? t('tui.optionHelp.outputDir')
@@ -458,7 +459,7 @@ function OptionDetailPanel({requestState, selectedOption, outputInputMode, outpu
         }),
         h(Text, {dimColor: true}, t(`tui.optionDetails.${selectedOption}`)),
         outputInputMode
-            ? h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, `› ${outputInputValue || ''}`)
+            ? h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, `› ${editorViewport(outputInputValue, outputCursor, Math.max(4, layout.detailTextWidth - 4))}`)
             : null,
         h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.secondary}, helpText),
         layout.compact ? null : h(PlanStrip, {requestState})
@@ -536,7 +537,7 @@ function ResponsivePair({left, right, layout, showRight = true}) {
     );
 }
 
-function RunContent({requestState, runMenuIndex, sourceInputMode, sourceInputValue, lastSummary, layout}) {
+function RunContent({requestState, runMenuIndex, sourceInputMode, sourceInputValue, sourceCursor, sourceInputError, lastSummary, layout}) {
     const actions = h(ActionPanel, {
         selectedIndex: runMenuIndex,
         requestState,
@@ -547,6 +548,8 @@ function RunContent({requestState, runMenuIndex, sourceInputMode, sourceInputVal
         requestState,
         inputMode: sourceInputMode,
         inputValue: sourceInputValue,
+        inputCursor: sourceCursor,
+        inputError: sourceInputError,
         layout
     });
     const result = h(ResultPanel, {summary: lastSummary, layout});
@@ -578,7 +581,7 @@ function RunContent({requestState, runMenuIndex, sourceInputMode, sourceInputVal
     );
 }
 
-function HelpPanel() {
+function HelpPanel({lines, scroll, height}) {
     return h(
         Box,
         {
@@ -589,21 +592,26 @@ function HelpPanel() {
             flexGrow: 1
         },
         h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, t('tui.help.title')),
-        ...t('tui.help.lines').map(line => h(Text, {key: line}, line))
+        ...lines.slice(scroll, scroll + Math.max(1, height - 4)).map((line, index) => h(Text, {key: scroll + index}, line))
     );
 }
 
-function getFooterText(activeTab, inputMode, layout) {
+function getFooterText(activeTab, inputMode, layout, action, selectedOption) {
+    const params = {action, enter: activeTab === 'options' && selectedOption === 'outputDir'
+        ? ` | Enter ${t('tui.options.outputDir')}` : '',
+    adjust: activeTab === 'options' && (isBooleanOption(selectedOption) || isNumericOption(selectedOption))
+        ? ' | ←→' : '',
+    space: activeTab === 'options' && isBooleanOption(selectedOption) ? ' | Space' : ''};
     if (inputMode) {
         return t(`tui.footer.${layout.microFooter ? 'microInput' : 'input'}`);
     }
     if (layout.microFooter) {
-        return t(`tui.footer.micro${activeTab[0].toUpperCase()}${activeTab.slice(1)}`);
+        return t(`tui.footer.micro${activeTab[0].toUpperCase()}${activeTab.slice(1)}`, params);
     }
     if (layout.compactFooter) {
-        return t(`tui.footer.compact${activeTab[0].toUpperCase()}${activeTab.slice(1)}`);
+        return t(`tui.footer.compact${activeTab[0].toUpperCase()}${activeTab.slice(1)}`, params);
     }
-    return t(`tui.footer.${activeTab}`);
+    return t(`tui.footer.${activeTab}`, params);
 }
 
 export function ImageCompressTuiApp({
@@ -624,6 +632,8 @@ export function ImageCompressTuiApp({
         Math.max(0, Number.parseInt(initialOptionIndex, 10) || 0)
     ));
     const [helpOpen, setHelpOpen] = useState(false);
+    const [detailLines, setDetailLines] = useState(null);
+    const [detailScroll, setDetailScroll] = useState(0);
     const [spinnerFrameIndex, setSpinnerFrameIndex] = useState(0);
     const [statusState, setStatusState] = useState({
         mode: 'idle',
@@ -633,19 +643,17 @@ export function ImageCompressTuiApp({
     });
     const [sourceInputMode, setSourceInputMode] = useState(false);
     const [sourceInputValue, setSourceInputValue] = useState('');
+    const [sourceCursor, setSourceCursor] = useState(0);
+    const [sourceInputError, setSourceInputError] = useState('');
     const [outputInputMode, setOutputInputMode] = useState(false);
     const [outputInputValue, setOutputInputValue] = useState('');
+    const [outputCursor, setOutputCursor] = useState(0);
     const [requestState, setRequestState] = useState({
         ...DEFAULT_REQUEST_STATE,
         sourcePaths: dedupePaths(initialPaths)
     });
     const [lastSummary, setLastSummary] = useState(initialSummary);
     const [historyItems, setHistoryItems] = useState(initialHistory);
-    const resultTimeoutRef = useRef(null);
-
-    useEffect(() => () => {
-        clearTimeout(resultTimeoutRef.current);
-    }, []);
 
     useEffect(() => {
         if (statusState.mode !== 'progress') {
@@ -665,22 +673,8 @@ export function ImageCompressTuiApp({
         }
     }, [app]);
 
-    function clearPendingStatus() {
-        clearTimeout(resultTimeoutRef.current);
-        resultTimeoutRef.current = null;
-    }
-
     function showResultStatus(tone, message) {
-        clearPendingStatus();
         setStatusState({mode: 'result', tone, message, label: ''});
-        resultTimeoutRef.current = setTimeout(() => {
-            setStatusState({
-                mode: 'idle',
-                tone: 'success',
-                message: t('tui.status.ready'),
-                label: ''
-            });
-        }, RESULT_DISPLAY_MS);
     }
 
     function captureExternalPathText(text) {
@@ -688,10 +682,18 @@ export function ImageCompressTuiApp({
             return;
         }
 
-        if (outputInputMode) {
-            const parsedPaths = parseDroppedPaths(text);
-            const nextOutputDir = parsedPaths[0] || text.trim();
-            setOutputInputValue(nextOutputDir);
+        if (outputInputMode || sourceInputMode) {
+            const current = outputInputMode ? outputInputValue : sourceInputValue;
+            const cursor = outputInputMode ? outputCursor : sourceCursor;
+            const next = editText({value: current, cursor}, text);
+            if (outputInputMode) {
+                setOutputInputValue(next.value);
+                setOutputCursor(next.cursor);
+            } else {
+                setSourceInputValue(next.value);
+                setSourceCursor(next.cursor);
+                setSourceInputError('');
+            }
             return;
         }
 
@@ -719,7 +721,6 @@ export function ImageCompressTuiApp({
             return null;
         }
 
-        clearPendingStatus();
         setSpinnerFrameIndex(0);
         setStatusState({mode: 'progress', tone: 'success', message: '', label});
 
@@ -734,6 +735,7 @@ export function ImageCompressTuiApp({
     function resetInputModes(message) {
         setSourceInputMode(false);
         setSourceInputValue('');
+        setSourceInputError('');
         setOutputInputMode(false);
         setOutputInputValue('');
         if (message) {
@@ -817,6 +819,8 @@ export function ImageCompressTuiApp({
             setSourceInputMode(true);
             setOutputInputMode(false);
             setSourceInputValue('');
+            setSourceCursor(0);
+            setSourceInputError('');
             showResultStatus('success', t('tui.status.inputModeTargets'));
             return;
         }
@@ -837,6 +841,7 @@ export function ImageCompressTuiApp({
     function commitSourceInput() {
         const parsedPaths = parseDroppedPaths(sourceInputValue);
         if (parsedPaths.length === 0) {
+            setSourceInputError(t('tui.status.invalidPaths'));
             showResultStatus('warn', t('tui.status.invalidPaths'));
             return;
         }
@@ -847,6 +852,8 @@ export function ImageCompressTuiApp({
         }));
         setSourceInputMode(false);
         setSourceInputValue('');
+        setSourceCursor(0);
+        setSourceInputError('');
         showResultStatus('success', t('tui.status.inputSaved'));
     }
 
@@ -856,6 +863,7 @@ export function ImageCompressTuiApp({
         setRequestState(currentState => ({...currentState, outputDir: nextOutputDir}));
         setOutputInputMode(false);
         setOutputInputValue('');
+        setOutputCursor(0);
         showResultStatus(
             nextOutputDir ? 'success' : 'warn',
             nextOutputDir ? t('tui.status.outputDirSaved') : t('tui.status.outputDirCleared')
@@ -885,14 +893,22 @@ export function ImageCompressTuiApp({
     }
 
     useInput((input, key) => {
+        if (statusState.mode === 'progress') return;
+        if (layout.tooSmall) {
+            if (input === 'q') app.exit();
+            return;
+        }
+        if (detailLines) {
+            if (key.escape) setDetailLines(null);
+            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, value - (key.pageUp ? 5 : 1)));
+            else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
+                Math.max(0, detailLines.length - Math.max(1, layout.rows - 8)), value + (key.pageDown ? 5 : 1)));
+            return;
+        }
         if (helpOpen) {
             if (input === '?' || key.escape) {
                 setHelpOpen(false);
             }
-            return;
-        }
-
-        if (statusState.mode === 'progress') {
             return;
         }
 
@@ -909,26 +925,34 @@ export function ImageCompressTuiApp({
                 }
                 return;
             }
-            if (key.backspace || key.delete) {
-                if (sourceInputMode) {
-                    setSourceInputValue(currentValue => currentValue.slice(0, -1));
-                } else {
-                    setOutputInputValue(currentValue => currentValue.slice(0, -1));
-                }
-                return;
-            }
-            if (input && !key.ctrl && !key.meta) {
-                if (sourceInputMode) {
-                    setSourceInputValue(currentValue => currentValue + input);
-                } else {
-                    setOutputInputValue(currentValue => currentValue + input);
-                }
+            const current = sourceInputMode ? sourceInputValue : outputInputValue;
+            const cursor = sourceInputMode ? sourceCursor : outputCursor;
+            const next = editText({value: current, cursor}, input, key);
+            if (sourceInputMode) {
+                setSourceInputValue(next.value);
+                setSourceCursor(next.cursor);
+                setSourceInputError('');
+            } else {
+                setOutputInputValue(next.value);
+                setOutputCursor(next.cursor);
             }
             return;
         }
 
         if (input === '?') {
             setHelpOpen(true);
+            return;
+        }
+        if (input === 'v') {
+            const lines = [statusState.message || t('tui.status.ready')];
+            if (activeTab === 'run') lines.push(...requestState.sourcePaths,
+                `${t('tui.options.outputDir')}: ${requestState.outputDir || '-'}`,
+                ...historyItems.map(item => JSON.stringify(item.summary)));
+            else if (activeTab === 'options') lines.push(`${t('tui.options.' + OPTION_ITEMS[optionIndex])}: ${
+                describeOptionValue(OPTION_ITEMS[optionIndex], requestState, false, '').value}`);
+            else lines.push(...historyItems.map(item => JSON.stringify(item.summary)));
+            setDetailLines(lines.flatMap(line => wrapText(line, Math.max(2, layout.contentWidth - 4))));
+            setDetailScroll(0);
             return;
         }
         if (input.toLowerCase() === 'q') {
@@ -941,7 +965,7 @@ export function ImageCompressTuiApp({
         }
         if (key.tab) {
             const currentIndex = TABS.indexOf(activeTab);
-            setActiveTab(TABS[(currentIndex + 1) % TABS.length]);
+            setActiveTab(TABS[nextTabIndex(currentIndex, TABS.length, key)]);
             resetInputModes();
             return;
         }
@@ -976,6 +1000,7 @@ export function ImageCompressTuiApp({
             if (key.return && optionKey === 'outputDir') {
                 setOutputInputMode(true);
                 setOutputInputValue(requestState.outputDir);
+                setOutputCursor(graphemes(requestState.outputDir).length);
                 showResultStatus('success', t('tui.status.inputModeOutput'));
                 return;
             }
@@ -1006,14 +1031,18 @@ export function ImageCompressTuiApp({
     }
 
     let mainContent;
-    if (helpOpen) {
-        mainContent = h(HelpPanel);
+    if (detailLines) {
+        mainContent = h(HelpPanel, {lines: detailLines, scroll: detailScroll, height: layout.viewportHeight});
+    } else if (helpOpen) {
+        mainContent = h(HelpPanel, {lines: t('tui.help.lines'), scroll: 0, height: layout.viewportHeight});
     } else if (activeTab === 'run') {
         mainContent = h(RunContent, {
             requestState,
             runMenuIndex,
             sourceInputMode,
             sourceInputValue,
+            sourceCursor,
+            sourceInputError,
             lastSummary,
             layout
         });
@@ -1025,6 +1054,7 @@ export function ImageCompressTuiApp({
                 selectedIndex: optionIndex,
                 outputInputMode,
                 outputInputValue,
+                outputCursor,
                 layout
             }),
             right: h(OptionDetailPanel, {
@@ -1032,6 +1062,7 @@ export function ImageCompressTuiApp({
                 selectedOption,
                 outputInputMode,
                 outputInputValue,
+                outputCursor,
                 layout
             }),
             layout,
@@ -1044,7 +1075,10 @@ export function ImageCompressTuiApp({
     const statusText = statusState.mode === 'progress'
         ? `${SPINNER_FRAMES[spinnerFrameIndex]} ${statusState.label}`
         : statusState.message;
-    const footerText = getFooterText(activeTab, sourceInputMode || outputInputMode, layout);
+    const footerText = statusState.mode === 'progress' ? t('tui.footer.busy')
+        : detailLines ? t('tui.footer.detail') : helpOpen ? t('tui.footer.help')
+            : getFooterText(activeTab, sourceInputMode || outputInputMode, layout,
+                t('tui.menu.' + RUN_MENU_ITEMS[runMenuIndex]), OPTION_ITEMS[optionIndex]);
 
     return h(
         Box,
@@ -1065,7 +1099,7 @@ export function ImageCompressTuiApp({
             {},
             h(Text, {
                 color: resolveStatusColor(statusState.mode, statusState.tone)
-            }, truncateFromRight(statusText, Math.max(12, Math.floor(layout.contentWidth * 0.42)))),
+            }, truncateFromRight(`${statusSymbol(statusState.mode, statusState.tone)} ${statusText}`, Math.max(12, Math.floor(layout.contentWidth * 0.42)))),
             h(Spacer, {}),
             h(Text, {dimColor: true, wrap: 'truncate-end'}, footerText)
         )
