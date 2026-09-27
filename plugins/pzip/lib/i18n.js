@@ -79,21 +79,37 @@ export const messages = {
             },
             panels: {
                 source: '压缩任务',
-                result: '结果',
-                rules: '默认规则',
-                custom: '自定义模式',
+                filters: '过滤规则',
+                archive: '最近归档',
+                preview: '扫描预演',
+                warnings: '告警详情',
+                error: '完整错误',
+                pattern: '完整模式',
                 help: '快捷键'
             },
             labels: {
                 source: '源目录',
                 output: '输出 ZIP',
-                defaultOutput: '默认同级输出',
-                gitignore: '自动应用根目录及子目录 .gitignore',
-                status: '状态',
-                files: '文件',
-                excluded: '过滤',
+                task: '当前任务',
+                lastArchive: '最近归档',
+                lastPreview: '最近预演',
+                rulePosition: '规则 {index}/{count}  ↑↓ 或 PgUp/PgDn 选择',
                 archive: '归档',
                 customPattern: '模式'
+            },
+            task: {
+                preview: '扫描预演',
+                archive: '创建 ZIP'
+            },
+            exclusions: {
+                builtIn: '默认规则过滤',
+                gitignore: '.gitignore 过滤',
+                custom: '自定义规则过滤',
+                symlink: '跳过符号链接',
+                special: '跳过特殊项'
+            },
+            errors: {
+                sourceEmpty: '源目录不能为空。'
             },
             hints: {
                 toggleRule: 'Space 切换当前默认规则'
@@ -107,10 +123,10 @@ export const messages = {
                 removePattern: '删除选中模式'
             },
             footer: {
-                compress: 'Tab 切页 | s 源目录 | o 输出 | c 当前目录 | Enter 压缩 | ? 帮助 | q 退出',
-                filters: 'Tab 切页 | ↑↓ 选择 | Space 开关 | a 添加 | d 删除 | ? 帮助 | q 退出',
-                input: '输入或粘贴内容 | Enter 保存 | Esc 取消',
-                help: '任意键返回 | q 退出'
+                input: '输入或粘贴 | Enter 保存 | Esc 取消',
+                detail: '↑↓/PgUp/PgDn 滚动 | Esc 返回 | q 退出',
+                busy: '任务执行中，请等待…',
+                keyHelp: '? 查看完整快捷键'
             },
             prompt: {
                 source: '输入目录路径',
@@ -118,24 +134,28 @@ export const messages = {
                 pattern: '输入要追加的忽略模式，例如 logs/ 或 *.log'
             },
             status: {
-                ready: '就绪：按 Enter 将当前设置压缩为 ZIP。',
+                ready: '就绪：p 扫描预演，Enter 创建 ZIP。',
+                previewRunning: '正在扫描预演…',
                 running: '正在扫描并创建 ZIP…',
                 saved: '过滤规则已保存。',
-                reset: '配置已重置。',
+                previewComplete: '预演完成：未创建 ZIP，候选文件名未保留。',
                 complete: '完成：{path}',
                 failed: '失败：{message}'
             },
             result: {
-                empty: '尚未创建 ZIP。默认规则会在任意子目录层级生效。',
-                dryRun: '试运行完成，未创建 ZIP。',
-                warningCount: '{count} 条告警'
+                candidate: '候选输出位置',
+                notReserved: '预演未创建 ZIP；执行时会重新确定文件名。',
+                previewSummary: '纳入 {count} 个文件',
+                actionHint: 'p 扫描预演 · Enter 创建 ZIP · r/v/w/e 查看详情'
             },
             help: [
                 'Tab：切换压缩页与过滤规则页',
-                '压缩页：s 编辑源目录，o 编辑输出，c 使用当前目录，Enter 创建 ZIP',
-                '过滤规则页：Space 切换默认规则，a 添加自定义模式，d 删除所选模式',
-                '所有目录层级都会读取 .gitignore；启用的默认规则始终优先',
-                'q：退出；Esc：取消输入或返回压缩页'
+                '压缩页：s 源目录，o 输出，c 当前目录，p 扫描预演，Enter 创建 ZIP',
+                'r 最近归档，v 最近预演，w 告警，e 完整错误',
+                '过滤页：↑↓/PgUp/PgDn 选择，Space 切换默认规则，a 添加，d 删除，v 查看完整模式',
+                '输入错误可继续修改草稿，Esc 取消输入；详情页可滚动',
+                '根目录和子目录的 .gitignore 都会生效；启用的默认规则优先',
+                'q：退出；任务执行期间请等待'
             ]
         }
     },
@@ -191,21 +211,37 @@ export const messages = {
             },
             panels: {
                 source: 'Archive task',
-                result: 'Result',
-                rules: 'Default rules',
-                custom: 'Custom patterns',
+                filters: 'Filter rules',
+                archive: 'Last archive',
+                preview: 'Scan preview',
+                warnings: 'Warning details',
+                error: 'Full error',
+                pattern: 'Full pattern',
                 help: 'Keyboard help'
             },
             labels: {
                 source: 'Source',
                 output: 'Output ZIP',
-                defaultOutput: 'Sibling output by default',
-                gitignore: 'Root and nested .gitignore files are applied automatically',
-                status: 'Status',
-                files: 'Files',
-                excluded: 'Excluded',
+                task: 'Current task',
+                lastArchive: 'Last archive',
+                lastPreview: 'Last preview',
+                rulePosition: 'Rule {index}/{count}  Up/Down or PgUp/PgDn',
                 archive: 'Archive',
                 customPattern: 'Pattern'
+            },
+            task: {
+                preview: 'Scan preview',
+                archive: 'Create ZIP'
+            },
+            exclusions: {
+                builtIn: 'Default rules',
+                gitignore: '.gitignore',
+                custom: 'Custom rules',
+                symlink: 'Skipped symlinks',
+                special: 'Skipped special entries'
+            },
+            errors: {
+                sourceEmpty: 'Source directory must not be empty.'
             },
             actions: {
                 editSource: 'Edit source directory',
@@ -216,10 +252,10 @@ export const messages = {
                 removePattern: 'Delete selected pattern'
             },
             footer: {
-                compress: 'Tab page | s source | o output | c current dir | Enter compress | ? help | q quit',
-                filters: 'Tab page | Up/Down select | Space toggle | a add | d delete | ? help | q quit',
                 input: 'Type or paste | Enter save | Esc cancel',
-                help: 'Any key returns | q quits'
+                detail: 'Up/Down/PgUp/PgDn scroll | Esc back | q quit',
+                busy: 'Task running; please wait…',
+                keyHelp: '? for keyboard help'
             },
             prompt: {
                 source: 'Enter a directory path',
@@ -227,24 +263,28 @@ export const messages = {
                 pattern: 'Enter an extra ignore pattern, such as logs/ or *.log'
             },
             status: {
-                ready: 'Ready: press Enter to create a ZIP from the current settings.',
+                ready: 'Ready: p scans a preview; Enter creates a ZIP.',
+                previewRunning: 'Scanning preview…',
                 running: 'Scanning and creating ZIP…',
                 saved: 'Filter rules saved.',
-                reset: 'Configuration reset.',
+                previewComplete: 'Preview complete: no ZIP created; candidate name not reserved.',
                 complete: 'Complete: {path}',
                 failed: 'Failed: {message}'
             },
             result: {
-                empty: 'No ZIP has been created yet. Default rules apply at every directory depth.',
-                dryRun: 'Dry run complete; no ZIP was created.',
-                warningCount: '{count} warnings'
+                candidate: 'Candidate output',
+                notReserved: 'Preview did not create a ZIP; the name is chosen again when running.',
+                previewSummary: '{count} files included',
+                actionHint: 'p scan preview · Enter create ZIP · r/v/w/e details'
             },
             help: [
                 'Tab: switch between Compress and Filters',
-                'Compress: s edits the source, o edits output, c uses cwd, Enter creates a ZIP',
-                'Filters: Space toggles defaults, a adds a custom pattern, d removes the selected pattern',
-                'Every directory level reads .gitignore; enabled default rules always win',
-                'q: quit; Esc: cancel an input or return to Compress'
+                'Compress: s source, o output, c current dir, p scan preview, Enter create ZIP',
+                'r last archive, v last preview, w warnings, e full error',
+                'Filters: Up/Down/PgUp/PgDn select, Space toggle a default, a add, d delete, v show full pattern',
+                'Fix an input error by editing the draft; Esc cancels. Detail pages scroll.',
+                'Root and nested .gitignore files apply; enabled default rules take priority',
+                'q: quit; wait while a task is running'
             ]
         }
     }

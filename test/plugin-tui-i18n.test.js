@@ -52,9 +52,10 @@ test('template TUI shell keys exist in zh and en', () => {
 test('pzip TUI shell keys exist in zh and en', () => {
     assert.equal(pzipMessages.zh.tui.tabs.compress, '压缩');
     assert.equal(pzipMessages.en.tui.tabs.filters, 'Filters');
-    assert.match(pzipMessages.zh.tui.footer.compress, /Tab/u);
-    assert.match(pzipMessages.en.tui.footer.filters, /Space/u);
-    assert.equal(pzipMessages.zh.tui.status.ready, '就绪：按 Enter 将当前设置压缩为 ZIP。');
+    assert.match(pzipMessages.zh.tui.help.join('\n'), /Tab/u);
+    assert.match(pzipMessages.en.tui.help.join('\n'), /Space/u);
+    assert.match(pzipMessages.zh.tui.footer.busy, /等待/u);
+    assert.equal(pzipMessages.zh.tui.status.ready, '就绪：p 扫描预演，Enter 创建 ZIP。');
     assert.equal(pzipMessages.en.tui.actions.addPattern, 'Add pattern');
 });
 

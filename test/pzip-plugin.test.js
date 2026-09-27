@@ -14,8 +14,11 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {PassThrough} from 'node:stream';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
+import React from 'react';
+import {render} from 'ink';
 import {
     addCustomRule,
     createZipArchive,
@@ -23,6 +26,7 @@ import {
     resetPluginConfig,
     toggleBuiltInRule
 } from '../plugins/pzip/lib/service.js';
+import {getRuleWindow, PzipTuiApp} from '../plugins/pzip/lib/tui.js';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '..');
@@ -114,6 +118,49 @@ function runPzip(args = [], environment = {}) {
         encoding: 'utf8',
         env: {...process.env, ...environment}
     });
+}
+
+function createTuiHarness({sourceDirectory, archive = createZipArchive, columns = 42, rows = 12}) {
+    const stdin = new PassThrough();
+    stdin.isTTY = true;
+    stdin.setRawMode = () => {};
+    stdin.ref = () => {};
+    stdin.unref = () => {};
+    const stdout = new PassThrough();
+    stdout.isTTY = true;
+    stdout.columns = columns;
+    stdout.rows = rows;
+    const stderr = new PassThrough();
+    const frames = [];
+    stdout.on('data', chunk => {
+        const value = chunk.toString();
+        if (value.includes('╭')) {
+            frames.push(value.replace(/\u001b\[[0-9;?]*[a-zA-Z]/gu, ''));
+        }
+    });
+    const ink = render(React.createElement(PzipTuiApp, {
+        archive,
+        initialSourceDirectory: sourceDirectory
+    }), {stdin, stdout, stderr, patchConsole: false, alternateScreen: false});
+    return {
+        frame: () => frames.at(-1) || '',
+        async press(value) {
+            stdin.write(value);
+            await ink.waitUntilRenderFlush();
+        },
+        async close() {
+            ink.unmount();
+            await ink.waitUntilExit();
+        }
+    };
+}
+
+async function waitFor(check) {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+        if (check()) return;
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.fail('Timed out waiting for the TUI state');
 }
 
 test('pzip archives the source directory, keeps empty directories, and filters default project noise', async () => {
@@ -221,4 +268,184 @@ test('pzip CLI provides help, JSON dry-run output, configuration commands, and a
     const renderedTui = runPzip([], {HOME: homeDirectory, SLOTHTOOL_PZIP_TUI_TEST_ACTION: 'render-exit'});
     assert.match(renderedTui, /压缩任务/u);
     assert.match(renderedTui, /过滤规则/u);
+});
+
+test('pzip TUI locks a pending archive task on the first Enter and freezes its filter snapshot', async () => {
+    await withTemporaryHome(async () => {
+        const {projectDirectory} = createProjectFixture();
+        let release;
+        const gate = new Promise(resolve => { release = resolve; });
+        const calls = [];
+        const archive = async (source, options) => {
+            calls.push({source, options});
+            await gate;
+            return createZipArchive(source, options);
+        };
+        const tui = createTuiHarness({sourceDirectory: projectDirectory, archive, columns: 42, rows: 12});
+        try {
+            await tui.press('\r');
+            await tui.press('\r');
+            await waitFor(() => calls.length === 1);
+            await tui.press('\r');
+            assert.equal(calls.length, 1);
+            assert.equal(calls[0].source, projectDirectory);
+            assert.equal(calls[0].options.dryRun, false);
+            assert.deepEqual(calls[0].options.config.customExcludePatterns, []);
+            assert.match(tui.frame(), /任务执行中，请等待/u);
+            assert.match(tui.frame(), /源目录:/u);
+            assert.match(tui.frame(), /输出 ZIP:/u);
+            assert.doesNotMatch(tui.frame(), /Enter 保存|↵ Tab/u);
+            addCustomRule('*.md');
+            assert.deepEqual(calls[0].options.config.customExcludePatterns, []);
+            release();
+            await waitFor(() => fs.existsSync(path.join(path.dirname(projectDirectory), 'demo-app.zip')));
+            assert.ok(readZipEntryNames(path.join(path.dirname(projectDirectory), 'demo-app.zip')).includes('demo-app/README.md'));
+        } finally {
+            release();
+            await tui.close();
+        }
+    });
+});
+
+test('pzip TUI preview creates no ZIP and the later run chooses a fresh non-overwriting name', async () => {
+    await withTemporaryHome(async () => {
+        const {fixtureRoot, projectDirectory} = createProjectFixture();
+        const existing = path.join(fixtureRoot, 'demo-app.zip');
+        fs.writeFileSync(existing, 'existing archive');
+        fs.symlinkSync(path.join(projectDirectory, 'README.md'), path.join(projectDirectory, 'readme-link'));
+        const results = [];
+        const archive = async (source, options) => {
+            const result = await createZipArchive(source, options);
+            results.push(result);
+            return result;
+        };
+        const tui = createTuiHarness({sourceDirectory: projectDirectory, archive, columns: 44, rows: 12});
+        try {
+            await tui.press('p');
+            await waitFor(() => results.length === 1);
+            await waitFor(() => tui.frame().includes('候选输出位置'));
+            assert.equal(results[0].dryRun, true);
+            assert.equal(fs.existsSync(results[0].archivePath), false);
+            assert.match(tui.frame(), /候选输出位置/u);
+            assert.ok(results[0].includedFileCount > 0);
+            await tui.press('\u001b');
+            await waitFor(() => tui.frame().includes('压缩任务'));
+            await tui.press('w');
+            await waitFor(() => tui.frame().includes('告警详情'));
+            assert.match(tui.frame(), /Skipped symbolic link/u);
+            await tui.press('\u001b');
+            await waitFor(() => tui.frame().includes('压缩任务'));
+            fs.writeFileSync(results[0].archivePath, 'occupied after preview');
+            await tui.press('\r');
+            await waitFor(() => results.length === 2);
+            assert.equal(results[1].dryRun, false);
+            assert.notEqual(results[1].archivePath, existing);
+            assert.notEqual(results[1].archivePath, results[0].archivePath);
+            assert.equal(fs.readFileSync(existing, 'utf8'), 'existing archive');
+            assert.equal(fs.readFileSync(results[0].archivePath, 'utf8'), 'occupied after preview');
+            assert.ok(readZipEntryNames(results[1].archivePath).includes('demo-app/README.md'));
+        } finally {
+            await tui.close();
+        }
+    });
+});
+
+test('pzip TUI keeps invalid output drafts editable until corrected or cancelled', async () => {
+    await withTemporaryHome(async () => {
+        const {fixtureRoot, projectDirectory} = createProjectFixture();
+        const tui = createTuiHarness({sourceDirectory: projectDirectory, columns: 44, rows: 12});
+        try {
+            await tui.press('o');
+            await tui.press(path.join(fixtureRoot, 'fixed.zip', 'draft.zip'));
+            await tui.press('\r');
+            assert.match(tui.frame(), /输出目录不存在/u);
+            assert.match(tui.frame(), /draft.zip/u);
+            for (let index = 0; index < '/draft.zip'.length; index += 1) {
+                await tui.press('\u007f');
+            }
+            await tui.press('\r');
+            await waitFor(() => tui.frame().includes('压缩任务'));
+            assert.match(tui.frame(), /fixed.zip/u);
+            await tui.press('o');
+            for (let index = 0; index < path.join(fixtureRoot, 'fixed.zip').length; index += 1) {
+                await tui.press('\u007f');
+            }
+            await tui.press(path.join(fixtureRoot, 'missing', 'draft.zip'));
+            await tui.press('\r');
+            assert.match(tui.frame(), /输出目录不存在/u);
+            await tui.press('\u001b');
+            await waitFor(() => tui.frame().includes('压缩任务'));
+            assert.match(tui.frame(), /fixed.zip/u);
+            assert.doesNotMatch(tui.frame(), /输出目录不存在/u);
+        } finally {
+            await tui.close();
+        }
+    });
+});
+
+test('pzip TUI retains the last archive and makes the full later error scrollable', async () => {
+    await withTemporaryHome(async () => {
+        const {projectDirectory} = createProjectFixture();
+        let calls = 0;
+        const archive = async (source, options) => {
+            calls += 1;
+            if (calls === 1) return createZipArchive(source, options);
+            const error = new Error('A complete task failure with a long explanation that should remain available');
+            error.stack = `${error.message}\nmore diagnostic context\nFINAL_ERROR_DETAIL`;
+            throw error;
+        };
+        const tui = createTuiHarness({sourceDirectory: projectDirectory, archive, columns: 38, rows: 10});
+        try {
+            await tui.press('\r');
+            await waitFor(() => tui.frame().includes('最近归档'));
+            await tui.press('p');
+            await waitFor(() => tui.frame().includes('完整错误'));
+            const seen = [tui.frame()];
+            for (let index = 0; index < 12; index += 1) {
+                await tui.press('\u001b[6~');
+                seen.push(tui.frame());
+            }
+            assert.match(seen.join('\n'), /FINAL_ERROR_DETAIL/u);
+            await tui.press('\u001b');
+            await waitFor(() => tui.frame().includes('压缩任务'));
+            assert.match(tui.frame(), /最近归档/u);
+            assert.match(tui.frame().split('\n').at(-1), /r.*e/u);
+            await tui.press('r');
+            assert.match(tui.frame(), /最近归档/u);
+        } finally {
+            await tui.close();
+        }
+    });
+});
+
+test('pzip TUI keeps 35 custom rules reachable and the footer visible in low, narrow zh and en windows', async () => {
+    for (const language of ['zh', 'en']) {
+        await withTemporaryHome(async homeDirectory => {
+            fs.writeFileSync(path.join(homeDirectory, '.pipker', 'slothtool', 'settings.json'), JSON.stringify({language}));
+            for (let index = 0; index < 35; index += 1) {
+                addCustomRule(`rule-${String(index).padStart(2, '0')}-${'long'.repeat(12)}`);
+            }
+            const {projectDirectory} = createProjectFixture();
+            const tui = createTuiHarness({sourceDirectory: projectDirectory, columns: 38, rows: 10});
+            try {
+                await tui.press('\t');
+                for (let index = 0; index < 39; index += 1) {
+                    await tui.press('\u001b[B');
+                    assert.match(tui.frame(), new RegExp(language === 'zh' ? `规则 ${index + 2}/40` : `Rule ${index + 2}/40`, 'u'));
+                    assert.match(tui.frame(), /›/u);
+                    assert.ok(tui.frame().split('\n').length <= 10);
+                }
+                assert.match(tui.frame(), /rule-34/u);
+                assert.match(tui.frame().split('\n').at(-1), /Tab/u);
+                await tui.press('v');
+                assert.match(tui.frame(), language === 'zh' ? /完整模式/u : /Full pattern/u);
+                assert.match(tui.frame(), /rule-34/u);
+                assert.match(tui.frame().split('\n').at(-1), /Esc/u);
+                const viewport = getRuleWindow(40, 39, 2);
+                assert.ok(viewport.start <= 39 && viewport.end > 39);
+            } finally {
+                await tui.close();
+            }
+        });
+    }
 });

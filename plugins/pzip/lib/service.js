@@ -88,6 +88,11 @@ function resolveOutputPath(sourceDirectory, outputPath) {
     };
 }
 
+export function validateArchiveTarget(sourcePath, outputPath) {
+    const sourceDirectory = resolveSourceDirectory(sourcePath);
+    return {sourceDirectory, ...resolveOutputPath(sourceDirectory, outputPath)};
+}
+
 function createEmptyExclusionSummary() {
     return {
         builtIn: 0,
