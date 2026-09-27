@@ -23,14 +23,12 @@ const rootDir = path.resolve(testDir, '..');
 const rootBin = path.join(rootDir, 'bin', 'slothtool.js');
 const locBin = path.join(rootDir, 'plugins', 'loc', 'bin', 'loc.js');
 const gstoreBin = path.join(rootDir, 'plugins', 'gstore', 'bin', 'gstore.js');
-const codexModelsBin = path.join(rootDir, 'plugins', 'codex-models', 'bin', 'codex-models.js');
 const slothVaultBin = path.join(rootDir, 'plugins', 'slothvault', 'bin', 'slothvault.js');
 const slothVaultMcpBin = path.join(rootDir, 'plugins', 'slothvault', 'bin', 'slothvault-mcp.js');
 
 function createTempHome(
     withLocalLoc = false,
     withLocalGstore = false,
-    withLocalCodexModels = false,
     withLocalSlothVaultMcp = false,
     withLocalSlothVault = false
 ) {
@@ -61,17 +59,6 @@ function createTempHome(
             version: 'workspace',
             binPath: gstoreBin,
             installedAt: '2026-06-11T00:00:00.000Z',
-            sourceType: 'github-release'
-        };
-    }
-
-    if (withLocalCodexModels) {
-        registry.plugins['codex-models'] = {
-            name: '@holic512/plugin-codex-models',
-            packageName: '@holic512/plugin-codex-models',
-            version: 'workspace',
-            binPath: codexModelsBin,
-            installedAt: '2026-07-29T00:00:00.000Z',
             sourceType: 'github-release'
         };
     }
@@ -200,7 +187,7 @@ test('root self-update style restart does not background-detach the replacement 
 });
 
 test('root manager records the run and focuses the recent plugin after returning', () => {
-    const homeDir = createTempHome(true, true, true);
+    const homeDir = createTempHome(true, true);
     const output = runNode(rootBin, [], {
         HOME: homeDir,
         SLOTHTOOL_TUI_TEST_ACTION: 'run-plugin-return',
@@ -229,15 +216,9 @@ test('root shorthand runs the local gstore workspace plugin in CLI mode', () => 
     assert.match(output, /gstore sync/u);
 });
 
-test('root shorthand runs the local codex-models workspace plugin in CLI mode', () => {
-    const output = runNode(rootBin, ['codex-models', '--help'], {HOME: createTempHome(false, false, true)});
-    assert.match(output, /codex-models doctor/u);
-    assert.match(output, /reasoning set <effort>/u);
-});
-
 test('root shorthand runs the canonical SlothVault multifunction workspace entry', () => {
     const output = runNode(rootBin, ['slothvault', '--help'], {
-        HOME: createTempHome(false, false, false, false, true)
+        HOME: createTempHome(false, false, false, true)
     });
     assert.match(output, /SlothVault multifunction plugin/u);
     assert.match(output, /slothvault deploy/u);
@@ -245,7 +226,7 @@ test('root shorthand runs the canonical SlothVault multifunction workspace entry
 
 test('deprecated root shorthand routes MCP calls to the secondary executable', () => {
     const output = runNode(rootBin, ['slothvault-mcp', '--help'], {
-        HOME: createTempHome(false, false, false, true)
+        HOME: createTempHome(false, false, true)
     });
     assert.match(output, /slothvault-mcp doctor/u);
     assert.match(output, /slothvault-mcp tools list/u);
@@ -254,13 +235,13 @@ test('deprecated root shorthand routes MCP calls to the secondary executable', (
 
 test('deprecated root Skill shorthand forwards to the multifunction entry', () => {
     const output = runNode(rootBin, ['slothvault-mcp', 'skill', 'status', '--json'], {
-        HOME: createTempHome(false, false, false, true)
+        HOME: createTempHome(false, false, true)
     });
     assert.equal(JSON.parse(output).name, 'slothvault-mcp');
 });
 
 test('canonical SlothVault launch upgrades a registry-only legacy entry to the main executable', () => {
-    const homeDir = createTempHome(false, false, false, true);
+    const homeDir = createTempHome(false, false, true);
     const output = runNode(rootBin, ['slothvault', '--help'], {HOME: homeDir});
     const registryPath = path.join(homeDir, '.pipker', 'slothtool', 'registry.json');
     const persistedRegistry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
@@ -338,7 +319,7 @@ test('canonical SlothVault commands stop on an existing legacy/canonical migrati
 
 test('source-root dispatch refuses MCP command registration without a verified SlothTool bin directory', () => {
     assert.throws(() => runNode(rootBin, ['slothvault', 'mcp', 'register', '--json'], {
-        HOME: createTempHome(false, false, false, false, true)
+        HOME: createTempHome(false, false, false, true)
     }), error => {
         const output = String(error.stdout || '');
         const response = JSON.parse(output);
@@ -351,7 +332,7 @@ test('source-root dispatch refuses MCP command registration without a verified S
 test('a PATH-resolved SlothTool command registers the standalone MCP executable beside itself', () => {
     const commandBin = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-command-bin-'));
     const commandPath = path.join(commandBin, 'slothtool');
-    const homeDir = createTempHome(false, false, false, false, true);
+    const homeDir = createTempHome(false, false, false, true);
     fs.symlinkSync(rootBin, commandPath);
 
     const output = runNode(commandPath, ['slothvault', 'mcp', 'register', '--json'], {

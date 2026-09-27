@@ -15,7 +15,6 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {getLanguage as getCodexModelsLanguage} from '../plugins/codex-models/lib/i18n.js';
 import {getLanguage as getGstoreLanguage} from '../plugins/gstore/lib/i18n.js';
 import {getLanguage as getImageCompressLanguage} from '../plugins/image-compress/lib/i18n.js';
 import {getLanguage as getLocLanguage} from '../plugins/loc/lib/i18n.js';
@@ -44,7 +43,6 @@ test('plugins read shared language settings from the Pipker SlothTool home only'
         assert.equal(getPzipLanguage(), 'en');
         assert.equal(getGstoreLanguage(), 'en');
         assert.equal(getImageCompressLanguage(), 'en');
-        assert.equal(getCodexModelsLanguage(), 'en');
         assert.equal(getSlothVaultMcpLanguage(), 'en');
         assert.equal(getTemplateLanguage(), 'en');
     } finally {

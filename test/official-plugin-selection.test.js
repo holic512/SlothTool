@@ -3,9 +3,9 @@
  * @project SlothTool
  * @module Test / Official Plugin Selection
  * @description 验证官方插件目录包含通用 Node 插件，并确保安装流程会根据当前平台架构选择正确的 image-compress 发布资产。
- * @logic 1. 校验 image-compress、gstore、codex-models、pzip 与 slothvault 已加入官方插件目录且 todo 已移除；2. 覆盖工作区、发布资产与插件包契约；3. 覆盖 macOS/Windows/Linux 目标的资产匹配；4. 校验安装入口会把当前 target 传递给 release 选择器。
+ * @logic 1. 校验保留的官方插件已加入目录且被移除的 alias 不再暴露；2. 覆盖工作区、发布资产与插件包契约；3. 覆盖 macOS/Windows/Linux 目标的资产匹配；4. 校验安装入口会把当前 target 传递给 release 选择器。
  * @dependencies Node: assert/fs/os/path/test, Service: ../lib/services/plugin-service.js
- * @index_tags 官方插件测试, 平台资产选择, image-compress, codex-models, pzip, slothvault, 安装流程, macos, windows, linux
+ * @index_tags 官方插件测试, 平台资产选择, image-compress, pzip, slothvault, 安装流程, macos, windows, linux
  * @author holic512
  */
 
@@ -69,12 +69,9 @@ test('official plugin catalog no longer exposes todo', () => {
     assert.equal(getOfficialPlugin('todo'), null);
 });
 
-test('official plugin catalog includes codex-models as a generic Node plugin', () => {
-    const plugin = getOfficialPlugin('codex-models');
-    assert.ok(getOfficialPluginAliases().includes('codex-models'));
-    assert.equal(plugin.packageName, '@holic512/plugin-codex-models');
-    assert.equal(plugin.assetStrategy, undefined);
-    assert.equal(plugin.assetNamePrefix, 'holic512-plugin-codex-models-');
+test('official plugin catalog no longer exposes codex-models', () => {
+    assert.equal(getOfficialPluginAliases().includes('codex-models'), false);
+    assert.equal(getOfficialPlugin('codex-models'), null);
 });
 
 test('official plugin catalog includes pzip as a generic Node plugin', () => {
@@ -88,6 +85,7 @@ test('official plugin catalog includes pzip as a generic Node plugin', () => {
 test('official catalog exposes canonical slothvault metadata and resolves its deprecated alias', () => {
     const plugin = getOfficialPlugin('slothvault');
     const rootPackage = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    const rootLock = JSON.parse(fs.readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
     const pluginPackage = JSON.parse(fs.readFileSync(
         new URL('../plugins/slothvault/package.json', import.meta.url),
         'utf8'
@@ -105,7 +103,8 @@ test('official catalog exposes canonical slothvault metadata and resolves its de
     assert.equal(plugin.releaseTagPrefix, 'plugin-slothvault-v');
     assert.equal(plugin.assetNamePrefix, 'holic512-plugin-slothvault-');
     assert.equal(plugin.assetStrategy, undefined);
-    assert.equal(rootPackage.version, '2.5.1');
+    assert.equal(rootPackage.version, rootLock.version);
+    assert.equal(rootPackage.version, rootLock.packages[''].version);
     assert.ok(rootPackage.workspaces.includes('plugins/slothvault'));
     assert.equal(rootPackage.scripts['dev:slothvault'], 'node plugins/slothvault/bin/slothvault.js');
     assert.equal(pluginPackage.name, '@holic512/plugin-slothvault');

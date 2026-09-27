@@ -4,7 +4,7 @@
  * @module Test / Plugin TUI
  * @description 验证官方插件与模板已经提供统一 TUI 外壳所需的 tab、响应式 footer 和状态栏文案键。
  * @logic 1. 直接读取插件 i18n 消息字典；2. 校验中英文 tab、响应式 footer 与核心页面文案；3. 防止双语外壳文案缺失。
- * @dependencies I18N: loc/image-compress/gstore/codex-models/pzip/slothvault/template-basic, Node: assert/test
+ * @dependencies I18N: loc/image-compress/gstore/pzip/slothvault/template-basic, Node: assert/test
  * @index_tags 插件i18n测试, loc, image-compress, pzip, slothvault, slothvault-mcp, template-basic, TUI外壳
  * @author holic512
  */
@@ -13,7 +13,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {messages as imageCompressMessages} from '../plugins/image-compress/lib/i18n.js';
 import {messages as gstoreMessages} from '../plugins/gstore/lib/i18n.js';
-import {messages as codexModelsMessages} from '../plugins/codex-models/lib/i18n.js';
 import {messages as locMessages} from '../plugins/loc/lib/i18n.js';
 import {messages as pzipMessages} from '../plugins/pzip/lib/i18n.js';
 import {messages as slothVaultMcpMessages} from '../plugins/slothvault/lib/i18n.js';
@@ -59,13 +58,10 @@ test('pzip TUI shell keys exist in zh and en', () => {
     assert.equal(pzipMessages.en.tui.actions.addPattern, 'Add pattern');
 });
 
-test('gstore and codex-models expose the shared tab and footer shell in both languages', () => {
+test('gstore exposes the shared tab and footer shell in both languages', () => {
     assert.equal(gstoreMessages.zh.tui.tabs.sync, '同步');
     assert.equal(gstoreMessages.en.tui.tabs.sync, 'Sync');
     assert.match(gstoreMessages.zh.tui.footer.sync, /Tab/u);
-    assert.equal(codexModelsMessages.zh.tui.tabs.models, '模型');
-    assert.equal(codexModelsMessages.en.tui.tabs.models, 'Models');
-    assert.match(codexModelsMessages.en.tui.footer.models, /Tab/u);
 });
 
 test('SlothVault multifunction package exposes bilingual MCP and local-manager TUI copy', () => {

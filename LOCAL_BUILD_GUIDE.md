@@ -12,7 +12,7 @@
 npm install
 ```
 
-根包依赖和 `plugins/loc`、`plugins/gstore`、`plugins/codex-models`、`plugins/pzip` workspace 依赖会一起安装。
+根包依赖和 `plugins/loc`、`plugins/gstore`、`plugins/pzip`、`plugins/slothvault` workspace 依赖会一起安装。
 
 ## Link SlothTool Locally
 
@@ -89,7 +89,6 @@ node bin/slothtool.js --help
 SLOTHTOOL_TUI_TEST_ACTION=exit node bin/slothtool.js
 SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
-SLOTHTOOL_CODEX_MODELS_TUI_TEST_ACTION=exit node plugins/codex-models/bin/codex-models.js
 SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 ```
 
@@ -106,9 +105,6 @@ cd plugins/loc
 npm pack --dry-run
 
 cd ../gstore
-npm pack --dry-run
-
-cd ../codex-models
 npm pack --dry-run
 
 cd ../pzip

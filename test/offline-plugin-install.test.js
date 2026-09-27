@@ -27,7 +27,7 @@ function createHome() {
     return home;
 }
 
-function createArchive(packageName = '@holic512/plugin-codex-models', dependencies = {}) {
+function createArchive(packageName = '@holic512/plugin-loc', dependencies = {}) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-offline-archive-'));
     const packageDir = path.join(root, 'package');
     const binDir = path.join(packageDir, 'bin');
@@ -36,13 +36,13 @@ function createArchive(packageName = '@holic512/plugin-codex-models', dependenci
         name: packageName,
         version: '0.1.0-test',
         type: 'module',
-        bin: {'codex-models': 'bin/codex-models.js'},
+        bin: {loc: 'bin/loc.js'},
         dependencies
     }, null, 2));
-    const binPath = path.join(binDir, 'codex-models.js');
+    const binPath = path.join(binDir, 'loc.js');
     fs.writeFileSync(binPath, '#!/usr/bin/env node\nconsole.log("OFFLINE_PLUGIN_OK");\n');
     fs.chmodSync(binPath, 0o755);
-    const archivePath = path.join(root, 'codex-models-offline.tgz');
+    const archivePath = path.join(root, 'loc-offline.tgz');
     execFileSync('tar', ['-czf', archivePath, '-C', root, 'package']);
     return archivePath;
 }
@@ -153,34 +153,34 @@ async function withHome(run) {
 test('offline archive installs an official plugin and records its source', async () => {
     await withHome(async home => {
         const archivePath = createArchive();
-        const result = await installPluginFromArchive('codex-models', archivePath);
+        const result = await installPluginFromArchive('loc', archivePath);
         assert.equal(result.status, 'installed');
         assert.equal(result.sourceType, 'offline-archive');
 
-        const installed = registry.getPlugin('codex-models');
-        assert.equal(installed.packageName, '@holic512/plugin-codex-models');
+        const installed = registry.getPlugin('loc');
+        assert.equal(installed.packageName, '@holic512/plugin-loc');
         assert.equal(installed.sourceType, 'offline-archive');
         assert.equal(installed.assetName, path.basename(archivePath));
         if (process.platform !== 'win32') {
             assert.equal(fs.statSync(installed.binPath).mode & 0o100, 0o100);
         }
         assert.equal(execFileSync(process.execPath, [installed.binPath], {encoding: 'utf8'}).trim(), 'OFFLINE_PLUGIN_OK');
-        assert.ok(installed.binPath.startsWith(path.join(home, '.pipker', 'slothtool', 'plugins', 'codex-models')));
+        assert.ok(installed.binPath.startsWith(path.join(home, '.pipker', 'slothtool', 'plugins', 'loc')));
     });
 });
 
 test('offline bundle contains a package root and can be reinstalled', async () => {
     await withHome(async home => {
         const initialArchive = createArchive();
-        await installPluginFromArchive('codex-models', initialArchive);
-        const outputPath = path.join(home, 'bundles', 'codex-models-self-contained.tgz');
-        const bundle = await createOfflinePluginBundle('codex-models', outputPath);
+        await installPluginFromArchive('loc', initialArchive);
+        const outputPath = path.join(home, 'bundles', 'loc-self-contained.tgz');
+        const bundle = await createOfflinePluginBundle('loc', outputPath);
         assert.equal(bundle.outputPath, outputPath);
         assert.ok(fs.existsSync(outputPath));
         const listing = execFileSync('tar', ['-tzf', outputPath], {encoding: 'utf8'});
         assert.match(listing, /^package\//mu);
         assert.match(listing, /package\/package\.json/u);
-        assert.match(listing, /package\/bin\/codex-models\.js/u);
+        assert.match(listing, /package\/bin\/loc\.js/u);
     });
 });
 
@@ -229,10 +229,10 @@ test('offline bundle remains restricted to official aliases', async () => {
 test('offline archive package name must match the selected official alias', async () => {
     await withHome(async () => {
         await assert.rejects(
-            installPluginFromArchive('codex-models', createArchive('@malicious/wrong-plugin')),
+            installPluginFromArchive('loc', createArchive('@malicious/wrong-plugin')),
             /Archive package mismatch/u
         );
-        assert.equal(registry.getPlugin('codex-models'), null);
+        assert.equal(registry.getPlugin('loc'), null);
     });
 });
 
@@ -242,10 +242,10 @@ test('offline archive rejects path traversal members before extraction', async (
             {name: '../escaped.txt', content: 'must not escape'}
         ]);
         await assert.rejects(
-            installPluginFromArchive('codex-models', archivePath),
+            installPluginFromArchive('loc', archivePath),
             /unsafe path/u
         );
-        assert.equal(registry.getPlugin('codex-models'), null);
+        assert.equal(registry.getPlugin('loc'), null);
     });
 });
 
@@ -256,9 +256,9 @@ test('offline archive rejects symbolic links before extraction', async () => {
             {name: 'package/external-link', type: '2', linkName: '/tmp'}
         ]);
         await assert.rejects(
-            installPluginFromArchive('codex-models', archivePath),
+            installPluginFromArchive('loc', archivePath),
             /unsupported entry type/u
         );
-        assert.equal(registry.getPlugin('codex-models'), null);
+        assert.equal(registry.getPlugin('loc'), null);
     });
 });

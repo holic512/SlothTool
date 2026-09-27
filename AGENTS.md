@@ -6,11 +6,10 @@ Concise repo rules for Codex working on SlothTool.
 
 - SlothTool is a TUI-first plugin manager.
 - Root package: `@holic512/slothtool`
-- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, `@holic512/plugin-codex-models`, `@holic512/plugin-pzip`, and `@holic512/plugin-slothvault`.
+- The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, `@holic512/plugin-pzip`, and `@holic512/plugin-slothvault`.
 - `plugins/image-compress` ships as an official plugin workspace with a dedicated multi-platform release workflow and target-aware asset installation.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing SlothTool settings, plugin configs, and data through an isolated Git repository cache and a GitHub private repository via local `git` and `gh`.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
-- `plugins/codex-models` ships as an official CLI + TUI plugin workspace for Codex custom-provider diagnostics, cross-vendor model metadata, reasoning-level switching, catalog sync, and safe Desktop offline repair-script generation.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
 - `plugins/slothvault` ships as the official SlothVault multifunction workspace: `slothtool slothvault` manages Linux deployment, user-installable Codex/Claude Code Skill links, and explicit standalone MCP command registration; the independently registered `slothvault-mcp` executable dynamically discovers and safely invokes the administrator MCP while its TUI manages only local profiles and read-only remote inspection.
 - Root alias migration moves only the SlothVault plugin identity, registry entry, and installed directory; Profile and redacted-history path migration belongs exclusively to a current SlothVault multifunction plugin.
@@ -125,7 +124,6 @@ SlothVault multifunction package rules:
 - `loc` plugin: `plugins/loc/bin/loc.js`, `plugins/loc/lib/*`, `test/loc-cli.test.js`
 - `image-compress` plugin: `plugins/image-compress/bin/image-compress.js`, `plugins/image-compress/lib/*`, `plugins/image-compress/backend/**`, `test/image-compress-plugin.test.js`
 - `gstore` plugin: `plugins/gstore/bin/gstore.js`, `plugins/gstore/lib/*`, `test/gstore-cli.test.js`
-- `codex-models` plugin: `plugins/codex-models/bin/codex-models.js`, `plugins/codex-models/lib/*`, `test/codex-models-cli.test.js`
 - `pzip` plugin: `plugins/pzip/bin/pzip.js`, `plugins/pzip/lib/*`, `test/pzip-plugin.test.js`
 - `slothvault` plugin: `plugins/slothvault/bin/slothvault.js`, `plugins/slothvault/bin/slothvault-mcp.js`, `plugins/slothvault/deploy/*`, `plugins/slothvault/lib/*`, `plugins/slothvault/skills/slothvault-mcp/*`, `test/slothvault-plugin.test.js`
 - Offline install/bundle: `lib/commands/install.js`, `lib/commands/bundle.js`, `lib/services/plugin-service.js`, `test/offline-plugin-install.test.js`
@@ -163,17 +161,6 @@ SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 node --test test/gstore-cli.test.js
 ```
 
-`codex-models` plugin:
-
-```bash
-node plugins/codex-models/bin/codex-models.js --help
-node --check plugins/codex-models/lib/model-library.js
-node --check plugins/codex-models/lib/service.js
-SLOTHTOOL_CODEX_MODELS_TUI_TEST_ACTION=exit node plugins/codex-models/bin/codex-models.js
-node --test test/codex-models-cli.test.js
-node --test test/offline-plugin-install.test.js
-```
-
 `pzip` plugin:
 
 ```bash
@@ -205,7 +192,6 @@ Packaging:
 npm pack --dry-run
 cd plugins/loc && npm pack --dry-run
 cd plugins/gstore && npm pack --dry-run
-cd plugins/codex-models && npm pack --dry-run
 cd plugins/pzip && npm pack --dry-run
 cd plugins/slothvault && npm pack --dry-run
 cd plugins/image-compress/backend && GOCACHE=$(mktemp -d) go test ./...
@@ -232,7 +218,6 @@ Testing conventions:
 - Root shipped behavior changes require bumping root `package.json` and syncing `package-lock.json`.
 - `plugins/loc` shipped behavior changes require bumping `plugins/loc/package.json` and its workspace lock entry.
 - `plugins/gstore` shipped behavior changes require bumping `plugins/gstore/package.json` and its workspace lock entry.
-- `plugins/codex-models` shipped behavior changes require bumping `plugins/codex-models/package.json` and its workspace lock entry.
 - `plugins/pzip` shipped behavior changes require bumping `plugins/pzip/package.json` and its workspace lock entry.
 - `plugins/slothvault` shipped behavior changes require bumping `plugins/slothvault/package.json` and its workspace lock entry.
 - If a change ships both core and the official plugin, bump both in the same change set.
@@ -242,7 +227,6 @@ Testing conventions:
   - plugin: `plugin-loc-v<plugin-version>`
   - image-compress plugin: `plugin-image-compress-v<plugin-version>`
   - gstore plugin: `plugin-gstore-v<plugin-version>`
-  - codex-models plugin: `plugin-codex-models-v<plugin-version>`
   - pzip plugin: `plugin-pzip-v<plugin-version>`
   - slothvault plugin: `plugin-slothvault-v<plugin-version>`
 - Release workflows:
@@ -262,7 +246,6 @@ Testing conventions:
   - `bin/slothtool.js`
   - `plugins/loc/bin/loc.js`
   - `plugins/gstore/bin/gstore.js`
-  - `plugins/codex-models/bin/codex-models.js`
   - `plugins/pzip/bin/pzip.js`
   - `plugins/slothvault/bin/slothvault.js`
   - `plugins/slothvault/bin/slothvault-mcp.js`

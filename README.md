@@ -2,7 +2,7 @@
 
 SlothTool 是一个 TUI-first 的插件管理器：日常使用默认进入 Ink 全屏界面，同时保留可脚本化的 CLI 命令。
 
-根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc`、`image-compress`、`gstore`、`codex-models`、`pzip` 和 `slothvault`。
+根包通过 npm 分发，官方插件通过 GitHub Release `.tgz` 资产安装到本机用户目录。当前内置官方插件为 `loc`、`image-compress`、`gstore`、`pzip` 和 `slothvault`。
 
 ```bash
 npm install -g @holic512/slothtool
@@ -23,7 +23,6 @@ SlothTool 把“插件管理器”作为默认交互入口：根命令负责安�
 | 离线归档 | `slothtool bundle` 可把已安装且运行时依赖完整的官方插件打包为可迁移归档。 |
 | 平台资产选择 | `image-compress` 按当前系统和 CPU 架构选择匹配的预编译后端资产。 |
 | 配置云同步 | `gstore` 通过独立 Git 仓库缓存同步全局设置、插件配置和数据，并提供冲突检测与显式覆盖策略。 |
-| Codex 模型管理 | `codex-models` 诊断自定义 provider，同步跨厂商模型库、上下文与推理等级，并生成 Desktop 离线修复脚本。 |
 | 项目 ZIP 压缩 | `pzip` 递归创建 ZIP，默认过滤 macOS、构建产物与 Git 元数据，并应用嵌套 `.gitignore`。 |
 | SlothVault 多功能包 | `slothvault` 提供 Linux 部署、Codex/Claude Code Skill 管理与独立 MCP 命令注册；注册后的 `slothvault-mcp` 动态发现管理员 MCP 能力并执行带风险确认的调用。 |
 | 双语界面 | 根管理器和官方插件支持中文 / English 文案。 |
@@ -61,14 +60,12 @@ slothtool
 slothtool install loc
 slothtool install image-compress
 slothtool install gstore
-slothtool install codex-models
 slothtool install pzip
 slothtool install slothvault
 
 slothtool loc
 slothtool image-compress
 slothtool gstore
-slothtool codex-models
 slothtool pzip
 slothtool slothvault
 ```
@@ -85,10 +82,6 @@ slothtool image-compress -r ./album --output-dir ./compressed
 slothtool gstore repo set holic512/my-private-data --create
 slothtool gstore status
 slothtool gstore sync
-
-slothtool codex-models doctor
-slothtool codex-models library show gpt-5.6-sol
-slothtool codex-models model set gpt-5.6-sol --reasoning ultra
 
 slothtool pzip ./my-project
 slothtool pzip ./my-project --exclude "logs/" --dry-run
@@ -142,7 +135,6 @@ Run 页面会把最近运行的插件排在前面，未运行过的插件继续�
 | `loc` | `@holic512/plugin-loc` | 统计目录代码行数、文件类型过滤、排除目录配置、详细模式。 | `slothtool loc` / `loc` |
 | `image-compress` | `@holic512/plugin-image-compress` | JPEG / PNG 图片压缩、目录批处理、拖拽路径 TUI、多平台 Go 后端资产。 | `slothtool image-compress` / `image-compress` |
 | `gstore` | `@holic512/plugin-gstore` | GitHub CLI 登录、独立 Git 缓存、设置/插件配置/数据全量同步、冲突检测和显式覆盖策略。 | `slothtool gstore` / `gstore` |
-| `codex-models` | `@holic512/plugin-codex-models` | 自定义 provider 诊断、跨厂商模型库、上下文和推理等级切换、目录同步、Desktop 离线修复脚本。 | `slothtool codex-models` / `codex-models` |
 | `pzip` | `@holic512/plugin-pzip` | ZIP 目录压缩、递归过滤 `.DS_Store`/`__MACOSX`/`dist`/`target`/`.git`、嵌套 `.gitignore` 与规则配置。 | `slothtool pzip` / `pzip` |
 | `slothvault` | `@holic512/plugin-slothvault` | Linux 部署、Skill 管理、独立 MCP 命令注册，以及动态发现管理员 MCP Tool、Prompt 和 Resource。 | `slothtool slothvault` / 注册后的 `slothvault-mcp` |
 
@@ -212,25 +204,6 @@ slothtool gstore conflicts --json
 
 它只调用本机 `git` 和 GitHub CLI `gh`，不保存 GitHub token。默认遇到同文件双向修改会停止；确认取舍后使用 `gstore sync --prefer-remote` 或 `gstore sync --prefer-local` 显式解决。新设备已有默认设置文件时，首次恢复使用 `gstore pull --prefer-remote`。TUI 对覆盖动作提供二次确认。
 
-### `codex-models`
-
-```bash
-slothtool install codex-models
-
-slothtool codex-models
-slothtool codex-models doctor
-slothtool codex-models catalog sync
-slothtool codex-models library list
-slothtool codex-models library show gpt-5.6-sol
-slothtool codex-models model set gpt-5.6-sol --reasoning max
-slothtool codex-models reasoning set ultra
-slothtool codex-models repair create gpt-5.6-sol
-```
-
-`codex-models` 会优先采用 provider `/models` 返回的显式能力，再合并 OpenAI、Claude、Gemini、Grok、DeepSeek、Qwen、Mistral、Kimi、GLM、MiniMax、Llama、Hunyuan、Baichuan、InternLM、Nemotron、Jamba、Granite、Sonar 等常见厂商兼容画像。模型详情包含上下文窗口、推理等级、默认推理等级、输入模态、联网搜索和并行工具能力；未知模型保守回退为 `low / medium / high`。`gpt-5.6-sol` 的 provider 扩展画像包含 `max` 和 `ultra`。
-
-Desktop 修复命令只生成一次性脚本。必须完全退出 Codex 后在独立 Terminal 执行；脚本先检查 LevelDB 锁并完整备份，不修改 `app.asar`、不使用 `launchctl`、不修改 `default_model`。启用缓存冻结可减少 Statsig 立即覆盖，但会暂时冻结同一缓存身份的其他动态配置更新，详细回滚方法见 [`plugins/codex-models/README.md`](./plugins/codex-models/README.md)。
-
 ### `slothvault`
 
 ```bash
@@ -279,13 +252,13 @@ TUI 的 Profile 表单不会载入现有明文 Key，也不会显示本次输入
 从本地归档安装仍只允许内置官方 alias，并会校验归档内 `package.json` 的包名：
 
 ```bash
-slothtool install codex-models --file ./codex-models-offline.tgz
+slothtool install loc --file ./loc-offline.tgz
 ```
 
 在已安装插件且运行时依赖完整的机器上创建自包含归档：
 
 ```bash
-slothtool bundle codex-models --output ./codex-models-offline.tgz
+slothtool bundle loc --output ./loc-offline.tgz
 ```
 
 离线归档使用 `package/` 根布局。若归档没有 `node_modules` 但声明了依赖，安装器只会尝试 `npm install --omit=dev --offline`；npm 缓存不完整时会失败并提示先在联网机器上执行 `slothtool bundle`。
@@ -396,7 +369,6 @@ SlothTool/
 │   ├── loc/                 Official LOC plugin workspace
 │   ├── image-compress/      Official image compression plugin workspace
 │   ├── gstore/              Official GitHub data sync plugin workspace
-│   ├── codex-models/        Official Codex model configuration plugin workspace
 │   ├── pzip/                Official filtered ZIP archive plugin workspace
 │   ├── slothvault/          Official SlothVault multifunction plugin workspace
 │   └── template-basic/      Plugin scaffold template
@@ -416,7 +388,6 @@ node bin/slothtool.js --help
 node plugins/loc/bin/loc.js --help
 node plugins/image-compress/bin/image-compress.js --help
 node plugins/gstore/bin/gstore.js --help
-node plugins/codex-models/bin/codex-models.js --help
 node plugins/pzip/bin/pzip.js --help
 node plugins/slothvault/bin/slothvault.js --help
 node plugins/slothvault/bin/slothvault-mcp.js --help
@@ -431,7 +402,6 @@ SLOTHTOOL_TUI_TEST_ACTION=exit node bin/slothtool.js
 SLOTHTOOL_LOC_TUI_TEST_ACTION=exit node plugins/loc/bin/loc.js
 SLOTHTOOL_IMAGE_COMPRESS_TUI_TEST_ACTION=exit node plugins/image-compress/bin/image-compress.js
 SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
-SLOTHTOOL_CODEX_MODELS_TUI_TEST_ACTION=exit node plugins/codex-models/bin/codex-models.js
 SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault.js
 SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault-mcp.js

@@ -77,21 +77,21 @@ test('run items put the most recently launched plugin first without mutating the
         {alias: 'image-compress', lastRunAt: null},
         {alias: 'loc', lastRunAt: '2026-08-08T10:00:00.000Z'},
         {alias: 'gstore', lastRunAt: '2026-08-08T11:00:00.000Z'},
-        {alias: 'codex-models', lastRunAt: 'invalid'}
+        {alias: 'pzip', lastRunAt: 'invalid'}
     ];
     const sortedItems = sortPluginItemsByRecentRun(items);
 
     assert.deepEqual(sortedItems.map(item => item.alias), [
         'gstore',
         'loc',
-        'codex-models',
-        'image-compress'
+        'image-compress',
+        'pzip'
     ]);
     assert.deepEqual(items.map(item => item.alias), [
         'image-compress',
         'loc',
         'gstore',
-        'codex-models'
+        'pzip'
     ]);
 });
 
