@@ -40,7 +40,11 @@ test('root TUI zh chrome is localized', () => {
     assert.equal(messages.zh.tui.title, undefined);
     assert.equal(messages.zh.tui.subtitle, undefined);
     assert.equal(messages.zh.tui.logs, undefined);
-    assert.equal(messages.zh.tui.footer.help, 'Tab 切页 | Enter 执行 | Esc 返回 | ? 帮助 | q 退出');
+    assert.equal(messages.zh.tui.footer.launchPlugin, '启动插件');
+    assert.equal(messages.zh.tui.footer.busy, '任务执行中 · 请等待');
+    assert.equal(messages.zh.tui.status.phases.partial, '部分失败');
+    assert.match(messages.zh.tui.footer.confirmAll, /DELETE ALL/u);
+    assert.equal(messages.zh.tui.feedback.result.failed, '失败');
 });
 
 test('root TUI en chrome stays explicit', () => {
@@ -70,5 +74,9 @@ test('root TUI en chrome stays explicit', () => {
     assert.equal(messages.en.tui.title, undefined);
     assert.equal(messages.en.tui.subtitle, undefined);
     assert.equal(messages.en.tui.logs, undefined);
-    assert.equal(messages.en.tui.footer.help, 'Tab page | Enter action | Esc back | ? help | q quit');
+    assert.equal(messages.en.tui.footer.launchPlugin, 'Launch plugin');
+    assert.equal(messages.en.tui.footer.busy, 'Task running · please wait');
+    assert.equal(messages.en.tui.status.phases.partial, 'Partially failed');
+    assert.match(messages.en.tui.footer.confirmAll, /DELETE ALL/u);
+    assert.equal(messages.en.tui.feedback.result.failed, 'Failed');
 });

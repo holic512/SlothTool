@@ -171,8 +171,7 @@ test('selection browser uses two panels when wide and one panel when compact', (
         listSummary: '1 item'
     };
     const wide = SelectionBrowserPage({...props, columns: 120});
-    const compactElement = SelectionBrowserPage({...props, columns: 70});
-    const compact = compactElement.type(compactElement.props);
+    const compact = SelectionBrowserPage({...props, columns: 70});
 
     assert.equal(wide.props.flexDirection, 'row');
     assert.equal(compact.props.flexDirection, 'column');
