@@ -26,6 +26,8 @@ import {SelectionBrowserPage} from '../lib/tui/root/plugin-browser.js';
 import {RunPage} from '../lib/tui/root/pages/run-page.js';
 
 const originalHome = process.env.HOME;
+const originalMaxListeners = process.getMaxListeners();
+process.setMaxListeners(Math.max(30, originalMaxListeners));
 const testHome = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-root-interaction-'));
 process.env.HOME = testHome;
 const dataDir = path.join(testHome, '.pipker', 'slothtool');
@@ -34,6 +36,7 @@ fs.writeFileSync(path.join(dataDir, 'settings.json'), JSON.stringify({language: 
 
 after(() => {
     process.env.HOME = originalHome;
+    process.setMaxListeners(originalMaxListeners);
     fs.rmSync(testHome, {recursive: true, force: true});
 });
 
@@ -63,7 +66,7 @@ function writeInstalledPlugin() {
     }));
 }
 
-function createHarness({tab = 'home', selection = {}, feedbackEntries = [], initialStatus = null, columns = 90, rows = 18, services = {}} = {}) {
+function createHarness({tab = 'home', selection = {}, feedbackEntries = [], installLaunchAlias = null, initialStatus = null, columns = 90, rows = 18, services = {}, onExit = () => {}} = {}) {
     const stdin = new PassThrough();
     stdin.isTTY = true;
     stdin.setRawMode = () => {};
@@ -77,15 +80,16 @@ function createHarness({tab = 'home', selection = {}, feedbackEntries = [], init
     const frames = [];
     stdout.on('data', chunk => frames.push(plain(chunk.toString())));
     const ink = render(React.createElement(RootTuiApp, {
-        initialState: {activeTab: tab, selection, feedbackEntries},
+        initialState: {activeTab: tab, selection, feedbackEntries, installLaunchAlias},
         initialStatus,
         services,
-        onExit() {}
+        onExit
     }), {stdin, stdout, stderr, patchConsole: false, alternateScreen: false});
     return {
         frame: () => frames.filter(frame => frame.trim()).at(-1) || '',
         async press(input) {
             stdin.write(input);
+            if (input === '\u001b') await new Promise(resolve => setTimeout(resolve, 45));
             await ink.waitUntilRenderFlush();
         },
         async settle() {
@@ -159,6 +163,198 @@ test('low but supported viewport retains the selected row, status, and key bar',
         assert.match(ui.frame(), /Enter 启动插件/u);
     } finally {
         await ui.close();
+    }
+});
+
+test('empty Home and Run lead straight to the official catalog', async () => {
+    fs.writeFileSync(path.join(dataDir, 'registry.json'), JSON.stringify({plugins: {}}));
+    for (const tab of ['home', 'run']) {
+        const ui = createHarness({tab, columns: 44, rows: 11});
+        try {
+            await ui.settle();
+            assertWithinViewport(ui.frame(), 44, 11);
+            assert.match(ui.frame(), tab === 'home' ? /安装第一个插件/u : /按 Enter 前往安装页/u);
+            assert.match(ui.frame(), /Enter 进入安装页/u);
+            await ui.press('\r');
+            assert.match(ui.frame(), /\[安装\]/u);
+        } finally {
+            await ui.close();
+        }
+    }
+});
+
+test('Home launches the selected recent plugin and retains its page for return', async () => {
+    writeInstalledPlugin();
+    let action;
+    const ui = createHarness({tab: 'home', columns: 56, rows: 11, onExit(value) { action = value; }});
+    try {
+        await ui.settle();
+        assert.match(ui.frame(), /当前工作目录/u);
+        assert.match(ui.frame(), /loc/u);
+        assert.match(ui.frame(), /Enter 启动插件/u);
+        await ui.press('\r');
+        assert.equal(action.type, 'run-plugin');
+        assert.equal(action.alias, 'loc');
+        assert.equal(action.uiState.activeTab, 'home');
+        assert.equal(action.uiState.selection.home, 0);
+    } finally {
+        await ui.close();
+    }
+    const catalog = createHarness({tab: 'home', selection: {home: 1}, columns: 56, rows: 11});
+    try {
+        await catalog.settle();
+        assert.match(catalog.frame(), /浏览官方目录/u);
+        assert.match(catalog.frame(), /Enter 进入安装页/u);
+        await catalog.press('\r');
+        assert.match(catalog.frame(), /\[安装\]/u);
+    } finally {
+        await catalog.close();
+    }
+});
+
+test('successful install offers immediate launch and preserves Install on return', async () => {
+    fs.writeFileSync(path.join(dataDir, 'registry.json'), JSON.stringify({plugins: {}}));
+    let action;
+    const ui = createHarness({
+        tab: 'install', columns: 56, rows: 11,
+        onExit(value) { action = value; },
+        services: {
+            installPlugin(alias) {
+                assert.equal(alias, 'loc');
+                fs.writeFileSync(path.join(dataDir, 'registry.json'), JSON.stringify({plugins: {
+                    loc: {name: '@holic512/plugin-loc', packageName: '@holic512/plugin-loc', version: '1.0.0', binPath: '/tmp/loc.js', sourceType: 'github-release'}
+                }}));
+                return {status: 'installed', alias};
+            }
+        }
+    });
+    try {
+        await ui.settle();
+        await ui.press('\r');
+        await waitFor(() => /插件 loc 已安装/u.test(ui.frame()));
+        assert.match(ui.frame(), /Enter 立即启动 loc/u);
+        await ui.press('\r');
+        assert.equal(action.type, 'run-plugin');
+        assert.equal(action.alias, 'loc');
+        assert.equal(action.uiState.activeTab, 'install');
+        assert.equal(action.uiState.installLaunchAlias, 'loc');
+    } finally {
+        await ui.close();
+    }
+    const restored = createHarness({
+        tab: action.uiState.activeTab,
+        selection: action.uiState.selection,
+        feedbackEntries: action.uiState.feedbackEntries,
+        installLaunchAlias: action.uiState.installLaunchAlias,
+        columns: 56,
+        rows: 11
+    });
+    try {
+        await restored.settle();
+        assert.match(restored.frame(), /\[安装\]/u);
+        assert.match(restored.frame(), /Enter 立即启动 loc/u);
+        await restored.press('\u001b');
+        assert.match(restored.frame(), /官方插件/u);
+    } finally {
+        await restored.close();
+    }
+});
+
+test('proxy port draft can be cancelled, rejected, and saved with an arbitrary valid value', async () => {
+    const settingsPath = path.join(dataDir, 'settings.json');
+    fs.writeFileSync(settingsPath, JSON.stringify({language: 'zh'}));
+    const ui = createHarness({tab: 'settings', selection: {settings: 4}, columns: 56, rows: 11});
+    try {
+        await ui.settle();
+        const before = fs.readFileSync(settingsPath, 'utf8');
+        await ui.press('\r');
+        assert.match(ui.frame(), /已保存: 7980/u);
+        assert.match(ui.frame(), /待保存: 7980/u);
+        assert.equal(fs.readFileSync(settingsPath, 'utf8'), before);
+        await ui.press('\u0015');
+        await ui.press('9123');
+        await ui.press('\u001b');
+        assert.equal(fs.readFileSync(settingsPath, 'utf8'), before);
+
+        await ui.press('\r');
+        await ui.press('\u0015');
+        await ui.press('123x');
+        await ui.press('\r');
+        assert.match(ui.frame(), /无效端口/u);
+        assert.match(ui.frame(), /123x/u);
+        assert.equal(fs.readFileSync(settingsPath, 'utf8'), before);
+        await ui.press('\u0015');
+        await ui.press('9123');
+        await ui.press('\r');
+        assert.equal(JSON.parse(fs.readFileSync(settingsPath, 'utf8')).network.proxy.port, 9123);
+    } finally {
+        await ui.close();
+    }
+});
+
+test('proxy host and custom source drafts validate before saving and Esc leaves settings untouched', async () => {
+    const settingsPath = path.join(dataDir, 'settings.json');
+    fs.writeFileSync(settingsPath, JSON.stringify({language: 'zh'}));
+    const hostUi = createHarness({tab: 'settings', selection: {settings: 3}});
+    try {
+        await hostUi.settle();
+        const before = fs.readFileSync(settingsPath, 'utf8');
+        await hostUi.press('\r');
+        await hostUi.press('\u0015');
+        await hostUi.press('proxy.local');
+        await hostUi.press('\u001b');
+        assert.equal(fs.readFileSync(settingsPath, 'utf8'), before);
+        await hostUi.press('\r');
+        await hostUi.press('\u0015');
+        await hostUi.press('bad host');
+        await hostUi.press('\r');
+        assert.match(hostUi.frame(), /无效代理主机/u);
+        assert.equal(fs.readFileSync(settingsPath, 'utf8'), before);
+        await hostUi.press('\u0015');
+        await hostUi.press('proxy.local');
+        await hostUi.press('\r');
+        assert.equal(JSON.parse(fs.readFileSync(settingsPath, 'utf8')).network.proxy.host, 'proxy.local');
+    } finally { await hostUi.close(); }
+
+    const urlUi = createHarness({tab: 'settings', selection: {settings: 9}, columns: 56, rows: 11});
+    try {
+        await urlUi.settle();
+        const before = fs.readFileSync(settingsPath, 'utf8');
+        assert.match(urlUi.frame(), /自定义下载源地址/u);
+        await urlUi.press('\r');
+        await urlUi.press('https://draft.example.com');
+        await urlUi.press('\u001b');
+        assert.equal(fs.readFileSync(settingsPath, 'utf8'), before);
+        await urlUi.press('\r');
+        await urlUi.press('ftp://invalid.example.com');
+        await urlUi.press('\r');
+        assert.match(urlUi.frame(), /无效 GitHub 自定义代理地址/u);
+        assert.equal(fs.readFileSync(settingsPath, 'utf8'), before);
+        await urlUi.press('\u0015');
+        await urlUi.press('https://mirror.example.com');
+        await urlUi.press('\r');
+        const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        assert.equal(saved.network.github.customBaseUrl, 'https://mirror.example.com');
+        assert.equal(saved.network.github.preset, 'custom');
+    } finally { await urlUi.close(); }
+});
+
+test('common port and GitHub source presets remain one-step settings actions', async () => {
+    const settingsPath = path.join(dataDir, 'settings.json');
+    fs.writeFileSync(settingsPath, JSON.stringify({language: 'zh'}));
+    for (const [index, expected] of [
+        [6, {port: 7890}],
+        [7, {preset: 'official'}],
+        [8, {preset: 'gh-proxy'}]
+    ]) {
+        const ui = createHarness({tab: 'settings', selection: {settings: index}, columns: 56, rows: 11});
+        try {
+            await ui.settle();
+            await ui.press('\r');
+            const network = JSON.parse(fs.readFileSync(settingsPath, 'utf8')).network;
+            if (expected.port) assert.equal(network.proxy.port, expected.port);
+            if (expected.preset) assert.equal(network.github.preset, expected.preset);
+        } finally { await ui.close(); }
     }
 });
 

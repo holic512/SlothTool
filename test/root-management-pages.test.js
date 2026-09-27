@@ -53,7 +53,7 @@ test('settings items preview current and next values before execution', () => {
         }
     });
 
-    assert.equal(items.length, 5);
+    assert.equal(items.length, 10);
     assert.equal(items[0].badge, '当前');
     assert.equal(items[0].badgeColor, 'greenBright');
     assert.equal(items[2].listMeta, '关闭');
@@ -63,13 +63,19 @@ test('settings items preview current and next values before execution', () => {
         '开启',
         'http://127.0.0.1:7980'
     ]);
-    assert.equal(items[3].fields[2].value, '7890');
-    assert.equal(items[4].fields[2].value, '官方 GitHub');
+    assert.equal(items[3].title, '代理主机');
+    assert.equal(items[3].fields[1].value, '127.0.0.1');
+    assert.equal(items[3].fields[2].value, 'Enter 编辑，保存前不变');
+    assert.equal(items[4].title, '自定义代理端口');
+    assert.equal(items[5].fields[2].value, '7980');
+    assert.equal(items[6].fields[2].value, '7890');
+    assert.equal(items[7].fields[2].value, '官方 GitHub');
+    assert.equal(items[9].title, '自定义下载源地址');
 
     const page = SettingsPage({items, selectedIndex: 2, columns: 120});
     assert.equal(page.type, SelectionBrowserPage);
     assert.equal(page.props.listTitle, '设置项');
-    assert.equal(page.props.listSummary, '5 个选项');
+    assert.equal(page.props.listSummary, '10 个选项');
 });
 
 test('run items put the most recently launched plugin first without mutating the source list', () => {

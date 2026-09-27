@@ -204,6 +204,22 @@ test('root manager records the run and focuses the recent plugin after returning
     assert.match(persistedRegistry.plugins.loc.lastRunAt, /^\d{4}-\d{2}-\d{2}T/u);
 });
 
+test('root manager returns to Home and focuses the just-run plugin', () => {
+    const homeDir = createTempHome(true, true);
+    const output = runNode(rootBin, [], {
+        HOME: homeDir,
+        SLOTHTOOL_TUI_TEST_ACTION: 'run-plugin-home-return',
+        SLOTHTOOL_LOC_TUI_TEST_ACTION: 'exit'
+    });
+    const persistedRegistry = JSON.parse(fs.readFileSync(
+        path.join(homeDir, '.pipker', 'slothtool', 'registry.json'), 'utf8'
+    ));
+
+    assert.match(output, /"activeTab":"home"/u);
+    assert.match(output, /"home":0/u);
+    assert.match(persistedRegistry.plugins.loc.lastRunAt, /^\d{4}-\d{2}-\d{2}T/u);
+});
+
 test('root shorthand runs the local loc workspace plugin in CLI mode', () => {
     const output = runNode(rootBin, ['loc', '.'], {HOME: createTempHome(true)});
     assert.match(output, /总文件数/u);

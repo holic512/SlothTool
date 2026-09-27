@@ -23,6 +23,10 @@ test('root TUI zh chrome is localized', () => {
     assert.equal(messages.zh.tui.tabs.danger, undefined);
     assert.equal(messages.zh.tui.status.ready, '就绪');
     assert.equal(messages.zh.tui.settings.proxyToggle, '代理开关');
+    assert.equal(messages.zh.tui.home.installFirst, '安装第一个插件');
+    assert.equal(messages.zh.tui.run.emptyAction, '按 Enter 前往安装页，选择第一个插件。');
+    assert.equal(messages.zh.tui.settings.githubCustom, '自定义下载源地址');
+    assert.match(messages.zh.tui.footer.editorKeys, /Esc 取消/u);
     assert.equal(messages.zh.tui.run.listTitle, '已安装插件');
     assert.equal(messages.zh.tui.run.fields.features, '主要能力');
     assert.equal(messages.zh.tui.install.listTitle, '官方插件');
@@ -57,6 +61,10 @@ test('root TUI en chrome stays explicit', () => {
     assert.equal(messages.en.tui.tabs.danger, undefined);
     assert.equal(messages.en.tui.status.ready, 'Ready');
     assert.equal(messages.en.tui.settings.proxyToggle, 'Proxy toggle');
+    assert.equal(messages.en.tui.home.installFirst, 'Install your first plugin');
+    assert.match(messages.en.tui.run.emptyAction, /Press Enter/u);
+    assert.equal(messages.en.tui.settings.githubCustom, 'Custom download source URL');
+    assert.match(messages.en.tui.footer.editorKeys, /Esc cancel/u);
     assert.equal(messages.en.tui.run.listTitle, 'Installed');
     assert.equal(messages.en.tui.run.fields.features, 'Capabilities');
     assert.equal(messages.en.tui.install.listTitle, 'Catalog');
