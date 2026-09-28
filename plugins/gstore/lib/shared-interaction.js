@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module TUI / Packaged Interaction Primitives
  * @description 根管理器维护的字素显示与单行编辑纯函数，由脚本同步进官方插件发行包。
- * @logic 按字素计算单元格宽度；编辑状态以字素光标推进；视窗始终显示光标并保留完整原值。
+ * @logic 计算外壳预算与详情窗口；按字素计算单元格宽度；编辑状态以字素光标推进；视窗始终显示光标并保留完整原值。
  * @dependencies Node.js Intl.Segmenter
  * @index_tags TUI, 字素, Unicode, 输入编辑, 独立打包
  * @author holic512
@@ -176,4 +176,46 @@ export function editorViewport(value, cursor, maxWidth, {secret = false} = {}) {
         used += size;
     }
     return visible;
+}
+
+/** Keep complete key names and the final exit/back hint when space is scarce. */
+export function fitKeyHints(keys, width) {
+    const text = String(keys || '').replace(/[\r\n]+/gu, ' ');
+    if (getDisplayWidth(text) <= width) return text;
+    const parts = text.replace(/\s+(q|Esc)(?=\s|$)/gu, ' | $1')
+        .split(/\s*[|·]\s*|\s{2,}/u).filter(Boolean);
+    const compact = parts.map(part => part.trim().split(/\s/u)[0]);
+    const joined = compact.join(' · ');
+    if (getDisplayWidth(joined) <= width) return joined;
+    const exitIndex = compact.findIndex(part => /^(q|Esc)(?:$|\/)/u.test(part));
+    const last = exitIndex >= 0 ? compact.splice(exitIndex, 1)[0] : compact.pop() || '';
+    const visible = [];
+    for (const part of compact) {
+        if (getDisplayWidth([...visible, part, last].join(' · ')) <= width) visible.push(part);
+    }
+    return truncateFromRight([...visible, last].filter(Boolean).join(' · '), width);
+}
+
+/** Reserve the same rows for rendering, list pagination, and detail scrolling. */
+export function getShellLayout(columns = 80, rows = 24, {status = '', keys = '', inverseFooter = false} = {}) {
+    const width = Math.max(1, Math.floor(columns || 80));
+    const height = Math.max(1, Math.floor(rows || 24));
+    const contentWidth = Math.max(1, width - 2);
+    const statusText = String(status).replace(/\s+/gu, ' ');
+    const keyText = fitKeyHints(keys, contentWidth);
+    const footerRows = inverseFooter || getDisplayWidth(statusText) + getDisplayWidth(keyText) + 2 > contentWidth ? 2 : 1;
+    const paddingY = height >= 22 ? 1 : 0;
+    const gap = height >= 22 ? 1 : 0;
+    return {
+        width, height, contentWidth, paddingY, gap, footerRows, statusText, keyText, inverseFooter,
+        contentHeight: Math.max(1, height - paddingY * 2 - 2 - gap * 2 - footerRows)
+    };
+}
+
+export function getDetailWindow(lines, scroll, width, height) {
+    const wrapped = (lines || []).flatMap(line => wrapText(line, Math.max(1, width - 4)));
+    const capacity = Math.max(1, height - 4);
+    const maxScroll = Math.max(0, wrapped.length - capacity);
+    const offset = Math.min(Math.max(0, scroll), maxScroll);
+    return {lines: wrapped.slice(offset, offset + capacity), offset, capacity, maxScroll, total: wrapped.length};
 }

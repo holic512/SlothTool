@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module LOC Plugin / TUI
  * @description 提供面向代码规模体检、热点定位和过滤规则调整的响应式 loc 全屏 Ink 界面。
- * @logic 1. 统计页以操作区和扩展名/热点洞察呈现扫描结果；2. 配置页以规则列表和选中项影响详情呈现；3. 根据终端宽高切换双栏、堆叠、动态分页和精简明细。
+ * @logic 按共享外壳预算渲染底栏和可重排详情；1. 统计页以操作区和扩展名/热点洞察呈现扫描结果；2. 配置页以规则列表和选中项影响详情呈现；3. 根据终端宽高切换双栏、堆叠、动态分页和精简明细。
  * @dependencies Libraries: react/ink, Services: ./service.js, Model: ./tui-model.js, I18N: ./i18n.js, Pagination: ./pagination.js
  * @index_tags loc TUI, 代码规模体检, 热点文件, 过滤规则, 响应式布局, 高对比配色
  * @author holic512
@@ -39,6 +39,9 @@ import {
     truncateFromLeft,
     truncateFromRight
 } from './tui-model.js';
+
+import {TuiFrame, TuiHeader, TuiDetails, TuiRow} from './shared-layout.js';
+import {getShellLayout, getDetailWindow} from './shared-interaction.js';
 
 const h = React.createElement;
 const TABS = ['count', 'extensions', 'excludes'];
@@ -98,24 +101,15 @@ function resolveStatusColor(mode, tone) {
     return LOC_TUI_COLORS.success;
 }
 
-function PanelHeader({title, summary, badge, badgeColor = LOC_TUI_COLORS.accent}) {
-    return h(
-        Box,
-        {},
-        h(Text, {bold: true, color: LOC_TUI_COLORS.accent}, title),
-        badge ? h(Text, {bold: true, color: badgeColor}, `  [${badge}]`) : null,
-        h(Spacer, {}),
-        summary ? h(Text, {dimColor: true}, summary) : null
-    );
+function PanelHeader({title, summary, badge, width = 60, badgeColor = LOC_TUI_COLORS.accent}) {
+    if (summary) return h(TuiRow, {left: title, right: summary, width, color: LOC_TUI_COLORS.accent, rightColor: 'gray', bold: true});
+    return h(Text, {wrap: 'truncate-end'}, h(Text, {bold: true, color: LOC_TUI_COLORS.accent}, title),
+        badge ? h(Text, {bold: true, color: badgeColor}, `  [${badge}]`) : null);
 }
 
 function Field({label, value, valueColor, dimColor = false}) {
-    return h(
-        Box,
-        {},
-        h(Text, {color: LOC_TUI_COLORS.accent}, `${label}  `),
-        h(Text, {color: valueColor, dimColor}, value || '-')
-    );
+    return h(Text, {wrap: 'truncate-end'}, h(Text, {color: LOC_TUI_COLORS.accent}, `${label}  `),
+        h(Text, {color: valueColor, dimColor}, String(value || '-')));
 }
 
 function CountActionPanel({selectedIndex, result = null, layout = null}) {
@@ -131,6 +125,7 @@ function CountActionPanel({selectedIndex, result = null, layout = null}) {
         },
         h(PanelHeader, {
             title: t('tui.panels.actions'),
+            width: (layout.compact ? layout.contentWidth : layout.sidebarWidth) - 4,
             summary: `${selectedIndex + 1}/${COUNT_MENU_ITEMS.length}`
         }),
         ...COUNT_MENU_ITEMS.map((item, index) => {
@@ -141,24 +136,9 @@ function CountActionPanel({selectedIndex, result = null, layout = null}) {
                     ? LOC_TUI_COLORS.warning
                     : LOC_TUI_COLORS.secondary;
 
-            return h(
-                Box,
-                {key: item},
-                h(Text, {
-                    bold: selected,
-                    color: selected ? LOC_TUI_COLORS.accent : LOC_TUI_COLORS.muted
-                }, selected ? '› ' : '  '),
-                h(Text, {
-                    bold: selected,
-                    color: selected ? LOC_TUI_COLORS.accent : undefined,
-                    dimColor: !selected
-                }, t(`tui.menu.${item}`)),
-                h(Spacer, {}),
-                h(Text, {
-                    color: badgeColor,
-                    dimColor: !selected
-                }, t(`tui.menuBadges.${item}`))
-            );
+            return h(TuiRow, {key: item, width: (layout.compact ? layout.contentWidth : layout.sidebarWidth) - 4,
+                left: `${selected ? '› ' : '  '}${t(`tui.menu.${item}`)}`, right: t(`tui.menuBadges.${item}`),
+                bold: selected, color: selected ? LOC_TUI_COLORS.accent : 'white', rightColor: badgeColor});
         }),
         layout?.short
             ? compactInsights
@@ -182,7 +162,7 @@ function DirectoryInputPanel({value, cursor, width, error}) {
             badge: t('tui.menuBadges.custom'),
             badgeColor: LOC_TUI_COLORS.secondary
         }),
-        h(Box, {marginTop: 1}, h(Text, {bold: true, color: LOC_TUI_COLORS.accent}, `› ${editorViewport(value, cursor, width)}`)),
+        h(Box, {marginTop: 1, flexShrink: 0}, h(Text, {bold: true, color: LOC_TUI_COLORS.accent}, `› ${editorViewport(value, cursor, width)}`)),
         error ? h(Text, {color: LOC_TUI_COLORS.danger}, truncateFromRight(error, width)) : null,
         h(Text, {dimColor: true}, t('tui.prompt'))
     );
@@ -233,17 +213,10 @@ function MetricStrip({insights, layout}) {
         metrics.push([t('tui.result.warnings'), formatNumber(insights.warningCount), LOC_TUI_COLORS.warning]);
     }
 
-    return h(
-        Box,
-        {marginTop: layout.compact ? 0 : 1},
-        ...metrics.flatMap(([label, value, color], index) => [
-            index > 0
-                ? h(Text, {key: `${label}-separator`, color: LOC_TUI_COLORS.muted, dimColor: true}, ' | ')
-                : null,
-            h(Text, {key: label, color: LOC_TUI_COLORS.muted}, `${label} `),
-            h(Text, {key: `${label}-value`, bold: true, color}, value)
-        ]).filter(Boolean)
-    );
+    return h(Text, {wrap: 'truncate-end'}, ...metrics.flatMap(([label, value, color], index) => [
+        index ? h(Text, {key: label + '-separator', dimColor: true}, ' | ') : null,
+        h(Text, {key: label, color}, `${label} ${value}`)
+    ]));
 }
 
 function ExtensionDistribution({insights, layout}) {
@@ -361,7 +334,7 @@ function ToggleListPanel({activeTab, items, page, localSelectedIndex, layout}) {
             flexDirection: 'column',
             flexGrow: layout.compact ? 0 : 1
         },
-        h(PanelHeader, {title, summary}),
+        h(PanelHeader, {title, summary, width: (layout.compact ? layout.contentWidth : layout.sidebarWidth) - 4}),
         ...page.items.map((item, index) => {
             const selected = index === localSelectedIndex;
 
@@ -377,7 +350,7 @@ function ToggleListPanel({activeTab, items, page, localSelectedIndex, layout}) {
                 }, item.enabled ? '● ' : '○ '),
                 h(Text, {
                     bold: selected,
-                    color: selected ? LOC_TUI_COLORS.accent : undefined,
+                    color: selected ? LOC_TUI_COLORS.accent : 'white',
                     dimColor: !selected
                 }, item.name)
             );
@@ -479,45 +452,10 @@ function ResponsivePanels({left, right, layout, showRight = true}) {
     );
 }
 
-function HelpPanel({lines, scroll, height}) {
-    return h(
-        Box,
-        {
-            borderStyle: 'round',
-            borderColor: LOC_TUI_COLORS.border,
-            paddingX: 1,
-            flexDirection: 'column',
-            flexGrow: 1
-        },
-        h(Text, {bold: true, color: LOC_TUI_COLORS.accent}, t('tui.help.title')),
-        ...lines.slice(scroll, scroll + Math.max(1, height - 4)).map((line, index) => h(Text, {key: scroll + index}, line))
-    );
-}
 
 function Header({activeTab, columns}) {
-    const headerMetaText = buildHeaderMetaText(activeTab, columns);
-    const tabItems = TABS.flatMap((tabKey, index) => [
-        index > 0
-            ? h(Text, {
-                key: `${tabKey}-separator`,
-                color: LOC_TUI_COLORS.muted,
-                dimColor: true
-            }, HEADER_SEPARATOR)
-            : null,
-        h(Text, {
-            key: tabKey,
-            bold: tabKey === activeTab,
-            color: tabKey === activeTab ? LOC_TUI_COLORS.accent : LOC_TUI_COLORS.muted
-        }, buildTabText(tabKey, activeTab))
-    ]).filter(Boolean);
-
-    return h(
-        Box,
-        {},
-        h(Box, {}, ...tabItems),
-        h(Spacer, {}),
-        headerMetaText ? h(Text, {dimColor: true}, headerMetaText) : null
-    );
+    return h(TuiHeader, {tabs: TABS.map(id => ({id, label: t(`tui.tabs.${id}`)})), activeTab,
+        width: columns - 2, meta: buildHeaderMetaText(activeTab, columns)});
 }
 
 function getFooterText(activeTab, inputMode, layout, action) {
@@ -543,7 +481,7 @@ function getFooterText(activeTab, inputMode, layout, action) {
 export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialResult = null} = {}) {
     const app = useApp();
     const {columns, rows} = useWindowSize();
-    const layout = layoutOverride || resolveLocTuiLayout(columns, rows);
+    const baseLayout = layoutOverride || resolveLocTuiLayout(columns, rows);
     const [activeTab, setActiveTab] = useState(TABS.includes(initialTab) ? initialTab : 'count');
     const [countMenuIndex, setCountMenuIndex] = useState(0);
     const [pagedSelection, setPagedSelection] = useState({
@@ -565,6 +503,23 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         message: '',
         label: ''
     });
+
+    const statusText = statusState.mode === 'progress'
+        ? `${SPINNER_FRAMES[spinnerFrameIndex]} ${statusState.label}`
+        : statusState.mode === 'result'
+            ? statusState.message
+            : t('tui.status.ready');
+    const statusColor = resolveStatusColor(statusState.mode, statusState.tone);
+    const footerText = statusState.mode === 'progress' ? t('tui.footer.busy')
+        : detailLines ? t('tui.footer.detail') : helpOpen ? t('tui.footer.help')
+            : getFooterText(activeTab, inputMode, baseLayout, t('tui.menu.' + COUNT_MENU_ITEMS[countMenuIndex]));
+
+    const shell = getShellLayout(baseLayout.columns, baseLayout.rows, {
+        status: `${statusSymbol(statusState.mode, statusState.tone)} ${statusText}`, keys: footerText
+    });
+    const layout = {...baseLayout, contentWidth: shell.contentWidth, contentHeight: shell.contentHeight};
+    const detailWindow = getDetailWindow(detailLines || (helpOpen ? t('tui.help.lines') : []), detailScroll, shell.contentWidth, shell.contentHeight);
+    layout.pageSize = Math.min(layout.pageSize, Math.max(1, shell.contentHeight - (layout.compact && layout.showConfigDetail ? 9 : 3)));
 
     const config = getConfigSummary();
     const extensionItems = Object.entries(config.fileExtensions).map(([name, enabled]) => ({name, enabled}));
@@ -737,15 +692,17 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         }
         if (detailLines) {
             if (key.escape) setDetailLines(null);
-            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, value - (key.pageUp ? 5 : 1)));
+            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, Math.min(value, detailWindow.maxScroll) - (key.pageUp ? detailWindow.capacity : 1)));
             else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
-                Math.max(0, detailLines.length - Math.max(1, layout.rows - 8)), value + (key.pageDown ? 5 : 1)));
+                detailWindow.maxScroll, Math.min(value, detailWindow.maxScroll) + (key.pageDown ? detailWindow.capacity : 1)));
             return;
         }
         if (helpOpen) {
             if (key.escape || input === '?') {
                 setHelpOpen(false);
             }
+            if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, Math.min(value, detailWindow.maxScroll) - (key.pageUp ? detailWindow.capacity : 1)));
+            if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(detailWindow.maxScroll, value + (key.pageDown ? detailWindow.capacity : 1)));
             return;
         }
 
@@ -770,6 +727,7 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
 
         if (input === '?') {
             setHelpOpen(true);
+            setDetailScroll(0);
             return;
         }
 
@@ -779,7 +737,7 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
                 lines.push(`${t('tui.result.target')}: ${result?.resolvedDir || process.cwd()}`,
                     ...(result?.warnings || []), ...(result?.files || []).map(file => `${file.path}: ${file.lines}`));
             } else if (selectedConfigItem) lines.push(selectedConfigItem.name);
-            setDetailLines(lines.flatMap(line => wrapText(line, Math.max(2, layout.contentWidth - 4))));
+            setDetailLines(lines);
             setDetailScroll(0);
             return;
         }
@@ -906,9 +864,9 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
     let mainContent;
 
     if (detailLines) {
-        mainContent = h(HelpPanel, {lines: detailLines, scroll: detailScroll, height: layout.viewportHeight});
+        mainContent = h(TuiDetails, {title: t('tui.help.title'), lines: detailLines, scroll: detailScroll, width: shell.contentWidth, height: shell.contentHeight});
     } else if (helpOpen) {
-        mainContent = h(HelpPanel, {lines: t('tui.help.lines'), scroll: 0, height: layout.viewportHeight});
+        mainContent = h(TuiDetails, {title: t('tui.help.title'), lines: t('tui.help.lines'), scroll: detailScroll, width: shell.contentWidth, height: shell.contentHeight});
     } else if (activeTab === 'count') {
         const leftPane = inputMode
             ? h(DirectoryInputPanel, {value: directoryInput, cursor: directoryCursor, error: directoryError,
@@ -955,38 +913,9 @@ export function LocTuiApp({layoutOverride = null, initialTab = 'count', initialR
         });
     }
 
-    const statusText = statusState.mode === 'progress'
-        ? `${SPINNER_FRAMES[spinnerFrameIndex]} ${statusState.label}`
-        : statusState.mode === 'result'
-            ? statusState.message
-            : t('tui.status.ready');
-    const statusColor = resolveStatusColor(statusState.mode, statusState.tone);
-    const footerText = statusState.mode === 'progress' ? t('tui.footer.busy')
-        : detailLines ? t('tui.footer.detail') : helpOpen ? t('tui.footer.help')
-            : getFooterText(activeTab, inputMode, layout, t('tui.menu.' + COUNT_MENU_ITEMS[countMenuIndex]));
 
-    return h(
-        Box,
-        {
-            flexDirection: 'column',
-            height: layout.viewportHeight,
-            paddingX: 1,
-            paddingY: 1
-        },
-        h(Header, {activeTab, columns: layout.columns}),
-        h(Box, {marginBottom: 1}, h(Text, {
-            color: LOC_TUI_COLORS.muted,
-            dimColor: true
-        }, '─'.repeat(layout.contentWidth))),
-        h(Box, {flexGrow: 1, marginBottom: 1, flexDirection: 'column'}, mainContent),
-        h(
-            Box,
-            {},
-            h(Text, {color: statusColor}, truncateFromRight(`${statusSymbol(statusState.mode, statusState.tone)} ${statusText}`, Math.max(12, Math.floor(layout.contentWidth * 0.42)))),
-            h(Spacer, {}),
-            h(Text, {dimColor: true, wrap: 'truncate-end'}, footerText)
-        )
-    );
+    return h(TuiFrame, {layout: shell, statusColor: resolveStatusColor(statusState.mode, statusState.tone),
+        header: h(Header, {activeTab, columns: layout.columns})}, mainContent);
 }
 
 export async function startLocTui() {

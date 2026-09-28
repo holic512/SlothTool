@@ -26,6 +26,9 @@ import {
 } from './service.js';
 import {formatPzipError, getLanguage, messages, t} from './i18n.js';
 
+import {TuiFrame, TuiHeader} from './shared-layout.js';
+import {getShellLayout, truncateFromLeft, truncateFromRight} from './shared-interaction.js';
+
 const h = React.createElement;
 const COLORS = {accent: 'cyan', success: 'green', warning: 'yellow', danger: 'red', muted: 'gray', border: 'blue'};
 
@@ -60,15 +63,17 @@ export function getRuleWindow(itemCount, selectedIndex, visibleCount) {
     return {start, end: Math.min(itemCount, start + count)};
 }
 
-function Panel({title, height, children, color = COLORS.border}) {
+function Panel({title, height, width, children, color = COLORS.border}) {
     return h(Box, {
         borderStyle: 'round', borderColor: color, paddingX: 1, flexDirection: 'column',
-        width: '100%', height, overflow: 'hidden'
-    }, h(Text, {bold: true, color: COLORS.accent, wrap: 'truncate-end'}, title), children);
+        width, height, flexGrow: width ? 0 : 1, flexShrink: 0
+    }, h(Text, {bold: true, color: COLORS.accent, wrap: 'truncate-end'}, title),
+    h(Box, {height: Math.max(0, height - 3), flexShrink: 0, flexDirection: 'column', overflow: 'hidden'}, children));
 }
 
 function Line({label, value, color}) {
-    return h(Text, {color, wrap: 'truncate-middle'}, `${label}: ${value || '-'}`);
+    return h(Box, {height: 1, flexShrink: 0}, h(Box, {flexShrink: 0}, h(Text, {color: COLORS.accent}, `${label}: `)),
+        h(Text, {color, wrap: 'truncate-middle'}, String(value || '-')));
 }
 
 function resultLines(result, kind) {
@@ -119,10 +124,28 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
         ...config.customExcludePatterns.map(name => ({kind: 'custom', name, enabled: true}))
     ], [config]);
     const selectedItem = filterItems[selectedFilterIndex];
-    const mainHeight = Math.max(3, rows - 4);
-    const innerRows = Math.max(0, mainHeight - 3);
     const compact = columns < 70 || rows < 15;
     const tooSmall = columns < 30 || rows < 8;
+
+    const footerKeys = activeTask ? [] : editing ? [t('tui.footer.compactInput')] : detailView ? ['↑↓', 'Pg', 'Esc']
+        : activeTab === 'compress'
+            ? ['s', 'o', 'c', 'p', `Enter ${t('tui.actions.run')}`, 'Tab', ...(lastArchive ? ['r'] : []), ...(lastPreview ? ['v'] : []),
+                ...(lastScan?.warnings.length ? ['w'] : []), ...(lastError ? ['e'] : []), '?', 'q']
+            : ['↑↓', 'Pg', 'a', ...(selectedItem?.kind === 'builtIn' ? ['Space'] : []),
+                ...(selectedItem?.kind === 'custom' ? ['d', 'v'] : []), 'Tab', '?', 'q'];
+    const footer = activeTask
+        ? rows <= 8 ? truncateFromLeft(activeTask.outputPath, columns - 2) : t('tui.footer.busy')
+        : compact ? footerKeys.map(key => key.startsWith('Enter ') ? 'Enter' : key).join(' ')
+        : editing ? t('tui.footer.input') : detailView ? t('tui.footer.detail')
+            : `${footerKeys.join(' · ')}  ${t('tui.footer.keyHelp')}`;
+
+    const shell = getShellLayout(columns, rows, {
+        status: `${statusSymbol(activeTask ? 'running' : 'result', status.color === COLORS.danger ? 'error' : status.color === COLORS.warning ? 'warn' : 'success')} ${status.text}`,
+        keys: footer
+    });
+    const mainHeight = shell.contentHeight;
+    const innerRows = Math.max(0, mainHeight - 3);
+    const rulePageSize = Math.max(1, mainHeight - 4);
 
     useEffect(() => {
         if (selectedFilterIndex >= filterItems.length) {
@@ -236,7 +259,7 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
                     : detailView === 'pattern' ? [selectedItem?.name || '']
                         : detailView === 'help' ? messages[getLanguage()]?.tui.help || messages.zh.tui.help : [];
     const detailLines = detailText.flatMap(value => String(value).split(/\r?\n/u)
-        .flatMap(line => wrapLine(line, Math.max(1, columns - 4))));
+        .flatMap(line => wrapLine(line, Math.max(1, shell.contentWidth - 4))));
     const maxDetailScroll = Math.max(0, detailLines.length - innerRows);
     const visibleDetailScroll = Math.min(detailScroll, maxDetailScroll);
 
@@ -303,9 +326,9 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
             return;
         }
         if (key.upArrow || key.pageUp) {
-            setSelectedFilterIndex(value => Math.max(0, value - (key.pageUp ? Math.max(1, innerRows - 2) : 1)));
+            setSelectedFilterIndex(value => Math.max(0, value - (key.pageUp ? rulePageSize : 1)));
         } else if (key.downArrow || key.pageDown) {
-            setSelectedFilterIndex(value => Math.min(filterItems.length - 1, value + (key.pageDown ? Math.max(1, innerRows - 2) : 1)));
+            setSelectedFilterIndex(value => Math.min(filterItems.length - 1, value + (key.pageDown ? rulePageSize : 1)));
         } else if (key.home) setSelectedFilterIndex(0);
         else if (key.end) setSelectedFilterIndex(filterItems.length - 1);
         else if (input === ' ') toggleSelectedRule();
@@ -322,17 +345,6 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
         setInputError('');
     });
 
-    const footerKeys = activeTask ? [] : editing ? [t('tui.footer.compactInput')] : detailView ? ['↑↓', 'Pg', 'Esc']
-        : activeTab === 'compress'
-            ? ['s', 'o', 'c', 'p', `Enter ${t('tui.actions.run')}`, 'Tab', ...(lastArchive ? ['r'] : []), ...(lastPreview ? ['v'] : []),
-                ...(lastScan?.warnings.length ? ['w'] : []), ...(lastError ? ['e'] : []), '?', 'q']
-            : ['↑↓', 'Pg', 'a', ...(selectedItem?.kind === 'builtIn' ? ['Space'] : []),
-                ...(selectedItem?.kind === 'custom' ? ['d', 'v'] : []), 'Tab', '?', 'q'];
-    const footer = activeTask
-        ? innerRows < 2 ? `${t('tui.labels.output')}: ${activeTask.outputPath}` : t('tui.footer.busy')
-        : compact ? footerKeys.join(' ')
-        : editing ? t('tui.footer.input') : detailView ? t('tui.footer.detail')
-            : `${footerKeys.join(' · ')}  ${t('tui.footer.keyHelp')}`;
 
     if (tooSmall) return h(Box, {flexDirection: 'column', width: columns, height: rows},
         h(Text, {bold: true, color: COLORS.warning, wrap: 'truncate-end'}, t('tui.resize')),
@@ -342,7 +354,7 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
     let content;
     if (editing) {
         content = h(Panel, {title: t(`tui.prompt.${editing}`), height: mainHeight, color: inputError ? COLORS.danger : COLORS.accent},
-            h(Text, {bold: true}, `› ${editorViewport(draft, draftCursor, Math.max(2, columns - 6))}`),
+            h(Text, {bold: true}, `› ${editorViewport(draft, draftCursor, Math.max(2, shell.contentWidth - 6))}`),
             inputError ? h(Text, {color: COLORS.danger, wrap: 'truncate-end'}, inputError) : null);
     } else if (detailView) {
         const title = `${t(`tui.panels.${detailView}`)}  ${detailLines.length ? visibleDetailScroll + 1 : 0}/${detailLines.length}`;
@@ -350,46 +362,68 @@ export function PzipTuiApp({archive = createZipArchive, initialSourceDirectory =
             ...detailLines.slice(visibleDetailScroll, visibleDetailScroll + innerRows)
                 .map((line, index) => h(Text, {key: visibleDetailScroll + index, wrap: 'truncate-end'}, line)));
     } else if (activeTab === 'compress') {
-        const lines = activeTask ? [
-            h(Line, {key: 'source', label: t('tui.labels.source'), value: activeTask.sourceDirectory}),
-            h(Line, {key: 'output', label: t('tui.labels.output'), value: activeTask.outputPath}),
-            h(Line, {key: 'mode', label: t('tui.labels.task'), value: t(`tui.task.${activeTask.kind}`), color: COLORS.accent})
-        ] : [
-            h(Line, {key: 'source', label: t('tui.labels.source'), value: sourceDirectory}),
-            h(Line, {key: 'output', label: t('tui.labels.output'), value: requestedOutput(sourceDirectory, outputPath)}),
-            lastArchive ? h(Line, {key: 'archive', label: t('tui.labels.lastArchive'), value: lastArchive.archivePath, color: COLORS.success}) : null,
-            lastPreview ? h(Line, {key: 'preview', label: t('tui.labels.lastPreview'), value: t('tui.result.previewSummary', {count: lastPreview.includedFileCount}), color: COLORS.accent}) : null,
-            lastScan?.warnings.length ? h(Line, {key: 'warnings', label: t('warningsTitle'), value: String(lastScan.warnings.length), color: COLORS.warning}) : null,
-            lastError && lastError.kind !== 'input'
-                ? h(Line, {key: 'error', label: t('error'), value: lastError.message, color: COLORS.danger}) : null,
-            h(Text, {key: 'hint', dimColor: true, wrap: 'truncate-end'}, t('tui.result.actionHint'))
+        const taskLines = [
+            h(Line, {key: 'source', label: t('tui.labels.source'), value: activeTask?.sourceDirectory || sourceDirectory, color: COLORS.success}),
+            h(Line, {key: 'output', label: t('tui.labels.output'), value: activeTask?.outputPath || requestedOutput(sourceDirectory, outputPath)}),
+            activeTask ? h(Line, {key: 'mode', label: t('tui.labels.task'), value: t(`tui.task.${activeTask.kind}`), color: COLORS.accent}) : null,
+            h(Text, {key: 'gitignore', color: COLORS.warning, wrap: 'truncate-end'}, t('tui.result.gitignoreHint')),
+            !activeTask ? h(Text, {key: 'preview', wrap: 'truncate-end'}, `p  ${t('tui.task.preview')}`) : null,
+            !activeTask ? h(Text, {key: 'archive', color: COLORS.accent, bold: true, wrap: 'truncate-end'}, `Enter  ${t('tui.actions.run')}`) : null
         ].filter(Boolean);
-        content = h(Panel, {title: t('tui.panels.source'), height: mainHeight}, ...lines.slice(0, innerRows));
+        const result = lastArchive || lastPreview;
+        const summary = [
+            lastArchive ? h(Line, {key: 'archive', label: t('tui.labels.lastArchive'), value: lastArchive.archivePath, color: COLORS.success}) : null,
+            lastPreview ? h(Line, {key: 'preview', label: t('tui.labels.lastPreview'), value: t('tui.result.previewSummary', {count: lastPreview.includedFileCount})}) : null,
+            ...(result ? [
+                h(Line, {key: 'included', label: t('filesIncluded'), value: String(result.includedFileCount), color: COLORS.success}),
+                h(Line, {key: 'excluded', label: t('filesExcluded'), value: String(result.excludedFileCount)}),
+                h(Line, {key: 'size', label: t('sourceBytes'), value: formatBytes(result.sourceBytes)})
+            ] : [h(Text, {key: 'empty', dimColor: true, wrap: 'truncate-end'}, t('tui.result.empty'))]),
+            lastScan?.warnings.length ? h(Line, {key: 'warnings', label: t('warningsTitle'), value: String(lastScan.warnings.length), color: COLORS.warning}) : null,
+            lastError && lastError.kind !== 'input' ? h(Line, {key: 'error', label: t('error'), value: lastError.message, color: COLORS.danger}) : null
+        ].filter(Boolean);
+        if (!compact) {
+            const leftWidth = Math.floor((shell.contentWidth - 1) / 2);
+            content = h(Box, {height: mainHeight, gap: 1},
+                h(Panel, {title: t('tui.panels.source'), height: mainHeight, width: leftWidth}, ...taskLines.slice(0, innerRows)),
+                h(Panel, {title: t('tui.panels.result'), height: mainHeight, width: shell.contentWidth - leftWidth - 1},
+                    ...summary.slice(0, Math.max(1, innerRows - 1)), h(Text, {dimColor: true, wrap: 'truncate-end'}, 'r / v / w / e')));
+        } else if (mainHeight >= 18) {
+            const firstHeight = 9;
+            content = h(Box, {height: mainHeight, gap: 1, flexDirection: 'column'},
+                h(Panel, {title: t('tui.panels.source'), height: firstHeight}, ...taskLines.slice(0, firstHeight - 3)),
+                h(Panel, {title: t('tui.panels.result'), height: mainHeight - firstHeight - 1}, ...summary.slice(0, mainHeight - firstHeight - 4)));
+        } else {
+            const lines = activeTask ? taskLines : [...taskLines.slice(0, 2), ...summary, ...taskLines.slice(2)];
+            content = h(Panel, {title: t('tui.panels.source'), height: mainHeight}, ...lines.slice(0, innerRows));
+        }
     } else {
-        const showPosition = innerRows >= 2;
-        const listRows = Math.max(1, innerRows - (showPosition ? 1 : 0));
-        const {start, end} = getRuleWindow(filterItems.length, selectedFilterIndex, listRows);
-        content = h(Panel, {title: t('tui.panels.filters'), height: mainHeight},
-            showPosition ? h(Text, {dimColor: true, wrap: 'truncate-end'},
-                t('tui.labels.rulePosition', {index: selectedFilterIndex + 1, count: filterItems.length})) : null,
-            ...filterItems.slice(start, end).map((item, index) => {
-                const selected = start + index === selectedFilterIndex;
-                const icon = item.kind === 'builtIn' ? item.enabled ? '●' : '○' : '◆';
-                return h(Text, {key: `${item.kind}:${item.name}`, color: selected ? COLORS.accent : item.enabled ? COLORS.success : COLORS.muted,
-                    bold: selected, wrap: 'truncate-end'}, `${selected ? '›' : ' '} ${icon} ${item.name}`);
-            }));
+        const rulePanel = (items, offset, title, width) => {
+            const localIndex = selectedFilterIndex - offset;
+            const {start, end} = getRuleWindow(items.length, localIndex, rulePageSize);
+            return h(Panel, {title, height: mainHeight, width},
+                innerRows >= 2 ? h(Text, {dimColor: true, wrap: 'truncate-end'},
+                    t('tui.labels.rulePosition', {index: selectedFilterIndex + 1, count: filterItems.length})) : null,
+                ...items.slice(start, end).map((item, index) => {
+                    const selected = offset + start + index === selectedFilterIndex;
+                    const icon = item.kind === 'builtIn' ? item.enabled ? '●' : '○' : '◆';
+                    return h(Text, {key: `${item.kind}:${item.name}`, color: selected ? COLORS.accent : item.enabled ? COLORS.success : COLORS.muted,
+                        bold: selected, wrap: 'truncate-end'}, `${selected ? '›' : ' '} ${icon} ${item.name}`);
+                }),
+                !items.length ? h(Text, {dimColor: true}, '-') : null);
+        };
+        if (compact) content = rulePanel(filterItems, 0, t('tui.panels.filters'), shell.contentWidth);
+        else {
+            const leftWidth = Math.floor((shell.contentWidth - 1) / 2);
+            content = h(Box, {height: mainHeight, gap: 1},
+                rulePanel(filterItems.slice(0, BUILT_IN_RULE_NAMES.length), 0, t('tui.panels.rules'), leftWidth),
+                rulePanel(filterItems.slice(BUILT_IN_RULE_NAMES.length), BUILT_IN_RULE_NAMES.length, t('tui.panels.custom'), shell.contentWidth - leftWidth - 1));
+        }
     }
 
-    const tabs = activeTab === 'compress'
-        ? `[${t('tui.tabs.compress')}]  ${t('tui.tabs.filters')}`
-        : `${t('tui.tabs.compress')}  [${t('tui.tabs.filters')}]`;
-    return h(Box, {flexDirection: 'column', height: rows, width: columns, overflow: 'hidden'},
-        h(Text, {bold: true, color: COLORS.accent, wrap: 'truncate-end'}, columns >= 55 ? `${tabs}  v${pluginPackage.version}` : tabs),
-        h(Text, {color: COLORS.muted, wrap: 'truncate-end'}, '─'.repeat(Math.max(1, columns - 1))),
-        content,
-        h(Text, {color: status.color, wrap: 'truncate-end'}, `${statusSymbol(activeTask ? 'running' : 'result',
-            status.color === COLORS.danger ? 'error' : status.color === COLORS.warning ? 'warn' : 'success')} ${status.text}`),
-        h(Text, {dimColor: true, wrap: activeTask && innerRows < 2 ? 'truncate-middle' : 'truncate-end'}, footer));
+    return h(TuiFrame, {layout: shell, statusColor: status.color,
+        header: h(TuiHeader, {tabs: ['compress', 'filters'].map(id => ({id, label: t('tui.tabs.' + id)})),
+            activeTab, width: shell.contentWidth, meta: `v${pluginPackage.version}`, accent: COLORS.accent})}, content);
 }
 
 export async function startPzipTui() {

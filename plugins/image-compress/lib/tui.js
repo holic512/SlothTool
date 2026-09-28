@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module Image Compress Plugin / TUI
  * @description 提供面向单图压缩、目录批处理、参数验证和结果复盘的响应式全屏 Ink 工作台。
- * @logic 1. 运行页按操作、输入队列、执行方案和压缩收益组织任务；2. 选项页用动态分页与选中项说明降低配置成本；3. 历史页聚合当前会话任务；4. 根据终端宽高切换双栏、堆叠和精简模式。
+ * @logic 按内容预算分页操作与参数，输入独占内容区；1. 运行页按操作、输入队列、执行方案和压缩收益组织任务；2. 选项页用动态分页与选中项说明降低配置成本；3. 历史页聚合当前会话任务；4. 根据终端宽高切换双栏、堆叠和精简模式。
  * @dependencies Libraries: react/ink, Services: ./service.js, Model: ./tui-model.js, I18N: ./i18n.js
  * @index_tags 图片压缩TUI, Ink, 拖拽路径, 批量压缩, 结果洞察, 响应式布局, 高对比配色
  * @author holic512
@@ -30,6 +30,9 @@ import {
     truncateFromLeft,
     truncateFromRight
 } from './tui-model.js';
+
+import {TuiFrame, TuiHeader, TuiDetails, TuiRow, TuiPanel} from './shared-layout.js';
+import {getShellLayout, getDetailWindow} from './shared-interaction.js';
 
 const h = React.createElement;
 const TABS = ['run', 'options', 'history'];
@@ -97,41 +100,10 @@ function resolveStatusColor(mode, tone) {
     return IMAGE_COMPRESS_TUI_COLORS.success;
 }
 
-function PanelHeader({title, summary, badge, badgeColor = IMAGE_COMPRESS_TUI_COLORS.accent}) {
-    return h(
-        Box,
-        {},
-        h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, title),
-        badge ? h(Text, {bold: true, color: badgeColor}, `  [${badge}]`) : null,
-        h(Spacer, {}),
-        summary ? h(Text, {dimColor: true}, summary) : null
-    );
-}
 
 function Header({activeTab, columns}) {
-    const metaText = buildHeaderMetaText(activeTab, columns);
-    const tabItems = TABS.flatMap((tabKey, index) => [
-        index > 0
-            ? h(Text, {
-                key: `${tabKey}-separator`,
-                color: IMAGE_COMPRESS_TUI_COLORS.muted,
-                dimColor: true
-            }, HEADER_SEPARATOR)
-            : null,
-        h(Text, {
-            key: tabKey,
-            bold: tabKey === activeTab,
-            color: tabKey === activeTab ? IMAGE_COMPRESS_TUI_COLORS.accent : IMAGE_COMPRESS_TUI_COLORS.muted
-        }, buildTabText(tabKey, activeTab))
-    ]).filter(Boolean);
-
-    return h(
-        Box,
-        {},
-        h(Box, {}, ...tabItems),
-        h(Spacer, {}),
-        metaText ? h(Text, {dimColor: true}, metaText) : null
-    );
+    return h(TuiHeader, {tabs: TABS.map(id => ({id, label: t(`tui.tabs.${id}`)})), activeTab,
+        width: columns - 2, meta: buildHeaderMetaText(activeTab, columns)});
 }
 
 function PlanStrip({requestState, compact = false}) {
@@ -157,16 +129,10 @@ function PlanStrip({requestState, compact = false}) {
         ]);
     }
 
-    return h(
-        Box,
-        {marginTop: compact ? 0 : 1},
-        ...items.flatMap(([label, color], index) => [
-            index > 0
-                ? h(Text, {key: `${label}-separator`, color: IMAGE_COMPRESS_TUI_COLORS.muted, dimColor: true}, ' | ')
-                : null,
-            h(Text, {key: label, bold: true, color}, label)
-        ]).filter(Boolean)
-    );
+    return h(Text, {wrap: 'truncate-end'}, ...items.flatMap(([label, color], index) => [
+        index ? h(Text, {key: `${label}-sep`, dimColor: true}, ' | ') : null,
+        h(Text, {key: label, color}, label)
+    ]));
 }
 
 function ResultMetrics({insights, compact = false}) {
@@ -176,210 +142,63 @@ function ResultMetrics({insights, compact = false}) {
         [t('tui.result.skipped'), insights.skippedCount, IMAGE_COMPRESS_TUI_COLORS.warning],
         [t('tui.result.failed'), insights.failedCount, IMAGE_COMPRESS_TUI_COLORS.danger]
     ];
-    const countRow = h(
-        Box,
-        {},
-        ...countItems.flatMap(([label, value, color], index) => [
-            index > 0
-                ? h(Text, {key: `${label}-separator`, dimColor: true}, ' | ')
-                : null,
-            h(Text, {key: label, color: IMAGE_COMPRESS_TUI_COLORS.muted}, `${label} `),
-            h(Text, {key: `${label}-value`, bold: true, color}, formatNumber(value))
-        ]).filter(Boolean)
-    );
-    const savedLabel = insights.preview ? t('tui.result.wouldSave') : t('tui.result.saved');
-    const savingRow = h(
-        Box,
-        {},
-        h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.muted}, `${savedLabel} `),
-        h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.secondary}, formatBytes(insights.savedBytes)),
-        h(Text, {dimColor: true}, ' | '),
-        h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.muted}, `${t('tui.result.savingRate')} `),
-        h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.success}, formatPercent(insights.savingRate))
-    );
-
-    return h(
-        Box,
-        {flexDirection: compact ? 'column' : 'row', marginTop: compact ? 0 : 1},
-        countRow,
-        compact ? savingRow : h(React.Fragment, {}, h(Text, {dimColor: true}, ' | '), savingRow)
-    );
+    return h(Box, {flexDirection: 'column', flexShrink: 0},
+        h(Text, {wrap: 'truncate-end'}, ...countItems.flatMap(([label, value, color], index) => [
+            index ? h(Text, {key: label + '-sep', dimColor: true}, ' | ') : null,
+            h(Text, {key: label, color}, `${label} ${formatNumber(value)}`)
+        ])),
+        h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.secondary, wrap: 'truncate-end'},
+            `${t(insights.preview ? 'tui.result.wouldSave' : 'tui.result.saved')} ${formatBytes(insights.savedBytes)} | ${t('tui.result.savingRate')} ${formatPercent(insights.savingRate)}`));
 }
 
-function ActionPanel({selectedIndex, requestState, layout, lastSummary}) {
+function ActionPanel({selectedIndex, requestState, layout, lastSummary, condensed = false}) {
     const insights = buildCompressionInsights(lastSummary);
-
-    return h(
-        Box,
-        {
-            borderStyle: 'round',
-            borderColor: IMAGE_COMPRESS_TUI_COLORS.border,
-            paddingX: 1,
-            flexDirection: 'column',
-            width: layout.compact ? '100%' : undefined
-        },
-        h(PanelHeader, {
-            title: t('tui.panels.actions'),
-            summary: `${selectedIndex + 1}/${RUN_MENU_ITEMS.length}`
-        }),
-        ...RUN_MENU_ITEMS.map((item, index) => {
-            const selected = index === selectedIndex;
-            const badgeColor = item === 'exit'
-                ? IMAGE_COMPRESS_TUI_COLORS.danger
-                : item === 'clearTargets'
-                    ? IMAGE_COMPRESS_TUI_COLORS.warning
-                    : item === 'compress'
-                        ? (requestState.sourcePaths.length > 0
-                            ? IMAGE_COMPRESS_TUI_COLORS.success
-                            : IMAGE_COMPRESS_TUI_COLORS.warning)
-                        : IMAGE_COMPRESS_TUI_COLORS.secondary;
-
-            return h(
-                Box,
-                {key: item},
-                h(Text, {
-                    bold: selected,
-                    color: selected ? IMAGE_COMPRESS_TUI_COLORS.accent : IMAGE_COMPRESS_TUI_COLORS.muted
-                }, selected ? '› ' : '  '),
-                h(Text, {
-                    bold: selected,
-                    color: selected ? IMAGE_COMPRESS_TUI_COLORS.accent : undefined,
-                    dimColor: !selected
-                }, t(`tui.menu.${item}`)),
-                h(Spacer, {}),
-                h(Text, {color: badgeColor, dimColor: !selected}, t(`tui.menuBadges.${item}`))
-            );
-        }),
-        layout.compact && !layout.showRunResult && insights
-            ? h(ResultMetrics, {insights, compact: true})
-            : null
-    );
+    const reserve = condensed ? (insights ? 3 : 1) : 0;
+    const capacity = Math.max(1, layout.contentHeight - 3 - reserve);
+    const start = Math.max(0, Math.min(selectedIndex - Math.floor(capacity / 2), RUN_MENU_ITEMS.length - capacity));
+    return h(TuiPanel, {title: t('tui.panels.actions'), summary: `${selectedIndex + 1}/${RUN_MENU_ITEMS.length}`,
+        width: layout.contentWidth, height: layout.contentHeight},
+        ...RUN_MENU_ITEMS.slice(start, start + capacity).map((item, index) => h(TuiRow, {
+            key: item, width: layout.contentWidth - 4,
+            left: `${start + index === selectedIndex ? '› ' : '  '}${t('tui.menu.' + item)}`,
+            right: layout.contentWidth < 40 ? '' : t('tui.menuBadges.' + item),
+            bold: start + index === selectedIndex, color: start + index === selectedIndex ? IMAGE_COMPRESS_TUI_COLORS.accent : 'white',
+            rightColor: item === 'exit' ? IMAGE_COMPRESS_TUI_COLORS.danger : IMAGE_COMPRESS_TUI_COLORS.secondary
+        })),
+        condensed ? h(Text, {dimColor: true, wrap: 'truncate-end'}, `${t('tui.panels.targets')}: ${requestState.sourcePaths.length}`) : null,
+        condensed && insights ? h(ResultMetrics, {insights, compact: true}) : null);
 }
 
 function TargetPanel({requestState, inputMode, inputValue, inputCursor, inputError, layout}) {
     const paths = requestState.sourcePaths;
-    const visiblePaths = paths.slice(0, layout.targetLimit);
-    const badge = inputMode
-        ? t('tui.targets.inputBadge')
-        : t('tui.targets.readyBadge', {count: paths.length});
-
-    return h(
-        Box,
-        {
-            borderStyle: 'round',
-            borderColor: inputMode ? IMAGE_COMPRESS_TUI_COLORS.accent : IMAGE_COMPRESS_TUI_COLORS.border,
-            paddingX: 1,
-            flexDirection: 'column',
-            flexGrow: 1
-        },
-        h(PanelHeader, {
-            title: t('tui.panels.targets'),
-            badge,
-            badgeColor: inputMode ? IMAGE_COMPRESS_TUI_COLORS.secondary : IMAGE_COMPRESS_TUI_COLORS.success
-        }),
-        inputMode
-            ? h(
-                React.Fragment,
-                {},
-                h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, `› ${editorViewport(inputValue, inputCursor, Math.max(4, layout.detailTextWidth - 4))}`),
-                inputError ? h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.danger}, truncateFromRight(inputError, layout.detailTextWidth - 4)) : null,
-                h(Text, {dimColor: true}, t('tui.inputHint'))
-            )
-            : paths.length === 0
-                ? h(
-                    React.Fragment,
-                    {},
-                    h(Text, {bold: true}, t('tui.targets.emptyTitle')),
-                    h(Text, {dimColor: true}, t('tui.targets.emptyDescription'))
-                )
-                : h(
-                    React.Fragment,
-                    {},
-                    ...visiblePaths.map((currentPath, index) => h(
-                        Box,
-                        {key: currentPath},
-                        h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.muted}, `${index + 1}. `),
-                        h(Text, {}, truncateFromLeft(currentPath, Math.max(12, layout.detailTextWidth - 4)))
-                    )),
-                    paths.length > visiblePaths.length
-                        ? h(Text, {dimColor: true}, t('tui.targets.more', {count: paths.length - visiblePaths.length}))
-                        : null
-                ),
-        h(PlanStrip, {requestState, compact: layout.compact || layout.short})
-    );
+    const capacity = Math.max(1, layout.contentHeight - 4);
+    return h(TuiPanel, {title: t('tui.panels.targets'), badge: t(inputMode ? 'tui.targets.inputBadge' : 'tui.targets.readyBadge', {count: paths.length}),
+        width: layout.contentWidth, height: layout.contentHeight, border: inputMode ? IMAGE_COMPRESS_TUI_COLORS.accent : IMAGE_COMPRESS_TUI_COLORS.border},
+        inputMode ? h(React.Fragment, {},
+            h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent, wrap: 'truncate-end'}, `› ${editorViewport(inputValue, inputCursor, layout.contentWidth - 6)}`),
+            inputError ? h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.danger, wrap: 'truncate-end'}, inputError) : null,
+            h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.inputHint')))
+            : paths.length ? paths.slice(0, capacity).map((value, index) => h(Text, {key: value, wrap: 'truncate-end'},
+                `${index + 1}. ${truncateFromLeft(value, layout.contentWidth - 7)}`))
+                : h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.targets.emptyTitle')),
+        h(PlanStrip, {requestState, compact: layout.compact || layout.short}));
 }
 
 function ResultPanel({summary, layout}) {
     const insights = buildCompressionInsights(summary);
-    const badge = insights
-        ? (insights.preview ? t('tui.result.previewBadge') : t('tui.result.completeBadge'))
-        : t('tui.result.waitingBadge');
-    const badgeColor = insights
-        ? (insights.failedCount > 0 ? IMAGE_COMPRESS_TUI_COLORS.danger : IMAGE_COMPRESS_TUI_COLORS.success)
-        : IMAGE_COMPRESS_TUI_COLORS.warning;
-    const detailItems = insights?.issues.length > 0
-        ? insights.issues.slice(0, layout.resultLimit).map(result => ({
-            key: `${result.inputPath}-${result.status}`,
-            title: t('tui.result.issueLine', {
-                name: getPathLabel(result.inputPath),
-                status: result.status
-            }),
-            color: result.status === 'failed' ? IMAGE_COMPRESS_TUI_COLORS.danger : IMAGE_COMPRESS_TUI_COLORS.warning,
-            detail: result.error
-        }))
-        : insights?.topSavings.slice(0, layout.resultLimit).map(result => ({
-            key: result.inputPath,
-            title: t('tui.result.savedLine', {
-                name: getPathLabel(result.inputPath),
-                saved: formatBytes(result.bytesSaved)
-            }),
-            color: IMAGE_COMPRESS_TUI_COLORS.success,
-            detail: result.outputPath
-        })) || [];
-
-    return h(
-        Box,
-        {
-            borderStyle: 'round',
-            borderColor: IMAGE_COMPRESS_TUI_COLORS.border,
-            paddingX: 1,
-            flexDirection: 'column',
-            flexGrow: 1
-        },
-        h(PanelHeader, {title: t('tui.panels.result'), badge, badgeColor}),
-        !insights
-            ? h(
-                React.Fragment,
-                {},
-                h(Text, {bold: true}, t('tui.result.emptyTitle')),
-                h(Text, {dimColor: true}, t('tui.result.emptyDescription'))
-            )
-            : h(
-                React.Fragment,
-                {},
-                h(ResultMetrics, {insights, compact: layout.compact}),
-                insights.cancelled
-                    ? h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.warning}, t('tui.result.cancelled'))
-                    : null,
-                detailItems.length > 0
-                    ? h(
-                        Box,
-                        {flexDirection: 'column', marginTop: layout.compact ? 0 : 1},
-                        h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.secondary}, insights.issues.length > 0
-                            ? t('tui.result.issues')
-                            : t('tui.result.topSavings')),
-                        ...detailItems.map(item => h(
-                            Box,
-                            {key: item.key},
-                            h(Text, {bold: true, color: item.color}, truncateFromRight(item.title, layout.detailTextWidth)),
-                            !layout.compact && item.detail
-                                ? h(React.Fragment, {}, h(Spacer, {}), h(Text, {dimColor: true}, truncateFromLeft(item.detail, 24)))
-                                : null
-                        ))
-                    )
-                    : h(Text, {dimColor: true}, t('tui.result.noSavings'))
-            )
-    );
+    const issues = insights?.issues || [];
+    const details = issues.length ? issues : insights?.topSavings || [];
+    return h(TuiPanel, {title: t('tui.panels.result'),
+        badge: t(insights ? insights.preview ? 'tui.result.previewBadge' : 'tui.result.completeBadge' : 'tui.result.waitingBadge'),
+        width: layout.contentWidth, height: layout.contentHeight},
+        insights ? h(React.Fragment, {},
+            h(ResultMetrics, {insights, compact: true}),
+            h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.secondary, wrap: 'truncate-end'}, t(issues.length ? 'tui.result.issues' : 'tui.result.topSavings')),
+            ...details.slice(0, Math.max(0, layout.contentHeight - 6)).map((item, index) => h(Text, {key: index,
+                color: issues.length ? IMAGE_COMPRESS_TUI_COLORS.danger : IMAGE_COMPRESS_TUI_COLORS.success, wrap: 'truncate-end'},
+                issues.length ? `${getPathLabel(item.inputPath)}: ${item.error || item.status}`
+                    : t('tui.result.savedLine', {name: getPathLabel(item.inputPath), saved: formatBytes(item.bytesSaved)}))))
+            : h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.result.emptyTitle')));
 }
 
 function OptionListPanel({requestState, selectedIndex, outputInputMode, outputInputValue, layout}) {
@@ -391,45 +210,12 @@ function OptionListPanel({requestState, selectedIndex, outputInputMode, outputIn
     ));
     const page = getVisibleOptionPage(optionLines, selectedIndex, layout.optionPageSize);
 
-    return h(
-        Box,
-        {
-            borderStyle: 'round',
-            borderColor: IMAGE_COMPRESS_TUI_COLORS.border,
-            paddingX: 1,
-            flexDirection: 'column',
-            flexGrow: layout.compact ? 0 : 1
-        },
-        h(PanelHeader, {
-            title: t('tui.panels.optionList'),
-            summary: `${page.pageIndex + 1}/${page.pageCount}`
-        }),
-        ...page.items.map((line, index) => {
-            const selected = index === page.localSelectedIndex;
-            const booleanValue = isBooleanOption(line.key) ? requestState[line.key] : null;
-            const valueColor = booleanValue === true
-                ? IMAGE_COMPRESS_TUI_COLORS.success
-                : booleanValue === false
-                    ? IMAGE_COMPRESS_TUI_COLORS.muted
-                    : IMAGE_COMPRESS_TUI_COLORS.secondary;
-
-            return h(
-                Box,
-                {key: line.key},
-                h(Text, {
-                    bold: selected,
-                    color: selected ? IMAGE_COMPRESS_TUI_COLORS.accent : IMAGE_COMPRESS_TUI_COLORS.muted
-                }, selected ? '› ' : '  '),
-                h(Text, {
-                    bold: selected,
-                    color: selected ? IMAGE_COMPRESS_TUI_COLORS.accent : undefined,
-                    dimColor: !selected
-                }, line.label),
-                h(Spacer, {}),
-                h(Text, {bold: selected, color: valueColor}, truncateFromLeft(line.value, layout.compact ? 22 : 18))
-            );
-        })
-    );
+    return h(TuiPanel, {title: t('tui.panels.optionList'), summary: `${page.pageIndex + 1}/${page.pageCount}`,
+        width: layout.contentWidth, height: layout.contentHeight},
+        ...page.items.map((line, index) => h(TuiRow, {key: line.key, width: layout.contentWidth - 4,
+            left: `${index === page.localSelectedIndex ? '› ' : '  '}${line.label}`, right: line.value,
+            bold: index === page.localSelectedIndex, color: index === page.localSelectedIndex ? IMAGE_COMPRESS_TUI_COLORS.accent : 'white',
+            rightColor: isBooleanOption(line.key) && requestState[line.key] ? IMAGE_COMPRESS_TUI_COLORS.success : IMAGE_COMPRESS_TUI_COLORS.secondary})));
 }
 
 function OptionDetailPanel({requestState, selectedOption, outputInputMode, outputInputValue, outputCursor, layout}) {
@@ -443,157 +229,60 @@ function OptionDetailPanel({requestState, selectedOption, outputInputMode, outpu
         ? IMAGE_COMPRESS_TUI_COLORS.success
         : IMAGE_COMPRESS_TUI_COLORS.secondary;
 
-    return h(
-        Box,
-        {
-            borderStyle: 'round',
-            borderColor: outputInputMode ? IMAGE_COMPRESS_TUI_COLORS.accent : IMAGE_COMPRESS_TUI_COLORS.border,
-            paddingX: 1,
-            flexDirection: 'column',
-            flexGrow: 1
-        },
-        h(PanelHeader, {
-            title: optionLine.label,
-            badge: optionLine.value,
-            badgeColor
-        }),
-        h(Text, {dimColor: true}, t(`tui.optionDetails.${selectedOption}`)),
-        outputInputMode
-            ? h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, `› ${editorViewport(outputInputValue, outputCursor, Math.max(4, layout.detailTextWidth - 4))}`)
-            : null,
-        h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.secondary}, helpText),
-        layout.compact ? null : h(PlanStrip, {requestState})
-    );
+    return h(TuiPanel, {title: optionLine.label, badge: outputInputMode ? undefined : optionLine.value, badgeColor,
+        width: layout.contentWidth, height: layout.contentHeight},
+        outputInputMode ? h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent, wrap: 'truncate-end'},
+            `› ${editorViewport(outputInputValue, outputCursor, layout.contentWidth - 6)}`) : null,
+        h(Text, {dimColor: true, wrap: 'truncate-end'}, t(`tui.optionDetails.${selectedOption}`)),
+        h(Text, {color: IMAGE_COMPRESS_TUI_COLORS.secondary, wrap: 'truncate-end'}, helpText),
+        layout.compact ? null : h(PlanStrip, {requestState}));
 }
 
 function HistoryPanel({historyItems, layout}) {
-    const visibleHistory = historyItems.slice(0, layout.historyLimit);
-
-    return h(
-        Box,
-        {
-            borderStyle: 'round',
-            borderColor: IMAGE_COMPRESS_TUI_COLORS.border,
-            paddingX: 1,
-            flexDirection: 'column',
-            flexGrow: 1
-        },
-        h(PanelHeader, {
-            title: t('tui.panels.history'),
-            summary: t('tui.history.count', {count: historyItems.length})
+    const limit = Math.max(1, Math.floor((layout.contentHeight - 4) / 2));
+    return h(TuiPanel, {title: t('tui.panels.history'), summary: t('tui.history.count', {count: historyItems.length}),
+        width: layout.contentWidth, height: layout.contentHeight},
+        h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.history.sessionOnly')),
+        ...historyItems.slice(0, limit).flatMap(entry => {
+            const insights = buildCompressionInsights(entry.summary);
+            return [h(Text, {key: `${entry.id}-summary`, bold: true, wrap: 'truncate-end'},
+                `${entry.label} · ${t('tui.result.total')} ${insights.totalFiles}`),
+            h(Text, {key: `${entry.id}-saved`, color: IMAGE_COMPRESS_TUI_COLORS.secondary, wrap: 'truncate-end'},
+                `${t(insights.preview ? 'tui.result.wouldSave' : 'tui.result.saved')} ${formatBytes(insights.savedBytes)}`)];
         }),
-        h(Text, {dimColor: true}, t('tui.history.sessionOnly')),
-        visibleHistory.length === 0
-            ? h(Text, {bold: true}, t('tui.history.empty'))
-            : visibleHistory.flatMap(entry => {
-                const insights = buildCompressionInsights(entry.summary);
-                return [
-                    h(Text, {
-                        key: `${entry.id}-summary`,
-                        bold: true,
-                        color: insights.failedCount > 0
-                            ? IMAGE_COMPRESS_TUI_COLORS.danger
-                            : IMAGE_COMPRESS_TUI_COLORS.success
-                    }, t('tui.history.task', {
-                        time: entry.label,
-                        files: insights.totalFiles,
-                        saved: formatBytes(insights.savedBytes)
-                    })),
-                    layout.short
-                        ? null
-                        : h(Text, {
-                            key: `${entry.id}-counts`,
-                            dimColor: true
-                        }, t('tui.history.summary', {
-                            success: insights.successCount,
-                            skipped: insights.skippedCount,
-                            failed: insights.failedCount,
-                            saved: formatBytes(insights.savedBytes)
-                        }))
-                ].filter(Boolean);
-            })
-    );
+        historyItems.length ? null : h(Text, {dimColor: true}, t('tui.history.empty')));
 }
 
 function ResponsivePair({left, right, layout, showRight = true}) {
-    if (layout.compact) {
-        return h(
-            Box,
-            {flexDirection: 'column', flexGrow: 1},
-            h(Box, {flexDirection: 'column', marginBottom: showRight ? 1 : 0}, left),
-            showRight ? h(Box, {flexDirection: 'column', flexGrow: 1}, right) : null
-        );
-    }
-
-    return h(
-        Box,
-        {flexDirection: 'row', flexGrow: 1},
-        h(Box, {
-            width: layout.sidebarWidth,
-            marginRight: 1,
-            flexDirection: 'column'
-        }, left),
-        showRight ? h(Box, {flexDirection: 'column', flexGrow: 1}, right) : null
-    );
+    const leftHeight = layout.compact && showRight ? layout.optionPageSize + 3 : layout.contentHeight;
+    const leftWidth = layout.compact || !showRight ? layout.contentWidth : layout.sidebarWidth;
+    const rightWidth = layout.compact ? layout.contentWidth : layout.contentWidth - leftWidth - 1;
+    return h(Box, {height: layout.contentHeight, flexDirection: layout.compact ? 'column' : 'row', gap: showRight ? 1 : 0},
+        React.cloneElement(left, {layout: {...layout, contentWidth: leftWidth, contentHeight: leftHeight}}),
+        showRight ? React.cloneElement(right, {layout: {...layout, contentWidth: rightWidth,
+            contentHeight: layout.compact ? layout.contentHeight - leftHeight - 1 : layout.contentHeight}}) : null);
 }
 
 function RunContent({requestState, runMenuIndex, sourceInputMode, sourceInputValue, sourceCursor, sourceInputError, lastSummary, layout}) {
-    const actions = h(ActionPanel, {
-        selectedIndex: runMenuIndex,
-        requestState,
-        layout,
-        lastSummary
-    });
-    const target = h(TargetPanel, {
-        requestState,
-        inputMode: sourceInputMode,
-        inputValue: sourceInputValue,
-        inputCursor: sourceCursor,
-        inputError: sourceInputError,
-        layout
-    });
-    const result = h(ResultPanel, {summary: lastSummary, layout});
-
+    const target = nextLayout => h(TargetPanel, {requestState, inputMode: sourceInputMode, inputValue: sourceInputValue,
+        inputCursor: sourceCursor, inputError: sourceInputError, layout: nextLayout});
+    if (sourceInputMode) return target(layout);
     if (layout.compact) {
-        return h(
-            Box,
-            {flexDirection: 'column', flexGrow: 1},
-            h(Box, {marginBottom: 1}, actions),
-            h(Box, {flexGrow: 1, flexDirection: 'column'}, target),
-            layout.showRunResult
-                ? h(Box, {marginTop: 1, flexDirection: 'column'}, result)
-                : null
-        );
+        if (layout.contentHeight < 16) return h(ActionPanel, {selectedIndex: runMenuIndex, requestState, layout, lastSummary, condensed: true});
+        const targetHeight = 5;
+        const actionHeight = layout.contentHeight - targetHeight - 1;
+        return h(Box, {height: layout.contentHeight, flexDirection: 'column', gap: 1},
+            h(ActionPanel, {selectedIndex: runMenuIndex, requestState, lastSummary, condensed: true,
+                layout: {...layout, contentHeight: actionHeight}}),
+            target({...layout, contentHeight: targetHeight}));
     }
-
-    return h(
-        ResponsivePair,
-        {
-            left: actions,
-            right: h(
-                Box,
-                {flexDirection: 'column', flexGrow: 1},
-                h(Box, {flexGrow: 1, flexDirection: 'column'}, target),
-                h(Box, {marginTop: 1, flexGrow: 1, flexDirection: 'column'}, result)
-            ),
-            layout
-        }
-    );
-}
-
-function HelpPanel({lines, scroll, height}) {
-    return h(
-        Box,
-        {
-            borderStyle: 'round',
-            borderColor: IMAGE_COMPRESS_TUI_COLORS.border,
-            paddingX: 1,
-            flexDirection: 'column',
-            flexGrow: 1
-        },
-        h(Text, {bold: true, color: IMAGE_COMPRESS_TUI_COLORS.accent}, t('tui.help.title')),
-        ...lines.slice(scroll, scroll + Math.max(1, height - 4)).map((line, index) => h(Text, {key: scroll + index}, line))
-    );
+    const rightWidth = layout.contentWidth - layout.sidebarWidth - 1;
+    const targetHeight = Math.max(5, Math.floor((layout.contentHeight - 1) * 0.43));
+    return h(Box, {height: layout.contentHeight, gap: 1},
+        h(ActionPanel, {selectedIndex: runMenuIndex, requestState, layout: {...layout, contentWidth: layout.sidebarWidth}, lastSummary}),
+        h(Box, {height: layout.contentHeight, flexDirection: 'column', gap: 1},
+            target({...layout, contentWidth: rightWidth, contentHeight: targetHeight}),
+            h(ResultPanel, {summary: lastSummary, layout: {...layout, contentWidth: rightWidth, contentHeight: layout.contentHeight - targetHeight - 1}})));
 }
 
 function getFooterText(activeTab, inputMode, layout, action, selectedOption) {
@@ -624,7 +313,7 @@ export function ImageCompressTuiApp({
 } = {}) {
     const app = useApp();
     const {columns, rows} = useWindowSize();
-    const layout = layoutOverride || resolveImageCompressTuiLayout(columns, rows);
+    const baseLayout = layoutOverride || resolveImageCompressTuiLayout(columns, rows);
     const [activeTab, setActiveTab] = useState(TABS.includes(initialTab) ? initialTab : 'run');
     const [runMenuIndex, setRunMenuIndex] = useState(0);
     const [optionIndex, setOptionIndex] = useState(Math.min(
@@ -654,6 +343,21 @@ export function ImageCompressTuiApp({
     });
     const [lastSummary, setLastSummary] = useState(initialSummary);
     const [historyItems, setHistoryItems] = useState(initialHistory);
+
+    const statusText = statusState.mode === 'progress'
+        ? `${SPINNER_FRAMES[spinnerFrameIndex]} ${statusState.label}`
+        : statusState.message;
+    const footerText = statusState.mode === 'progress' ? t('tui.footer.busy')
+        : detailLines ? t('tui.footer.detail') : helpOpen ? t('tui.footer.help')
+            : getFooterText(activeTab, sourceInputMode || outputInputMode, baseLayout,
+                t('tui.menu.' + RUN_MENU_ITEMS[runMenuIndex]), OPTION_ITEMS[optionIndex]);
+
+    const shell = getShellLayout(baseLayout.columns, baseLayout.rows, {
+        status: `${statusSymbol(statusState.mode, statusState.tone)} ${statusText}`, keys: footerText
+    });
+    const layout = {...baseLayout, contentWidth: shell.contentWidth, contentHeight: shell.contentHeight};
+    const detailWindow = getDetailWindow(detailLines || (helpOpen ? t('tui.help.lines') : []), detailScroll, shell.contentWidth, shell.contentHeight);
+    layout.optionPageSize = Math.min(layout.optionPageSize, Math.max(1, shell.contentHeight - (layout.compact && layout.showOptionDetail ? 8 : 3)));
 
     useEffect(() => {
         if (statusState.mode !== 'progress') {
@@ -900,15 +604,17 @@ export function ImageCompressTuiApp({
         }
         if (detailLines) {
             if (key.escape) setDetailLines(null);
-            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, value - (key.pageUp ? 5 : 1)));
+            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, Math.min(value, detailWindow.maxScroll) - (key.pageUp ? detailWindow.capacity : 1)));
             else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
-                Math.max(0, detailLines.length - Math.max(1, layout.rows - 8)), value + (key.pageDown ? 5 : 1)));
+                detailWindow.maxScroll, Math.min(value, detailWindow.maxScroll) + (key.pageDown ? detailWindow.capacity : 1)));
             return;
         }
         if (helpOpen) {
             if (input === '?' || key.escape) {
                 setHelpOpen(false);
             }
+            if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, Math.min(value, detailWindow.maxScroll) - (key.pageUp ? detailWindow.capacity : 1)));
+            if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(detailWindow.maxScroll, value + (key.pageDown ? detailWindow.capacity : 1)));
             return;
         }
 
@@ -941,6 +647,7 @@ export function ImageCompressTuiApp({
 
         if (input === '?') {
             setHelpOpen(true);
+            setDetailScroll(0);
             return;
         }
         if (input === 'v') {
@@ -951,7 +658,7 @@ export function ImageCompressTuiApp({
             else if (activeTab === 'options') lines.push(`${t('tui.options.' + OPTION_ITEMS[optionIndex])}: ${
                 describeOptionValue(OPTION_ITEMS[optionIndex], requestState, false, '').value}`);
             else lines.push(...historyItems.map(item => JSON.stringify(item.summary)));
-            setDetailLines(lines.flatMap(line => wrapText(line, Math.max(2, layout.contentWidth - 4))));
+            setDetailLines(lines);
             setDetailScroll(0);
             return;
         }
@@ -1032,9 +739,9 @@ export function ImageCompressTuiApp({
 
     let mainContent;
     if (detailLines) {
-        mainContent = h(HelpPanel, {lines: detailLines, scroll: detailScroll, height: layout.viewportHeight});
+        mainContent = h(TuiDetails, {title: t('tui.help.title'), lines: detailLines, scroll: detailScroll, width: shell.contentWidth, height: shell.contentHeight});
     } else if (helpOpen) {
-        mainContent = h(HelpPanel, {lines: t('tui.help.lines'), scroll: 0, height: layout.viewportHeight});
+        mainContent = h(TuiDetails, {title: t('tui.help.title'), lines: t('tui.help.lines'), scroll: detailScroll, width: shell.contentWidth, height: shell.contentHeight});
     } else if (activeTab === 'run') {
         mainContent = h(RunContent, {
             requestState,
@@ -1046,6 +753,8 @@ export function ImageCompressTuiApp({
             lastSummary,
             layout
         });
+    } else if (activeTab === 'options' && outputInputMode) {
+        mainContent = h(OptionDetailPanel, {requestState, selectedOption: OPTION_ITEMS[optionIndex], outputInputMode, outputInputValue, outputCursor, layout});
     } else if (activeTab === 'options') {
         const selectedOption = OPTION_ITEMS[optionIndex];
         mainContent = h(ResponsivePair, {
@@ -1072,38 +781,9 @@ export function ImageCompressTuiApp({
         mainContent = h(HistoryPanel, {historyItems, layout});
     }
 
-    const statusText = statusState.mode === 'progress'
-        ? `${SPINNER_FRAMES[spinnerFrameIndex]} ${statusState.label}`
-        : statusState.message;
-    const footerText = statusState.mode === 'progress' ? t('tui.footer.busy')
-        : detailLines ? t('tui.footer.detail') : helpOpen ? t('tui.footer.help')
-            : getFooterText(activeTab, sourceInputMode || outputInputMode, layout,
-                t('tui.menu.' + RUN_MENU_ITEMS[runMenuIndex]), OPTION_ITEMS[optionIndex]);
 
-    return h(
-        Box,
-        {
-            flexDirection: 'column',
-            height: layout.viewportHeight,
-            paddingX: 1,
-            paddingY: 1
-        },
-        h(Header, {activeTab, columns: layout.columns}),
-        h(Box, {marginBottom: 1}, h(Text, {
-            color: IMAGE_COMPRESS_TUI_COLORS.muted,
-            dimColor: true
-        }, '─'.repeat(layout.contentWidth))),
-        h(Box, {flexGrow: 1, marginBottom: 1, flexDirection: 'column'}, mainContent),
-        h(
-            Box,
-            {},
-            h(Text, {
-                color: resolveStatusColor(statusState.mode, statusState.tone)
-            }, truncateFromRight(`${statusSymbol(statusState.mode, statusState.tone)} ${statusText}`, Math.max(12, Math.floor(layout.contentWidth * 0.42)))),
-            h(Spacer, {}),
-            h(Text, {dimColor: true, wrap: 'truncate-end'}, footerText)
-        )
-    );
+    return h(TuiFrame, {layout: shell, statusColor: resolveStatusColor(statusState.mode, statusState.tone),
+        header: h(Header, {activeTab, columns: layout.columns})}, mainContent);
 }
 
 function describeOptionValue(optionKey, requestState, outputInputMode, outputInputValue) {

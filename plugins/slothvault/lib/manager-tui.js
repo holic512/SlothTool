@@ -3,13 +3,15 @@
  * @project SlothTool
  * @module SlothVault Multifunction Plugin / TUI
  * @description Provides the responsive SlothTool manager for deployment, Skill links, and standalone MCP registration.
- * @logic Inspect a managed deployment through the Python service, render its structured state, and keep prompts and action progress inside Ink.
+ * @logic Budget panels and reflow details on resize; Inspect a managed deployment through the Python service, render its structured state, and keep prompts and action progress inside Ink.
  * @dependencies React/Ink, Deploy Runner, Skill Manager, MCP Command Manager, I18N
  * @index_tags slothvault,tui,deploy,skill,mcp,registration
  * @author holic512
  */
 
 import process from 'node:process';
+import {TuiFrame, TuiHeader, TuiDetails} from './shared-layout.js';
+import {getShellLayout, getDetailWindow} from './shared-interaction.js';
 import React, {createElement as h, useEffect, useRef, useState} from 'react';
 import {Box, Spacer, Text, useApp, useInput, usePaste, useWindowSize, render} from 'ink';
 import pluginPackage from '../package.json' with {type: 'json'};
@@ -50,19 +52,23 @@ function clip(value, width) {
     return truncateFromRight(String(value ?? '').replace(/\x1b\[[0-9;]*[A-Za-z]/gu, '').replace(/[\r\n\t]/gu, ' '), Math.max(4, width));
 }
 function Panel({title, children, color = COLORS.border, badge = null}) {
-    return h(Box, {borderStyle: 'round', borderColor: color, paddingX: 1, flexDirection: 'column', flexGrow: 1},
-        h(Box, {}, h(Text, {bold: true, color: COLORS.accent}, title),
-            badge ? h(Text, {bold: true, color: COLORS.secondary}, '  [' + badge + ']') : null),
-        children);
+    return h(Box, {height: '100%', width: '100%', borderStyle: 'round', borderColor: color, paddingX: 1,
+        flexDirection: 'column', flexGrow: 1},
+        h(Box, {height: 1, flexShrink: 0}, h(Text, {bold: true, color: COLORS.accent, wrap: 'truncate-end'}, title),
+            badge ? h(Text, {bold: true, color: COLORS.secondary, wrap: 'truncate-end'}, '  [' + badge + ']') : null),
+        h(Box, {flexGrow: 1, flexDirection: 'column', overflow: 'hidden'}, children));
 }
 function Field({label, value, color}) {
-    return h(Box, {}, h(Text, {color: COLORS.accent}, `${label}  `), h(Text, {color}, String(value || '-')));
+    return h(Text, {wrap: 'truncate-end'}, h(Text, {color: COLORS.accent}, `${label}  `),
+        h(Text, {color}, String(value || '-')));
 }
 function TwoPanels({left, right, layout}) {
-    return h(Box, {flexDirection: layout.compact ? 'column' : 'row', flexGrow: 1},
-        h(Box, {width: layout.compact ? undefined : layout.sidebarWidth, marginRight: layout.compact ? 0 : 1,
-            marginBottom: layout.compact ? 1 : 0, flexDirection: 'column'}, left),
-        h(Box, {flexGrow: 1, flexDirection: 'column'}, right));
+    return h(Box, {height: layout.contentHeight, flexDirection: layout.compact ? 'column' : 'row', gap: 1},
+        h(Box, {width: layout.compact ? layout.contentWidth : layout.sidebarWidth,
+            height: layout.listHeight, flexShrink: 0, flexDirection: 'column'}, left),
+        h(Box, {width: layout.compact ? layout.contentWidth : layout.contentWidth - layout.sidebarWidth - 1,
+            height: layout.compact ? layout.contentHeight - layout.listHeight - 1 : layout.contentHeight,
+            flexShrink: 0, flexDirection: 'column'}, right));
 }
 function statusColor(value) {
     if (value === 'running' || value === 'healthy' || value === 'configured') return COLORS.success;
@@ -126,7 +132,7 @@ function updateReleaseLines(update) {
 function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, editing, draft, draftCursor, pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy}) {
     const action = DEPLOY_ACTIONS[selectedIndex];
     const usesNginx = NGINX_ACTIONS.has(action);
-    const listLimit = layout.compact ? layout.short ? 3 : 5 : DEPLOY_ACTIONS.length;
+    const listLimit = Math.max(1, Math.min(DEPLOY_ACTIONS.length, layout.listHeight - 3));
     const firstAction = Math.max(0, Math.min(selectedIndex - Math.floor(listLimit / 2), DEPLOY_ACTIONS.length - listLimit));
     const list = h(Panel, {title: t('manager.panels.actions') + '  ' + (selectedIndex + 1) + '/' + DEPLOY_ACTIONS.length},
         ...DEPLOY_ACTIONS.slice(firstAction, firstAction + listLimit).map((item, offset) => h(Box, {key: item},
@@ -143,7 +149,7 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
     const shownPreview = previewEntries.slice(noteOffset, noteOffset + (layout.short ? 1 : 4));
     const details = h(Panel, {title: t('manager.panels.deployment'), color: pending ? COLORS.warning : COLORS.border,
         badge: busy ? t('manager.running') : null},
-        h(Text, {bold: true}, t('manager.actions.' + action)),
+        h(Text, {bold: true, wrap: 'truncate-end'}, t('manager.actions.' + action)),
         layout.short ? null : h(Text, {dimColor: true}, t('manager.actionDetails.' + action)),
         h(Box, {flexDirection: 'column'},
             h(Field, {label: t('manager.fields.root'), value: editing === 'root'
@@ -157,7 +163,7 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
             h(Text, {color: COLORS.accent}, '› ' + editorViewport(promptValue, promptCursor,
                 Math.max(4, layout.compact ? layout.width - 14 : layout.width - layout.sidebarWidth - 14),
                 {secret: prompt.secret}))) : null,
-        pending ? h(Text, {color: COLORS.warning}, t('manager.deployConfirm', {action: t('manager.actions.' + pending)})) : null,
+        pending ? h(Text, {color: COLORS.warning, wrap: 'truncate-end'}, t('manager.deployConfirm', {action: t('manager.actions.' + pending)})) : null,
         preview ? h(Box, {flexDirection: 'column', marginTop: 1},
             h(Text, {bold: true, color: COLORS.secondary}, t('manager.previewKinds.' + preview.kind)),
             ...shownPreview.map(([key, value]) => h(Field, {key, label: t('manager.previewFields.' + key),
@@ -178,13 +184,14 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
             t('manager.currentState', {state: t('manager.instanceStates.' + instance.state)})) : null,
         ...logs.slice(-(layout.short || preview ? 1 : 3)).map((line, index) => h(Text, {key: index, dimColor: true},
             clip(line, layout.compact ? layout.width - 10 : layout.width - layout.sidebarWidth - 10))));
+    if (editing || prompt || pending || busy) return h(Box, {height: layout.contentHeight, flexDirection: 'column'}, details);
     return h(TwoPanels, {left: list, right: details, layout});
 }
 
 export function ManagerApp({inspect = inspectDeployment, createSession = createDeploymentSession} = {}) {
     const {exit} = useApp();
     const {columns = 80, rows = 24} = useWindowSize();
-    const layout = resolveSlothVaultManagerLayout(columns, rows);
+    const baseLayout = resolveSlothVaultManagerLayout(columns, rows);
     const [tab, setTab] = useState('overview');
     const [skill, setSkill] = useState(() => getSkillStatus());
     const [mcp, setMcp] = useState(() => getMcpCommandStatus());
@@ -212,6 +219,19 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
     const [logs, setLogs] = useState([]);
     const sessionRef = useRef(null);
     const inspectionIdRef = useRef(0);
+    const footer = prompt ? t('manager.footers.prompt') : busy ? t('manager.footers.busy')
+        : editing ? t('manager.footers.edit') : pending ? t('manager.footers.confirm')
+            : detailLines ? t('manager.footers.detail') : tab === 'deploy'
+                ? `${t('manager.footers.deploy')} | Enter ${t('manager.actions.' + DEPLOY_ACTIONS[selectedAction])}`
+                : t('manager.footers.' + tab);
+    const shell = getShellLayout(columns, rows, {inverseFooter: true, keys: footer,
+        status: `${statusSymbol(busy ? 'running' : 'result', pending || messageColor === COLORS.warning ? 'warn'
+            : messageColor === COLORS.danger ? 'error' : 'success')} ${message}`
+    });
+    const layout = {...baseLayout, contentWidth: shell.contentWidth, contentHeight: shell.contentHeight,
+        listHeight: baseLayout.compact ? Math.max(4, Math.floor((shell.contentHeight - 1) / 2)) : shell.contentHeight};
+    const detailWindow = getDetailWindow(detailLines, detailScroll, shell.contentWidth, shell.contentHeight);
+
 
     useEffect(() => {
         if (process.env.SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION === 'render-exit') {exit(); return;}
@@ -330,9 +350,9 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
         if (busy) return;
         if (detailLines) {
             if (key.escape) setDetailLines(null);
-            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, value - (key.pageUp ? 5 : 1)));
+            else if (key.upArrow || key.pageUp) setDetailScroll(value => Math.max(0, Math.min(value, detailWindow.maxScroll) - (key.pageUp ? detailWindow.capacity : 1)));
             else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
-                Math.max(0, detailLines.length - Math.max(1, layout.height - 8)), value + (key.pageDown ? 5 : 1)));
+                detailWindow.maxScroll, Math.min(value, detailWindow.maxScroll) + (key.pageDown ? detailWindow.capacity : 1)));
             return;
         }
         if (editing) {
@@ -374,7 +394,7 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
             else lines.push(`${t('manager.fields.root')}: ${instance?.root || root}`,
                 `${t('manager.fields.dataDir')}: ${instance?.dataDir || '-'}`,
                 `${t('manager.fields.databaseDir')}: ${instance?.databaseDir || '-'}`);
-            setDetailLines(lines.filter(Boolean).flatMap(line => wrapText(line, Math.max(2, layout.width - 5))));
+            setDetailLines(lines.filter(Boolean));
             setDetailScroll(0);
             return;
         }
@@ -415,16 +435,13 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
         else if (editing && !busy) changeInput(value, {}, draft, draftCursor, setDraft, setDraftCursor);
     });
 
-    if (layout.tooSmall) return h(Panel, {title: t('manager.title'), color: COLORS.warning}, h(Text, {}, t('manager.resize')));
-    const tabs = TABS.flatMap((item, index) => [
-        index ? h(Text, {key: item + '-separator', color: COLORS.muted}, ' | ') : null,
-        h(Text, {key: item, bold: item === tab, color: item === tab ? COLORS.accent : COLORS.muted},
-            item === tab ? '[' + t('manager.tabs.' + item) + ']' : t('manager.tabs.' + item))
-    ]).filter(Boolean);
+    if (layout.tooSmall) return h(Box, {height: rows, flexDirection: 'column'},
+        h(Text, {color: COLORS.warning, wrap: 'truncate-end'}, t('manager.resize')),
+        rows > 1 ? h(Text, {}, 'q') : null);
     const detailWidth = layout.compact ? layout.width - 8 : layout.width - layout.sidebarWidth - 12;
     let content;
-    if (detailLines) content = h(Panel, {title: t('manager.panels.details')}, ...detailLines.slice(detailScroll,
-        detailScroll + Math.max(1, layout.height - 8)).map((line, index) => h(Text, {key: detailScroll + index}, line)));
+    if (detailLines) content = h(TuiDetails, {title: t('manager.panels.details'), lines: detailLines,
+        scroll: detailScroll, width: shell.contentWidth, height: shell.contentHeight});
     else if (tab === 'deploy') content = h(DeployPage, {layout, selectedIndex: selectedAction, root, nginxMode, nginxContainer, editing, draft, draftCursor,
         pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy});
     else if (tab === 'skill') content = h(TwoPanels, {layout,
@@ -438,25 +455,17 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
         right: h(Panel, {title: t('manager.panels.details')}, h(Text, {}, mcp.targetPath ? t('manager.target', {target: clip(mcp.targetPath, detailWidth)}) : t('manager.reason', {reason: clip(mcp.reason || '-', detailWidth)})), h(Text, {dimColor: true}, t('manager.mcpGuide')))
     });
     else content = layout.compact && layout.short
-        ? h(Box, {flexDirection: 'column'}, h(InstanceSummary, {instance, layout}),
-            h(Text, {dimColor: true}, t('manager.shortHint')))
+        ? h(Box, {height: layout.contentHeight, flexDirection: 'column'},
+            h(Box, {height: layout.contentHeight - 1, flexShrink: 0, flexDirection: 'column'}, h(InstanceSummary, {instance, layout})),
+            h(Text, {dimColor: true, wrap: 'truncate-end'}, t('manager.shortHint')))
         : h(TwoPanels, {layout,
         left: h(InstanceSummary, {instance, layout}),
         right: h(InstanceDetails, {instance, layout})
     });
-    const footer = prompt ? t('manager.footers.prompt') : busy ? t('manager.footers.busy')
-        : editing ? t('manager.footers.edit') : pending ? t('manager.footers.confirm')
-            : detailLines ? t('manager.footers.detail') : tab === 'deploy'
-                ? `${t('manager.footers.deploy')} | Enter ${t('manager.actions.' + DEPLOY_ACTIONS[selectedAction])}`
-                : t('manager.footers.' + tab);
-    return h(Box, {flexDirection: 'column', height: layout.height, paddingX: 1, paddingY: 1},
-        h(Box, {}, ...tabs, h(Spacer, {}), layout.width > 65 ? h(Text, {dimColor: true}, 'v' + pluginPackage.version) : null),
-        h(Box, {marginBottom: 1}, h(Text, {color: COLORS.muted}, '─'.repeat(layout.width - 4))),
-        h(Box, {flexGrow: 1, flexDirection: 'column'}, content),
-        h(Box, {marginTop: 1}, h(Text, {color: pending ? COLORS.warning : messageColor}, clip(
-            `${statusSymbol(busy ? 'running' : 'result', pending || messageColor === COLORS.warning ? 'warn'
-                : messageColor === COLORS.danger ? 'error' : 'success')} ${message}`, layout.width - 4))),
-        h(Text, {inverse: true}, clip(footer, layout.width - 4)));
+
+    return h(TuiFrame, {layout: shell, statusColor: pending ? COLORS.warning : messageColor,
+        header: h(TuiHeader, {tabs: TABS.map(id => ({id, label: t('manager.tabs.' + id)})), activeTab: tab,
+            width: shell.contentWidth, meta: 'v' + pluginPackage.version})}, content);
 }
 
 export async function startSlothVaultManagerTui() {

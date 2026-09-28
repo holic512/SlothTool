@@ -17,6 +17,8 @@ import {HomePage} from '../lib/tui/root/pages/home-page.js';
 import {HOME_ART} from '../lib/tui/root/constants.js';
 import {getDisplayWidth} from '../lib/tui/root/format.js';
 
+process.env.SLOTHTOOL_TUI_TEST_ACTION = 'render';
+
 test('home keeps work directory and actions visible in low and narrow windows', () => {
     const items = [
         {id: 'loc', kind: 'run-plugin', title: 'loc'},

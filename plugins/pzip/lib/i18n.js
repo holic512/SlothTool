@@ -80,6 +80,9 @@ export const messages = {
             },
             panels: {
                 source: '压缩任务',
+                result: '压缩结果',
+                rules: '内置过滤规则',
+                custom: '自定义过滤规则',
                 filters: '过滤规则',
                 archive: '最近归档',
                 preview: '扫描预演',
@@ -146,6 +149,8 @@ export const messages = {
             },
             result: {
                 candidate: '候选输出位置',
+                empty: '尚无结果，按 p 扫描预演。',
+                gitignoreHint: '自动应用根目录及子目录的 .gitignore',
                 notReserved: '预演未创建 ZIP；执行时会重新确定文件名。',
                 previewSummary: '纳入 {count} 个文件',
                 actionHint: 'p 扫描预演 · Enter 创建 ZIP · r/v/w/e 查看详情'
@@ -214,6 +219,9 @@ export const messages = {
             },
             panels: {
                 source: 'Archive task',
+                result: 'Archive results',
+                rules: 'Built-in filters',
+                custom: 'Custom filters',
                 filters: 'Filter rules',
                 archive: 'Last archive',
                 preview: 'Scan preview',
@@ -277,6 +285,8 @@ export const messages = {
             },
             result: {
                 candidate: 'Candidate output',
+                empty: 'No results yet. Press p to preview.',
+                gitignoreHint: 'Root and nested .gitignore files apply',
                 notReserved: 'Preview did not create a ZIP; the name is chosen again when running.',
                 previewSummary: '{count} files included',
                 actionHint: 'p scan preview · Enter create ZIP · r/v/w/e details'

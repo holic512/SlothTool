@@ -30,7 +30,9 @@ test('root and every official plugin pack their own interaction runtime', () => 
         assert.equal(result.status, 0, `${folder}: ${result.stderr}`);
         const [manifest] = JSON.parse(result.stdout);
         const names = new Set(manifest.files.map(file => file.path));
-        assert.ok(names.has(folder === '.' ? 'lib/tui/shared-interaction.js' : 'lib/shared-interaction.js'), folder);
+        for (const filename of ['shared-interaction.js', 'shared-layout.js']) {
+            assert.ok(names.has(folder === '.' ? `lib/tui/${filename}` : `lib/${filename}`), folder);
+        }
         const declared = JSON.parse(fs.readFileSync(path.join(packageDirectory, 'package.json'), 'utf8'));
         assert.equal(manifest.version, declared.version, folder);
         for (const bin of Object.values(declared.bin || {})) assert.ok(names.has(bin), `${folder}: ${bin}`);
