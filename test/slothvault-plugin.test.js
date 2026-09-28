@@ -518,7 +518,7 @@ test('manager TUI exposes every installer action and passes only relevant deploy
     const smoke = runManager([], {environment: {SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION: 'render-exit'}});
     if (skipIfProcessCreationIsBlocked(context, smoke)) return;
     assert.equal(smoke.status, 0, smoke.stderr);
-    assert.match(smoke.stdout, /Overview|概览/u);
+    assert.match(smoke.stdout, /Connect SlothVault|连接 SlothVault/u);
 });
 
 test('Skill manager detects agent homes, installs every detected agent link, and uninstalls only those links', () => {

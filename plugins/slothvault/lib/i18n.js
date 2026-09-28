@@ -34,6 +34,29 @@ export function getLanguage() {
 
 export const messages = {
     zh: {
+        skillVersion: {
+            current: '当前 Skill：{version}', checked: '官方最新 Skill：{version}',
+            unavailable: '未能检查官方版本。', local: '已同步当前插件内置 Skill（离线）。',
+            hint: 'c 检查 · n 更新 · i 安装 · u 卸载', checking: '正在检查或更新 Skill…',
+            failed: 'Skill 更新未完成：{message}', updated: 'Skill 已同步，当前版本 {version}',
+        },
+        businessReasons: {
+            TARGET_VERSION_NOT_EMPTY: '目标草稿已有内容，不能克隆到这个版本。',
+            VERSION_FROZEN: '当前正文属于已发布版本；名称和说明可修改，正文改动需要先克隆草稿。',
+            VERSION_PROJECT_MISMATCH: '来源和目标版本必须属于同一项目。',
+            VERSION_WRITE_CONFLICT: '版本正在被其他操作修改，请先回查状态。',
+            VERSION_NOT_PUBLISHED: '来源版本尚未发布。',
+            RELEASE_VALIDATION_FAILED: '还有未完成的文档，暂时无法发布。',
+            DRAFT_STATUS_IMMUTABLE: '草稿需要先发布，再设置是否公开。',
+        },
+        setup: {
+            skillPending: 'Skill 尚未同步，可用 skill status 查看原因。',
+            title: '连接 SlothVault', urlPrompt: '服务器地址：', keyLabel: '访问密钥', urlLabel: '服务器地址',
+            connected: '已连接 {url}', savedOffline: '配置已保存，但服务暂时无法连接：{message}',
+            commandPending: '独立命令尚未注册（{state}），可用 slothtool slothvault mcp status 查看。',
+            skillConflict: '{targets} 的自定义 Skill 已保留，可用 skill status 查看。',
+            hint: 'c 连接 SlothVault',
+        },
         title: 'slothvault-mcp - SlothVault MCP 客户端',
         usage: '用法：',
         help: '显示帮助信息',
@@ -148,7 +171,7 @@ export const messages = {
         skillReplaceConfirm: 'Skill 安装位置已存在其他内容。确认永久删除且不备份后安装吗？\n{path}\n输入 yes 或 y 确认，其他输入取消：',
         skillStates: {
             installed: '已安装',
-            'not-installed': '未安装',
+            'not-installed': '未安装', outdated: '旧受管链接',
             conflict: '存在冲突'
         },
         skillActions: {
@@ -335,7 +358,7 @@ export const messages = {
             states: {
                 unavailable: '不可用',
                 'not-detected': '未检测到',
-                'not-installed': '未安装',
+                'not-installed': '未安装', outdated: '旧受管链接',
                 installed: '已安装',
                 conflict: '存在冲突',
                 registered: '已注册',
@@ -399,6 +422,29 @@ export const messages = {
         }
     },
     en: {
+        skillVersion: {
+            current: 'Current Skill: {version}', checked: 'Latest official Skill: {version}',
+            unavailable: 'Unable to check the official version.', local: 'Synchronized the bundled Skill offline.',
+            hint: 'c Check · n Update · i Install · u Uninstall', checking: 'Checking or updating the Skill…',
+            failed: 'Skill update did not finish: {message}', updated: 'Skill synchronized, current version {version}',
+        },
+        businessReasons: {
+            TARGET_VERSION_NOT_EMPTY: 'The target draft already contains documents and cannot receive a clone.',
+            VERSION_FROZEN: 'This content belongs to a published version. Names and descriptions remain editable; clone a draft to change the body.',
+            VERSION_PROJECT_MISMATCH: 'Source and target versions must belong to the same project.',
+            VERSION_WRITE_CONFLICT: 'Another operation is changing this version. Check its state before retrying.',
+            VERSION_NOT_PUBLISHED: 'The source version has not been published.',
+            RELEASE_VALIDATION_FAILED: 'Some documents are incomplete. Resolve the listed issues before publishing.',
+            DRAFT_STATUS_IMMUTABLE: 'Publish this draft before changing its visibility.',
+        },
+        setup: {
+            skillPending: 'Skill synchronization did not finish. Run skill status for details.',
+            title: 'Connect SlothVault', urlPrompt: 'Server address: ', keyLabel: 'Access key', urlLabel: 'Server address',
+            connected: 'Connected to {url}', savedOffline: 'Configuration saved, but the service could not be reached: {message}',
+            commandPending: 'Standalone command is not registered ({state}); run slothtool slothvault mcp status for details.',
+            skillConflict: 'Custom Skills for {targets} were preserved. Run skill status for details.',
+            hint: 'c Connect SlothVault',
+        },
         title: 'slothvault-mcp - SlothVault MCP client',
         usage: 'Usage:',
         help: 'Show help',
@@ -779,7 +825,11 @@ export function t(key, params = {}) {
 export function formatSlothVaultError(error) {
     const key = error?.code ? `errors.${error.code}` : '';
     const translated = key ? t(key) : '';
-    const message = translated && translated !== key ? translated : error?.message || String(error);
+    const reasonKey = `businessReasons.${error?.business?.reason}`;
+    const reason = t(reasonKey);
+    const message = error?.business && Object.keys(error.business).length
+        ? (reason !== reasonKey ? reason : error.business.serverMessage || translated)
+        : translated && translated !== key ? translated : error?.message || String(error);
     return String(message)
         .replace(/svmcp_[A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{43}/gu, '[redacted]')
         .replace(/Bearer\s+[^\s"']+/giu, 'Bearer [redacted]');

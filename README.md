@@ -249,9 +249,9 @@ slothvault-mcp storage status --json
 
 `--json` 成功时只输出一个 JSON 文档，警告写入 stderr。稳定退出码为：`0` 成功、`2` 用法/配置/缺少确认、`3` 认证失败、`4` 网络/超时/服务或协议失败、`5` MCP 业务失败、`1` 其他内部错误。
 
-插件通过 MCP 初始化与实时发现读取 SlothVault 暴露的 Tool、Prompt 和 Resource Template，不在客户端硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。MCP TUI 可查看连接状态、能力与脱敏历史，并在“配置”页管理本地 Profile；它不执行 Tool、获取 Prompt 内容或读取 Resource。Skill 只通过 `slothtool slothvault skill …` 管理。
+插件通过 MCP 初始化与实时发现读取 SlothVault 暴露的 Tool、Prompt 和 Resource Template，不在客户端硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。MCP TUI 可查看连接状态、能力与脱敏历史，并在“配置”页管理本地 Profile；它不执行 Tool、获取 Prompt 内容或读取 Resource。Skill 通过 `slothtool slothvault setup` 或 `slothtool slothvault skill …` 管理。已授权的任务使用 `--yes` 连续执行，无需每一步重新确认。
 
-发行包内置 `slothvault-mcp` Skill。通过 `slothtool slothvault skill install` 会检测 Codex 与 Claude Code，并只在已检测智能体自己的目录创建链接：Codex 使用 `$CODEX_HOME/skills/slothvault-mcp`（默认 `~/.codex/skills/slothvault-mcp`），Claude Code 使用 `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp`（默认 `~/.claude/skills/slothvault-mcp`）；不再向 `~/.agents/skills` 新装链接。若任一目标存在其他内容，交互模式会列出冲突路径并询问是否永久删除且不备份，非交互或 `--json` 模式只有显式 `--yes` 才能覆盖；卸载只删除准确指向当前插件 Skill 的受管链接。未出现 Skill 时请重启对应智能体。
+发行包内置 `slothvault-mcp` Skill。通过 `slothtool slothvault skill install` 会检测 Codex 与 Claude Code，并只在已检测智能体自己的目录创建链接：Codex 使用 `$CODEX_HOME/skills/slothvault-mcp`（默认 `~/.codex/skills/slothvault-mcp`），Claude Code 使用 `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp`（默认 `~/.claude/skills/slothvault-mcp`）；不再向 `~/.agents/skills` 新装链接。若任一目标存在其他内容，交互模式会列出冲突路径并询问是否永久删除且不备份，非交互或 `--json` 模式只有显式 `--yes` 才能覆盖；卸载只删除当前或旧版的已识别受管链接。未出现 Skill 时请重启对应智能体。
 
 TUI 的 Profile 表单不会载入现有明文 Key，也不会显示本次输入的新 Key；编辑时 Key 留空会保留原值。配置变更不会自动连接服务端，默认 Profile 或连接参数变化后需按 `r` 重新发现能力。
 
@@ -435,3 +435,23 @@ More project docs:
 ## License
 
 ISC, as declared in [package.json](./package.json). This repository does not currently include a standalone `LICENSE` file.
+
+### SlothVault 快速连接与 Skill 更新
+
+首次进入 SlothVault TUI 展示“连接 SlothVault”，只输入服务器地址和访问密钥；已有配置可在概览按 `c` 重新连接，高级 Profile 管理保留。CLI 使用同一服务：
+
+```bash
+slothtool slothvault setup --url https://vault.example --key-env SLOTHVAULT_KEY
+slothvault-mcp setup --url https://vault.example --key-stdin
+slothtool slothvault skill status --json
+slothtool slothvault skill status --check --json
+slothtool slothvault skill update
+slothtool slothvault skill update --local
+slothtool update slothvault --check --json
+```
+
+`setup` 自动补全 `/mcp`、复用同地址连接，并保留其他连接。保存后检测服务，连接失败时明确报告“配置已保存”。完整管理入口同时注册受管命令并安装已检测智能体的 Skill，自定义冲突保留。
+
+Skill 独立语义版本随官方插件发布，Release 附带 `slothvault-skill.json` 文件摘要。在线更新复用官方插件更新服务，在新版进程中同步与校验内容；`--local` 离线同步当前插件内置 Skill。旧受管链接和缺失链接可修复，自定义文件保持原状。TUI 的 Skill 页按 `c` 检查、`n` 更新，并显示当前和最新版本；网络失败显示“未能检查”。
+
+MCP 业务错误保留脱敏后的 `reason`、实体 ID 和校验问题；例如目标非空或正文已发布，不再只显示通用错误。Skill 对已授权任务连续完成准备、编辑、校验、发布与回查，正文使用具体项目事实，并优先使用 `loc`、`pzip` 和已有附件。

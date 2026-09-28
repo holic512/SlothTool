@@ -82,7 +82,7 @@ const surfaces = [
     ['gstore', GStoreTuiApp, {}, 4, [30, 14]],
     ['pzip', PzipTuiApp, {initialSourceDirectory: home}, 2, [30, 8]],
     ['mcp', SlothVaultTuiApp, {initialDiscovery: {tools: [], prompts: [], resourceTemplates: []}}, 4, [40, 16]],
-    ['manager', ManagerApp, {inspect: async root => ({state: 'absent', root, containers: []})}, 4, [30, 18]]
+    ['manager', ManagerApp, {initialSetup: false, inspect: async root => ({state: 'absent', root, containers: []})}, 4, [30, 18]]
 ];
 
 for (const language of ['zh', 'en']) {

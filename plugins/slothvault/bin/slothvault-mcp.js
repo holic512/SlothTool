@@ -12,6 +12,8 @@
  */
 
 import fs from 'node:fs';
+import {readStdinText, resolveApiKey} from '../lib/cli-input.js';
+import {runSetupCli} from '../lib/setup-cli.js';
 import {createInterface} from 'node:readline/promises';
 import process from 'node:process';
 import {
@@ -111,81 +113,6 @@ function safeProfile(profile) {
         apiKey: maskApiKey(profile.apiKey),
         warnings: profile.warnings?.map(localizeProfileWarning)
     };
-}
-
-/** Read a hidden line from an interactive terminal without echoing the MCP key. */
-async function readHiddenLine(prompt) {
-    if (!process.stdin.isTTY || !process.stdout.isTTY) {
-        throw usageError(t('keyStdinEmpty'));
-    }
-    process.stdout.write(prompt);
-    const wasRaw = Boolean(process.stdin.isRaw);
-    let value = '';
-    let onData;
-    try {
-        process.stdin.setRawMode?.(true);
-        process.stdin.resume();
-        return await new Promise((resolve, reject) => {
-            onData = chunk => {
-                for (const character of String(chunk)) {
-                    if (character === '\u0003') {
-                        reject(usageError(t('cancelled')));
-                        return;
-                    }
-                    if (character === '\r' || character === '\n') {
-                        process.stdout.write('\n');
-                        resolve(value.trim());
-                        return;
-                    }
-                    if (character === '\u007f' || character === '\b') {
-                        value = value.slice(0, -1);
-                    } else {
-                        value += character;
-                    }
-                }
-            };
-            process.stdin.on('data', onData);
-        });
-    } finally {
-        if (onData) {
-            process.stdin.off('data', onData);
-        }
-        process.stdin.setRawMode?.(wasRaw);
-        process.stdin.pause();
-    }
-}
-
-/** Read all stdin text for key or JSON argument sources. */
-async function readStdinText() {
-    let value = '';
-    for await (const chunk of process.stdin) {
-        value += String(chunk);
-    }
-    return value.trim();
-}
-
-/** Resolve a profile key from hidden input, stdin, or a named environment variable. */
-async function resolveApiKey(args) {
-    const stdin = hasFlag(args, '--key-stdin');
-    const envName = readOption(args, '--key-env');
-    if (stdin && envName) {
-        throw usageError(t('keySourceExclusive'));
-    }
-    if (stdin) {
-        const value = await readStdinText();
-        if (!value) {
-            throw usageError(t('keyStdinEmpty'));
-        }
-        return value;
-    }
-    if (envName) {
-        const value = process.env[envName]?.trim();
-        if (!value) {
-            throw usageError(t('keyEnvEmpty', {name: envName}));
-        }
-        return value;
-    }
-    return await readHiddenLine(t('keyPrompt'));
 }
 
 /** Parse a JSON object supplied directly, by file, or through stdin. */
@@ -342,6 +269,7 @@ function printHelp() {
     console.log(t('usage'));
     console.log('  slothvault-mcp');
     console.log('  slothvault-mcp --tui');
+    console.log('  slothvault-mcp setup [--url <url>] [--key-stdin|--key-env <env>] [--json]');
     console.log('  slothvault-mcp profile add <name> --url <url> [--timeout <ms>] [--default] [--key-stdin|--key-env <env>]');
     console.log('  slothvault-mcp profile update <name> [--url <url>] [--timeout <ms>] [--key-stdin|--key-env <env>]');
     console.log('  slothvault-mcp profile list|show <name>|use <name>|remove <name>');
@@ -549,6 +477,7 @@ async function runCli(args) {
     const profileName = readOption(args, '--profile');
     const commandArgs = args.filter((arg, index) => arg !== '--json' && arg !== '--profile' && (index === 0 || args[index - 1] !== '--profile'));
     const command = commandArgs[0];
+    if (command === 'setup') return runSetupCli([...commandArgs.slice(1), ...(json ? ['--json'] : [])]);
     if (command === 'profile') {
         await runProfileCommand(commandArgs, json);
         return;
@@ -594,11 +523,13 @@ main().catch(error => {
             error: {
                 code: error?.code || classification?.code || 'INTERNAL_ERROR',
                 category: error?.category || classification?.category || 'internal',
-                message
+                message,
+                ...(error.business || {})
             }
         });
     } else {
         console.error(`${t('error')}: ${message}`);
+        for (const issue of error.business?.issues || []) console.error(`  ${issue.entity} ${issue.entityId}: ${issue.message} (${issue.code})`);
     }
     process.exitCode = exitCode;
 });

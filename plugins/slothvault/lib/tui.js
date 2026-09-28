@@ -22,6 +22,8 @@ import {
 } from './config.js';
 import {listHistory} from './history.js';
 import {inspectServer} from './service.js';
+import {setupConnection} from './setup.js';
+import {setupResultText} from './setup-cli.js';
 import {formatSlothVaultError, t} from './i18n.js';
 
 import {TuiFrame, TuiHeader, TuiDetails} from './shared-layout.js';
@@ -30,6 +32,7 @@ import {getShellLayout, getDetailWindow, getDisplayWidth} from './shared-interac
 const h = React.createElement;
 const TABS = ['status', 'capabilities', 'history', 'profiles'];
 const PROFILE_FORM_FIELDS = {
+    setup: ['endpoint', 'apiKey'],
     add: ['name', 'endpoint', 'timeoutMs', 'apiKey', 'makeDefault'],
     edit: ['endpoint', 'timeoutMs', 'apiKey', 'makeDefault']
 };
@@ -142,9 +145,9 @@ function profileFormFields(mode) {
 function profileFieldLabel(field, mode) {
     const labels = {
         name: 'tui.labels.profile',
-        endpoint: 'tui.labels.endpoint',
+        endpoint: mode === 'setup' ? 'setup.urlLabel' : 'tui.labels.endpoint',
         timeoutMs: 'tui.labels.timeout',
-        apiKey: mode === 'add' ? 'tui.labels.mcpKey' : 'tui.labels.newKey',
+        apiKey: mode === 'setup' ? 'setup.keyLabel' : mode === 'add' ? 'tui.labels.mcpKey' : 'tui.labels.newKey',
         makeDefault: 'tui.labels.makeDefault'
     };
     return t(labels[field] || field);
@@ -212,7 +215,7 @@ function HistoryPage({history, selectedIndex, layout}) {
 /** Render the profile add/edit form with secret-safe field values. */
 function ProfileFormPage({mode, form, fieldIndex, cursor, inputError, layout}) {
     const fields = profileFormFields(mode);
-    return h(Panel, {title: t(`tui.panels.profile${mode === 'add' ? 'Add' : 'Edit'}`), layout, color: COLORS.accent},
+    return h(Panel, {title: mode === 'setup' ? t('setup.title') : t(`tui.panels.profile${mode === 'add' ? 'Add' : 'Edit'}`), layout, color: COLORS.accent},
         ...fields.map((field, index) => {
             const label = `${index === fieldIndex ? '›' : ' '} ${profileFieldLabel(field, mode)}: `;
             const width = Math.max(1, layout.contentWidth - 4 - getDisplayWidth(label));
@@ -222,8 +225,6 @@ function ProfileFormPage({mode, form, fieldIndex, cursor, inputError, layout}) {
             return h(Text, {key: field, color: index === fieldIndex ? COLORS.accent : undefined, wrap: 'truncate-end'}, label + value);
         }),
         inputError ? h(Text, {color: COLORS.danger, wrap: 'truncate-end'}, inputError) : null,
-        h(Text, {color: COLORS.warning, wrap: 'truncate-end'}, t('plaintextConfigWarning')),
-        form.endpoint.trim().startsWith('http://') ? h(Text, {color: COLORS.warning, wrap: 'truncate-end'}, t('httpWarning')) : null,
         mode === 'edit' ? h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.profile.editKeyHint')) : null,
         h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.profile.formHelp')));
 }
@@ -231,7 +232,7 @@ function ProfileFormPage({mode, form, fieldIndex, cursor, inputError, layout}) {
 function ProfilesPage({config, selectedIndex, layout, mode, form, fieldIndex, cursor, inputError}) {
     const profiles = config.profiles || [];
     const selected = profiles[selectedIndex];
-    if ((mode === 'add' || mode === 'edit') && form) return h(ProfileFormPage, {mode, form, fieldIndex, cursor, inputError, layout});
+    if (['setup', 'add', 'edit'].includes(mode) && form) return h(ProfileFormPage, {mode, form, fieldIndex, cursor, inputError, layout});
     if (mode === 'delete') return h(TuiDetails, {title: t('tui.panels.profileDelete'),
         lines: [t('tui.profile.deletePrompt', {name: selected?.name || '-'}), t('tui.profile.deleteHistoryNote'), t('tui.profile.deleteHelp')],
         width: layout.contentWidth, height: layout.contentHeight, accent: COLORS.danger});
@@ -247,11 +248,11 @@ function ProfilesPage({config, selectedIndex, layout, mode, form, fieldIndex, cu
 }
 
 /** Provide read-only remote inspection plus local Profile management state. */
-export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null} = {}) {
+export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null, initialSetup = false, managedSetup = false, onClose = null} = {}) {
     const app = useApp();
     const windowSize = useWindowSize();
     const baseLayout = layoutOverride || resolveSlothVaultTuiLayout(windowSize.columns, windowSize.rows);
-    const [activeTab, setActiveTab] = useState('status');
+    const [activeTab, setActiveTab] = useState(initialSetup ? 'profiles' : 'status');
     const [selectedIndices, setSelectedIndices] = useState({capabilities: 0, history: 0, profiles: 0});
     const [config, setConfig] = useState(() => getConfigSummary());
     const [history, setHistory] = useState(() => listHistory({limit: 50}));
@@ -260,9 +261,9 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     const [error, setError] = useState('');
     const [status, setStatus] = useState(t('tui.status.ready'));
     const [statusTone, setStatusTone] = useState('success');
-    const [profileMode, setProfileMode] = useState('browse');
+    const [profileMode, setProfileMode] = useState(initialSetup ? 'setup' : 'browse');
     const deleteProfileRef = useRef(false);
-    const [profileForm, setProfileForm] = useState(null);
+    const [profileForm, setProfileForm] = useState(initialSetup ? createProfileForm('setup') : null);
     const [profileFieldIndex, setProfileFieldIndex] = useState(0);
     const [profileCursor, setProfileCursor] = useState(0);
     const [profileInputError, setProfileInputError] = useState('');
@@ -277,7 +278,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
                 : 'tui.profile.formFooter'
         : 'tui.footer';
     const shell = getShellLayout(baseLayout.columns, baseLayout.rows, {
-        status: `${statusSymbol(loading ? 'running' : 'result', statusTone)} ${status}`, keys: t(footerKey), inverseFooter: true
+        status: `${statusSymbol(loading ? 'running' : 'result', statusTone)} ${status}`, keys: `${t('setup.hint')} · ${t(footerKey)}`, inverseFooter: true
     });
     const layout = {...baseLayout, contentWidth: shell.contentWidth, contentHeight: shell.contentHeight};
     const detailWindow = getDetailWindow(detailLines, detailScroll, shell.contentWidth, shell.contentHeight);
@@ -372,8 +373,8 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     }
 
     /** Persist the active add/edit form and clear its credential state. */
-    function saveProfileForm() {
-        if (!profileForm || !['add', 'edit'].includes(profileMode)) {
+    async function saveProfileForm() {
+        if (!profileForm || !['setup', 'add', 'edit'].includes(profileMode)) {
             return;
         }
 
@@ -387,6 +388,17 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         };
 
         try {
+            if (profileMode === 'setup') {
+                setLoading(true);
+                setProfileForm(current => current ? {...current, apiKey: ''} : null);
+                const result = await setupConnection({endpoint: profileForm.endpoint, apiKey: profileForm.apiKey}, {managed: managedSetup});
+                invalidateDiscovery();
+                reloadProfiles(result.profile.name);
+                closeProfileInteraction();
+                setStatus(setupResultText(result));
+                setStatusTone(result.connected ? 'success' : 'warning');
+                return;
+            }
             // Step 1: Let the shared config service validate and atomically persist the mutation.
             const saved = profileMode === 'add'
                 ? addProfile(profileForm.name, {...patch, apiKey: profileForm.apiKey})
@@ -416,6 +428,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             setProfileInputError(safeError);
             setStatus(t('tui.status.profileOperationFailed', {message: safeError}));
             setStatusTone('danger');
+            setLoading(false);
         }
     }
 
@@ -526,11 +539,16 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     }
 
     useEffect(() => {
-        if (process.env.SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION === 'render-exit') {
+        if ((process.env.SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION === 'render-exit' || process.env.SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION === 'render-exit')) {
             app.exit();
             return;
         }
-        if (!initialDiscovery) {
+        if (initialSetup || (!initialDiscovery && !config.profiles.length)) {
+            setActiveTab('profiles');
+            setProfileMode('setup');
+            setProfileForm(createProfileForm('setup'));
+            setStatus(t('setup.title'));
+        } else if (!initialDiscovery) {
             void refresh();
         }
     }, []);
@@ -542,8 +560,9 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     }), [config.profiles.length, discovery, history.length]);
 
     useInput((input, key) => {
+        if (loading && profileMode === 'setup') return;
         if (layout.tooSmall) {
-            if (input === 'q') app.exit();
+            if (input === 'q') onClose ? onClose() : app.exit();
             return;
         }
         if (activeTab === 'profiles' && profileMode !== 'browse') {
@@ -567,6 +586,10 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             else if (key.downArrow || key.pageDown) setDetailScroll(value => Math.min(
                 detailWindow.maxScroll, Math.min(value, detailWindow.maxScroll) + (key.pageDown ? detailWindow.capacity : 1)));
             return;
+        }
+        if (input === 'c') {
+            setActiveTab('profiles'); setProfileMode('setup'); setProfileForm(createProfileForm('setup'));
+            setProfileFieldIndex(0); setProfileCursor(0); setProfileInputError(''); return;
         }
         if (input === 'v') {
             const lines = [t(`tui.tabs.${activeTab}`), status, ''];
@@ -596,7 +619,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             return;
         }
         if (input === 'q') {
-            app.exit();
+            if (onClose) onClose(); else app.exit();
             return;
         }
         if (input === 'r' && !loading) {
@@ -640,7 +663,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     });
 
     usePaste(value => {
-        if (!['add', 'edit'].includes(profileMode) || !profileForm) return;
+        if (!['setup', 'add', 'edit'].includes(profileMode) || !profileForm) return;
         const field = profileFormFields(profileMode)[profileFieldIndex];
         if (!field || field === 'makeDefault') return;
         const next = editText({value: profileForm[field], cursor: profileCursor}, value, {}, PROFILE_FIELD_LIMITS[field]);

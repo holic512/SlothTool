@@ -10,6 +10,8 @@
  */
 
 import fs from 'node:fs';
+import pluginPackage from '../package.json' with {type: 'json'};
+import {readSkillVersion, verifySkillMetadata} from './skill-metadata.js';
 import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -222,7 +224,10 @@ function inspectTarget(targetPath, sourcePath, options = {}) {
         return 'conflict';
     }
     const resolvedLink = path.resolve(path.dirname(targetPath), linkValue);
-    return pathsEqual(resolvedLink, sourcePath, options.platform) ? 'installed' : 'conflict';
+    if (pathsEqual(resolvedLink, sourcePath, options.platform)) return 'installed';
+    const home = path.resolve(options.homeDir || os.homedir());
+    const managedRoots = ['slothvault', 'slothvault-mcp'].map(alias => path.join(home, '.pipker', 'slothtool', 'plugins', alias, 'skills', SKILL_NAME));
+    return managedRoots.some(root => pathsEqual(root, resolvedLink, options.platform)) ? 'outdated' : 'conflict';
 }
 
 /** Convert unexpected filesystem failures into the plugin's stable local error contract. */
@@ -252,7 +257,11 @@ function aggregateState(agents) {
 export function getSkillStatus(options = {}) {
     try {
         const paths = getSkillPaths(options);
-        assertSkillSource(paths.sourcePath, options.fileSystem || fs);
+        const fileSystem = options.fileSystem || fs;
+        assertSkillSource(paths.sourcePath, fileSystem);
+        const metadataPath = path.resolve(moduleDirectory, '..', 'skill-release.json');
+        if (!options.sourcePath) verifySkillMetadata(paths.sourcePath, JSON.parse(fileSystem.readFileSync(metadataPath, 'utf8')), pluginPackage.version, fileSystem);
+        const version = readSkillVersion(paths.sourcePath, fileSystem);
         const agents = paths.agents.map(agent => {
             assertFixedTarget(agent, paths, options);
             return {
@@ -261,11 +270,14 @@ export function getSkillStatus(options = {}) {
                 detected: agent.detected,
                 detection: agent.detection,
                 state: inspectTarget(agent.targetPath, paths.sourcePath, options),
-                targetPath: agent.targetPath
+                targetPath: agent.targetPath,
+                version: (() => { try { return readSkillVersion(agent.targetPath, fileSystem); } catch { return null; } })()
             };
         });
         return {
             name: SKILL_NAME,
+            version,
+            pluginVersion: pluginPackage.version,
             state: aggregateState(agents),
             sourcePath: paths.sourcePath,
             agents,
@@ -302,7 +314,7 @@ function removeConflictTarget(targetPath, fileSystem = fs) {
 
 /** Remove the former shared target only when it is still a link managed by this plugin. */
 function removeManagedLegacyTarget(status, fileSystem = fs) {
-    if (status.legacyTarget.state === 'installed') {
+    if (['installed', 'outdated'].includes(status.legacyTarget.state)) {
         fileSystem.unlinkSync(status.legacyTarget.targetPath);
         return true;
     }
@@ -324,7 +336,7 @@ export function installSkill(options = {}) {
         }
 
         const conflicts = detected.filter(agent => agent.state === 'conflict');
-        if (conflicts.length > 0 && !options.replace) {
+        if (conflicts.length > 0 && !options.replace && !options.skipConflicts) {
             throw new SlothVaultSkillError(`The SlothVault Skill target already exists: ${conflicts.map(agent => agent.targetPath).join(', ')}`, {
                 code: 'SKILL_INSTALL_CONFIRMATION_REQUIRED',
                 category: 'confirmation',
@@ -332,7 +344,7 @@ export function installSkill(options = {}) {
             });
         }
 
-        const pending = detected.filter(agent => agent.state !== 'installed');
+        const pending = detected.filter(agent => agent.state !== 'installed' && !(options.skipConflicts && agent.state === 'conflict'));
         const plans = [];
         try {
             for (const agentStatus of pending) {
@@ -352,7 +364,7 @@ export function installSkill(options = {}) {
 
             const currentStates = plans.map(plan => ({plan, state: inspectTarget(plan.targetPath, paths.sourcePath, options)}));
             const lateConflicts = currentStates.filter(item => item.state === 'conflict');
-            if (lateConflicts.length > 0 && !options.replace) {
+            if (lateConflicts.length > 0 && !options.replace && !options.skipConflicts) {
                 throw new SlothVaultSkillError(`The SlothVault Skill target already exists: ${lateConflicts.map(item => item.plan.targetPath).join(', ')}`, {
                     code: 'SKILL_INSTALL_CONFIRMATION_REQUIRED',
                     category: 'confirmation',
@@ -366,7 +378,8 @@ export function installSkill(options = {}) {
                     plan.temporaryCreated = false;
                     continue;
                 }
-                if (state === 'conflict') {
+                if (state === 'conflict' && options.skipConflicts) continue;
+                if (state === 'conflict' || state === 'outdated') {
                     removeConflictTarget(plan.targetPath, fileSystem);
                 }
                 fileSystem.renameSync(plan.temporaryPath, plan.targetPath);
@@ -374,7 +387,7 @@ export function installSkill(options = {}) {
             }
 
             const installed = getSkillStatus(options);
-            const incomplete = installed.agents.filter(agent => agent.detected && agent.state !== 'installed');
+            const incomplete = installed.agents.filter(agent => agent.detected && agent.state !== 'installed' && !(options.skipConflicts && agent.state === 'conflict'));
             if (incomplete.length > 0) {
                 throw new SlothVaultSkillError('One or more agent Skill links could not be verified after installation.', {
                     code: 'SKILL_LINK_INVALID'
@@ -383,7 +396,7 @@ export function installSkill(options = {}) {
             removeManagedLegacyTarget(installed, fileSystem);
             const result = getSkillStatus(options);
             const action = conflicts.length > 0
-                ? 'replaced'
+                ? options.skipConflicts ? 'conflict' : 'replaced'
                 : pending.length > 0
                     ? 'installed'
                     : 'already-installed';
@@ -420,7 +433,7 @@ export function uninstallSkill(options = {}) {
             });
         }
 
-        const installed = detected.filter(agent => agent.state === 'installed');
+        const installed = detected.filter(agent => ['installed', 'outdated'].includes(agent.state));
         for (const agent of installed) {
             fileSystem.unlinkSync(agent.targetPath);
         }

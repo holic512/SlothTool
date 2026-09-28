@@ -17,6 +17,9 @@ import {Box, Spacer, Text, useApp, useInput, usePaste, useWindowSize, render} fr
 import pluginPackage from '../package.json' with {type: 'json'};
 import {editText, editorViewport, graphemes, nextTabIndex, statusSymbol, truncateFromRight, wrapText} from './shared-interaction.js';
 import {createDeploymentSession, inspectDeployment} from './deploy-runner.js';
+import {getConfigSummary} from './config.js';
+import {SlothVaultTuiApp} from './tui.js';
+import {checkSkillUpdate, updateSkill} from './skill-update.js';
 import {getSkillStatus, installSkill, uninstallSkill} from './skill-manager.js';
 import {getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from './mcp-command-manager.js';
 import {t} from './i18n.js';
@@ -188,7 +191,12 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
     return h(TwoPanels, {left: list, right: details, layout});
 }
 
-export function ManagerApp({inspect = inspectDeployment, createSession = createDeploymentSession} = {}) {
+export function ManagerApp({initialSetup, ...props} = {}) {
+    const [connecting, setConnecting] = useState(() => initialSetup ?? getConfigSummary().profiles.length === 0);
+    return connecting ? h(SlothVaultTuiApp, {initialSetup: true, managedSetup: true, onClose: () => setConnecting(false)})
+        : h(ManagerShell, {...props, onConnect: () => setConnecting(true)});
+}
+function ManagerShell({inspect = inspectDeployment, createSession = createDeploymentSession, onConnect} = {}) {
     const {exit} = useApp();
     const {columns = 80, rows = 24} = useWindowSize();
     const baseLayout = resolveSlothVaultManagerLayout(columns, rows);
@@ -268,13 +276,16 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
         }
         refreshInstance();
     }
-    function operateSkill(action) {
+    async function operateSkill(action) {
+        setBusy(true);
+        setMessage(t('skillVersion.checking'));
         try {
-            const result = action === 'install' ? installSkill() : uninstallSkill();
+            const result = action === 'check' ? await checkSkillUpdate() : action === 'update' ? await updateSkill() : action === 'install' ? installSkill() : uninstallSkill();
             setSkill(result);
-            setMessage(t('manager.skillActionCompleted', {action: stateText(result.action || action)}));
-            setMessageColor(COLORS.success);
+            setMessage(result.checkState ? t(`skillVersion.${result.checkState}`, {version: result.latestVersion || result.version || '-'}) : t('manager.skillActionCompleted', {action: stateText(result.action || action)}));
+            setMessageColor(result.checkState === 'unavailable' || result.state === 'conflict' ? COLORS.warning : COLORS.success);
         } catch (error) {setMessage(t('manager.skillActionFailed', {message: error.message})); setMessageColor(COLORS.warning);}
+        finally {setBusy(false);}
     }
     function operateMcp(action) {
         try {
@@ -424,6 +435,9 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
                 return;
             }
         }
+        if (tab === 'overview' && input === 'c') onConnect();
+        if (tab === 'skill' && input === 'c') operateSkill('check');
+        if (tab === 'skill' && input === 'n') operateSkill('update');
         if (tab === 'skill' && input === 'i') operateSkill('install');
         if (tab === 'skill' && input === 'u') operateSkill('uninstall');
         if (tab === 'mcp' && input === 'i') operateMcp('register');
@@ -445,7 +459,7 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
     else if (tab === 'deploy') content = h(DeployPage, {layout, selectedIndex: selectedAction, root, nginxMode, nginxContainer, editing, draft, draftCursor,
         pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy});
     else if (tab === 'skill') content = h(TwoPanels, {layout,
-        left: h(Panel, {title: t('manager.panels.skill')}, h(Field, {label: t('manager.fields.status'), value: stateText(skill.state)}), h(Text, {dimColor: true}, t('manager.skillGuide'))),
+        left: h(Panel, {title: t('manager.panels.skill')}, h(Field, {label: t('manager.fields.status'), value: stateText(skill.state)}), h(Text, {}, t('skillVersion.current', {version: skill.version || '-'})), h(Text, {}, skill.checkState ? t(`skillVersion.${skill.checkState}`, {version: skill.latestVersion || '-'}) : ''), h(Text, {dimColor: true}, t('skillVersion.hint'))),
         right: h(Panel, {title: t('manager.panels.targets')}, ...skill.agents.map(agent => h(Box, {key: agent.id, flexDirection: 'column'},
             h(Text, {color: agent.detected ? COLORS.success : COLORS.muted}, agent.name + ': ' + stateText(agent.detected ? agent.state : 'not-detected')),
             h(Text, {dimColor: true}, clip(agent.targetPath, detailWidth)))))
@@ -457,10 +471,10 @@ export function ManagerApp({inspect = inspectDeployment, createSession = createD
     else content = layout.compact && layout.short
         ? h(Box, {height: layout.contentHeight, flexDirection: 'column'},
             h(Box, {height: layout.contentHeight - 1, flexShrink: 0, flexDirection: 'column'}, h(InstanceSummary, {instance, layout})),
-            h(Text, {dimColor: true, wrap: 'truncate-end'}, t('manager.shortHint')))
+            h(Text, {dimColor: true, wrap: 'truncate-end'}, `${t('setup.hint')} · ${t('manager.shortHint')}`))
         : h(TwoPanels, {layout,
         left: h(InstanceSummary, {instance, layout}),
-        right: h(InstanceDetails, {instance, layout})
+        right: h(Box, {flexDirection: 'column'}, h(Text, {color: COLORS.accent}, t('setup.hint')), h(InstanceDetails, {instance, layout}))
     });
 
     return h(TuiFrame, {layout: shell, statusColor: pending ? COLORS.warning : messageColor,

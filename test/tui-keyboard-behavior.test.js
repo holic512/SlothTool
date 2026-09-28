@@ -211,7 +211,7 @@ test('SlothVault profile form isolates page keys and never renders the typed Key
 
 test('SlothVault manager requires y for deployment and cancels before later keys', async () => {
     const launched = [];
-    const ui = harness(ManagerApp, {
+    const ui = harness(ManagerApp, {initialSetup: false,
         inspect: async root => ({state: 'absent', root, containers: []}),
         createSession(args) {
             launched.push(args);
@@ -260,4 +260,22 @@ test('very small plugin windows show resize guidance without activating hidden p
         assert.match(pzip.frame(), /终端空间不足/u);
         assert.doesNotMatch(pzip.frame(), /输入目录路径/u);
     } finally {await pzip.close();}
+});
+
+
+test('first connection form asks only for URL and key and clears secret input on cancel', async () => {
+    const ui = harness(SlothVaultTuiApp, {initialSetup: true});
+    try {
+        await waitForFrame(ui, /连接 SlothVault/u);
+        assert.match(ui.frame(), /服务器地址/u);
+        assert.match(ui.frame(), /访问密钥/u);
+        assert.doesNotMatch(ui.frame(), /超时|设为默认/u);
+        await ui.press('https://vault.example');
+        await ui.press('\t');
+        await ui.press('private-test-key');
+        assert.doesNotMatch(ui.frame(), /private-test-key/u);
+        await ui.press('\u001b');
+        await ui.press('c');
+        assert.doesNotMatch(ui.frame(), /private-test-key|https:\/\/vault.example/u);
+    } finally { await ui.close(); }
 });

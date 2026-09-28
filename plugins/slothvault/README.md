@@ -17,7 +17,7 @@ Registration creates a managed symbolic link on Unix/macOS or a managed `.cmd` l
 
 The prior `slothtool slothvault-mcp …` shorthand remains a deprecated compatibility entry: MCP arguments use the new MCP executable and its old `skill …` subcommand is forwarded to `slothtool slothvault skill …`.
 
-`slothtool slothvault` is intentionally limited to the local multifunction manager, deployment, Skill management, and MCP command registration. It rejects `profile`, `doctor`, `tools`, `prompts`, `resources`, `history`, and `storage` arguments rather than forwarding them or writing a legacy configuration path. Use the registered `slothvault-mcp` command for every MCP operation.
+`slothtool slothvault` is intentionally responsible for connection setup, the local multifunction manager, deployment, Skill management, and MCP command registration. It rejects `profile`, `doctor`, `tools`, `prompts`, `resources`, `history`, and `storage` arguments rather than forwarding them or writing a legacy configuration path. Use the registered `slothvault-mcp` command for every MCP operation.
 
 ## Deployment
 
@@ -140,3 +140,19 @@ With `--json`, stdout contains one JSON document and warnings are written to std
 | 3 | Authentication failure |
 | 4 | Network, timeout, unavailable server, or MCP protocol failure |
 | 5 | MCP tool business error (`isError: true`) |
+
+## Simple connection and versioned Skills
+
+Run `slothtool slothvault setup` for managed command registration, detected-agent Skill installation, and the two-field URL/key connection flow. `slothvault-mcp setup` configures only the connection. Both accept `--url` and hidden key input, `--key-stdin`, or `--key-env NAME`; keys are never command arguments. Website roots become `/mcp`. Matching URLs reuse their profile; other profiles remain available. Saved configuration and connection health are reported separately.
+
+The first manager TUI opens Connect SlothVault. Advanced profile names, switching and timeouts remain in the MCP profile UI/CLI. Custom Skill files are preserved during setup and update.
+
+- `slothtool slothvault skill status --json`: bundled and per-agent installed versions.
+- `slothtool slothvault skill status --check --json`: official release comparison; failed checks report unavailable.
+- `slothtool slothvault skill update`: check/update the official plugin, restart into its current implementation, synchronize managed links, and verify file digests.
+- `slothtool slothvault skill update --local`: offline synchronization from the installed bundle.
+- `slothtool update slothvault --check --json`: root updater status and official Skill metadata.
+
+The Skill has its own semantic version in frontmatter. Packaging generates `skill-release.json`; official Releases expose it as `slothvault-skill.json`. It records Skill version, plugin version and SHA-256 file digests. Current/legacy managed links and missing targets are repaired; unmanaged targets are reported without replacement. The Skill TUI uses c to check and n to update.
+
+For already authorized tasks, the Skill uses `--yes` without repeated per-step questions. The CLI still requires confirmation for unknown writes. MCP business errors retain redacted reasons, IDs and validation issues. An uncertain write outcome must be checked before replaying a creation or upload.

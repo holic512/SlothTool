@@ -10,6 +10,7 @@
  */
 
 import fs from 'node:fs';
+import {businessErrorDetails} from './business-error.js';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
@@ -48,6 +49,7 @@ export class SlothVaultMcpBusinessError extends SlothVaultMcpError {
         });
         this.name = 'SlothVaultMcpBusinessError';
         this.result = result;
+        this.business = businessErrorDetails(result, options.secrets);
     }
 }
 
@@ -457,7 +459,7 @@ export async function callTool(name, args = {}, options = {}) {
         });
     }
 
-    return await executeRemote('tools.call', name, options, async ({client, server, signal, assertActive}, context) => {
+    return await executeRemote('tools.call', name, options, async ({client, server, profile, signal, assertActive}, context) => {
         // Step 0: Discover the live Tool declaration on this exact connection.
         const tools = await collectPages(client, 'listTools', 'tools', assertActive);
         const tool = tools.find(item => item.name === name);
@@ -497,7 +499,7 @@ export async function callTool(name, args = {}, options = {}) {
         const result = await client.callTool({name, arguments: args});
         assertActive();
         if (result?.isError === true) {
-            throw new SlothVaultMcpBusinessError(`SlothVault Tool reported an error: ${name}.`, result);
+            throw new SlothVaultMcpBusinessError(`SlothVault Tool reported an error: ${name}.`, result, {secrets: [profile.apiKey]});
         }
         return {server, tool, result, risk, durationMs: Date.now() - startedAt};
     });

@@ -12,8 +12,10 @@
  */
 
 import process from 'node:process';
+import {runSetupCli} from '../lib/setup-cli.js';
 import {createInterface} from 'node:readline/promises';
 import {runDeployment} from '../lib/deploy-runner.js';
+import {checkSkillUpdate, updateSkill} from '../lib/skill-update.js';
 import {getSkillStatus, installSkill, uninstallSkill} from '../lib/skill-manager.js';
 import {getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from '../lib/mcp-command-manager.js';
 import {startSlothVaultManagerTui} from '../lib/manager-tui.js';
@@ -43,8 +45,9 @@ function print(value, json) {
 function printHelp() {
     console.log('SlothVault multifunction plugin\n');
     console.log('  slothtool slothvault');
+    console.log('  slothtool slothvault setup [--url <url>] [--key-stdin|--key-env <env>] [--json]');
     console.log('  slothtool slothvault deploy [deployment installer arguments]');
-    console.log('  slothtool slothvault skill status|install|uninstall [--yes] [--json]');
+    console.log('  slothtool slothvault skill status|install|update|uninstall [--check] [--local] [--yes] [--json]');
     console.log('  slothtool slothvault mcp status|register|unregister [--replace --yes] [--json]');
     console.log('\nMCP calls use the separately registered slothvault-mcp command.');
 }
@@ -71,7 +74,17 @@ function mcpExecutableRequiredError() {
 
 async function runSkill(args, json) {
     const action = args[0] || 'status';
-    if (action === 'status') return print(getSkillStatus(), json);
+    if (action === 'status' || action === 'update') {
+        const result = action === 'update' ? await updateSkill({local: hasFlag(args, '--local')})
+            : hasFlag(args, '--check') ? await checkSkillUpdate() : getSkillStatus();
+        if (json) print(result, true);
+        else {
+            console.log(t('skillVersion.current', {version: result.version || '-'}));
+            if (result.checkState) console.log(t(`skillVersion.${result.checkState}`, {version: result.latestVersion || '-'}));
+            for (const agent of result.agents) if (agent.detected) console.log(`${agent.name}: ${agent.version || '-'} (${t(`manager.states.${agent.state}`)})`);
+        }
+        return;
+    }
     if (action === 'install') {
         const current = getSkillStatus();
         const conflicts = current.agents.filter(agent => agent.detected && agent.state === 'conflict');
@@ -123,6 +136,7 @@ async function main() {
     const [command, ...rest] = args;
     const json = hasFlag(rest, '--json');
     if (MCP_EXECUTION_COMMANDS.has(command)) throw mcpExecutableRequiredError();
+    if (command === 'setup') return runSetupCli(rest, {managed: true});
     if (command === 'deploy') {
         const result = await runDeployment(rest);
         process.exitCode = result.code;

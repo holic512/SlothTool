@@ -105,11 +105,11 @@ Cross-platform official plugin rules:
 SlothVault multifunction package rules:
 
 - Discover Tools, Prompts, and Resource Templates from the live MCP server; do not hardcode the SlothVault business catalog.
-- Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require write confirmation, and non-interactive calls require `--yes`.
+- Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require the CLI confirmation boundary, and non-interactive calls require `--yes`. A user-authorized task covers its necessary writes; the Skill must not demand another confirmation for each step.
 - Keep remote business operations read-only in the TUI. Local Profile add/update/default/remove operations are allowed, while Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
-- Keep the bundled Skill under `plugins/slothvault/skills/slothvault-mcp`; install it only through an explicit `slothtool slothvault skill …` action for detected Codex or Claude Code environments in their agent-specific user Skill directories.
+- Keep the bundled Skill under `plugins/slothvault/skills/slothvault-mcp`; install it through user-authorized `slothtool slothvault setup` or `slothtool slothvault skill …` actions for detected Codex or Claude Code environments in their agent-specific user Skill directories.
 - Detect Codex through its config directory or `codex` executable and target `$CODEX_HOME/skills` (default `~/.codex/skills`); detect Claude Code through its config directory or `claude` executable and target `$CLAUDE_CONFIG_DIR/skills` (default `~/.claude/skills`). Do not create new links under `~/.agents/skills`.
-- Skill conflict replacement requires explicit confirmation and may delete only fixed detected-agent Skill targets. Skill uninstall may remove only links that resolve to the current bundled Skill.
+- Skill conflict replacement requires explicit confirmation and may delete only fixed detected-agent Skill targets. Skill update preserves custom targets; install replacement still requires explicit authorization. Skill uninstall may remove only current or verified legacy managed links.
 - Never load a stored raw MCP Key into TUI state or render typed Key content; clear transient Key input after save, cancellation, or validation failure.
 - Never print or persist complete credentials, request arguments, results, or Resource payloads outside their explicit output file.
 - Register `slothvault-mcp` only beside the verified, PATH-resolved running `slothtool` command. Direct source execution must report that registration is unavailable; Unix/macOS launchers are managed links, Windows launchers are marked `.cmd` shims, and non-managed targets are never replaced or deleted without the explicit registration flow.
