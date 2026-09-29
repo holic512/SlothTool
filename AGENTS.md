@@ -11,7 +11,7 @@ Concise repo rules for Codex working on SlothTool.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing SlothTool settings, plugin configs, and data through an isolated Git repository cache and a GitHub private repository via local `git` and `gh`.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
-- `plugins/slothvault` ships as the official SlothVault multifunction workspace: `slothtool slothvault` manages Linux deployment, user-installable Codex/Claude Code Skill links, and explicit standalone MCP command registration; the independently registered `slothvault-mcp` executable dynamically discovers and safely invokes the administrator MCP while its TUI manages only local profiles and read-only remote inspection.
+- `plugins/slothvault` ships the SlothTool UI and command adapter. The MCP client, Skill, and Python deployment runtime are owned and released by SlothVault as a toolkit archive; `slothtool install/update slothvault` installs and updates both parts.
 - Root alias migration moves only the SlothVault plugin identity, registry entry, and installed directory; Profile and redacted-history path migration belongs exclusively to a current SlothVault multifunction plugin.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
@@ -31,7 +31,7 @@ Concise repo rules for Codex working on SlothTool.
 ## 2. Product Invariants
 
 - TUI is the default product entry.
-- The SlothVault manager TUI shows structured state for the selected managed deployment and handles deployment prompts, progress, and results inside Ink; its CLI and TUI reuse the bundled Python deployment service.
+- The SlothVault manager TUI shows structured state for the selected managed deployment and handles deployment prompts, progress, and results inside Ink; its CLI and TUI use the Vault toolkit's Python deployment service through the JSON-line event bridge.
 - CLI remains the capability layer for scripting and automation.
 - `slothtool` with no args launches the root full-screen TUI.
 - `slothtool <plugin>` with no extra args launches that plugin's default TUI.
@@ -90,7 +90,7 @@ Offline official plugin rules:
 
 - `install <alias> --file <archive.tgz>` remains restricted to built-in official aliases and must validate the archive package name.
 - Offline archives should use the npm-pack-compatible `package/` root layout.
-- A self-contained archive must include production `node_modules`; otherwise installation may only use `npm install --omit=dev --offline` and must never silently fetch from the network.
+- A self-contained archive must include production `node_modules`; otherwise installation may only use `npm install --omit=dev --offline` and must never silently fetch from the network. The SlothVault UI bundle is intentionally UI-only; installing it requires a separate online Vault toolkit download.
 - `bundle <alias>` must refuse to create an incomplete dependency-bearing archive.
 - Offline installations record `sourceType: "offline-archive"` in the registry.
 
@@ -107,7 +107,7 @@ SlothVault multifunction package rules:
 - Discover Tools, Prompts, and Resource Templates from the live MCP server; do not hardcode the SlothVault business catalog.
 - Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require the CLI confirmation boundary, and non-interactive calls require `--yes`. A user-authorized task covers its necessary writes; the Skill must not demand another confirmation for each step.
 - Keep remote business operations read-only in the TUI. Local Profile add/update/default/remove operations are allowed, while Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
-- Keep the bundled Skill under `plugins/slothvault/skills/slothvault-mcp`; install it through user-authorized `slothtool slothvault setup` or `slothtool slothvault skill …` actions for detected Codex or Claude Code environments in their agent-specific user Skill directories.
+- Keep the Skill in the Vault runtime archive and manage detected Codex or Claude Code links through its versioned command interface. SlothTool must not duplicate Skill content or import runtime business modules.
 - Detect Codex through its config directory or `codex` executable and target `$CODEX_HOME/skills` (default `~/.codex/skills`); detect Claude Code through its config directory or `claude` executable and target `$CLAUDE_CONFIG_DIR/skills` (default `~/.claude/skills`). Do not create new links under `~/.agents/skills`.
 - Skill conflict replacement requires explicit confirmation and may delete only fixed detected-agent Skill targets. Skill update preserves custom targets; install replacement still requires explicit authorization. Skill uninstall may remove only current or verified legacy managed links.
 - Never load a stored raw MCP Key into TUI state or render typed Key content; clear transient Key input after save, cancellation, or validation failure.
@@ -125,7 +125,7 @@ SlothVault multifunction package rules:
 - `image-compress` plugin: `plugins/image-compress/bin/image-compress.js`, `plugins/image-compress/lib/*`, `plugins/image-compress/backend/**`, `test/image-compress-plugin.test.js`
 - `gstore` plugin: `plugins/gstore/bin/gstore.js`, `plugins/gstore/lib/*`, `test/gstore-cli.test.js`
 - `pzip` plugin: `plugins/pzip/bin/pzip.js`, `plugins/pzip/lib/*`, `test/pzip-plugin.test.js`
-- `slothvault` plugin: `plugins/slothvault/bin/slothvault.js`, `plugins/slothvault/bin/slothvault-mcp.js`, `plugins/slothvault/deploy/*`, `plugins/slothvault/lib/*`, `plugins/slothvault/skills/slothvault-mcp/*`, `test/slothvault-plugin.test.js`
+- `slothvault` adapter: `plugins/slothvault/bin/*`, `plugins/slothvault/lib/runtime-adapter.js`, `plugins/slothvault/lib/manager-tui.js`, `plugins/slothvault/lib/tui.js`, `test/slothvault-plugin.test.js`; Vault owns the runtime sources and tests.
 - Offline install/bundle: `lib/commands/install.js`, `lib/commands/bundle.js`, `lib/services/plugin-service.js`, `test/offline-plugin-install.test.js`
 - `plugins/template-basic/**` is scaffold-only, not a published workspace package.
 
@@ -175,14 +175,9 @@ node --test test/pzip-plugin.test.js
 ```bash
 node plugins/slothvault/bin/slothvault.js --help
 node plugins/slothvault/bin/slothvault-mcp.js --help
+node --check plugins/slothvault/lib/runtime-adapter.js
 node --check plugins/slothvault/lib/deploy-runner.js
-node --check plugins/slothvault/lib/mcp-command-manager.js
-node --check plugins/slothvault/lib/service.js
-node --check plugins/slothvault/lib/skill-manager.js
-python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py plugins/slothvault/skills/slothvault-mcp
-PYTHONDONTWRITEBYTECODE=1 python3 plugins/slothvault/deploy/tests/deploy_installer_test.py
 SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault.js
-SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault-mcp.js
 node --test test/slothvault-plugin.test.js
 ```
 
@@ -219,7 +214,7 @@ Testing conventions:
 - `plugins/loc` shipped behavior changes require bumping `plugins/loc/package.json` and its workspace lock entry.
 - `plugins/gstore` shipped behavior changes require bumping `plugins/gstore/package.json` and its workspace lock entry.
 - `plugins/pzip` shipped behavior changes require bumping `plugins/pzip/package.json` and its workspace lock entry.
-- `plugins/slothvault` shipped behavior changes require bumping `plugins/slothvault/package.json` and its workspace lock entry.
+- `plugins/slothvault` UI or adapter behavior changes require bumping `plugins/slothvault/package.json` and its workspace lock entry; Vault toolkit changes alone do not.
 - If a change ships both core and the official plugin, bump both in the same change set.
 - Before any commit that changes a shipped package version, confirm the intended version increment with the user. Do not choose the bump unilaterally.
 - Before finishing shipped code changes, verify release tags are still free:

@@ -60,7 +60,7 @@ export const messages = {
         title: 'slothvault-mcp - SlothVault MCP 客户端',
         usage: '用法：',
         help: '显示帮助信息',
-        tuiOption: '启动全屏 MCP TUI（远端业务操作只读，仅管理本地配置档案）',
+        tuiOption: '打开管理界面的 MCP 页面（远端业务操作只读，仅管理本地配置档案）',
         jsonOption: '以单个 JSON 文档输出',
         profileOption: '选择连接配置档案',
         yesOption: '显式确认远端写操作或本地历史清理',
@@ -94,7 +94,7 @@ export const messages = {
             }
         },
         unknownCommand: '未知命令：{command}。请运行 slothvault-mcp --help。',
-        tuiRequiresTerminal: '当前终端不是交互式 TTY，无法启动 SlothVault MCP TUI。',
+        tuiRequiresTerminal: '当前终端不是交互式 TTY，无法启动 SlothVault 管理界面。',
         confirmationRequired: '该工具可能修改远端数据；非交互调用必须使用 --yes。',
         confirmTool: '工具 "{name}" 可能修改远端数据。脱敏参数摘要：{summary}\n输入 yes 或 y 确认，其他输入取消：',
         cancelled: '操作已取消。',
@@ -250,7 +250,7 @@ export const messages = {
             resize: '终端空间不足', resizeHint: '请至少调整到 40 列 × 16 行。',
             detailFooter: '↑↓/PgUp/PgDn 翻阅 | Esc 返回',
             empty: '暂无数据。',
-            help: 'MCP TUI 可查看状态、能力和脱敏历史，并管理本地配置档案；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
+            help: '管理界面的 MCP 页面可查看状态、能力和脱敏历史，并管理本地配置档案；不会调用 Tool、获取 Prompt 内容或读取 Resource。',
             profile: {
                 keyEntered: '[已输入，内容已隐藏]',
                 keyUnchanged: '留空以保留现有 Key',
@@ -448,7 +448,7 @@ export const messages = {
         title: 'slothvault-mcp - SlothVault MCP client',
         usage: 'Usage:',
         help: 'Show help',
-        tuiOption: 'Launch the full-screen MCP TUI (read-only remote operations and local Profile management only)',
+        tuiOption: 'Open the manager MCP page (read-only remote operations and local Profile management only)',
         jsonOption: 'Print one JSON document',
         profileOption: 'Select a connection profile',
         yesOption: 'Explicitly confirm remote writes or local history cleanup',
@@ -482,7 +482,7 @@ export const messages = {
             }
         },
         unknownCommand: 'Unknown command: {command}. Run slothvault-mcp --help.',
-        tuiRequiresTerminal: 'The current terminal is not interactive, so the SlothVault MCP TUI cannot start.',
+        tuiRequiresTerminal: 'The current terminal is not interactive, so the SlothVault manager cannot start.',
         confirmationRequired: 'This tool may mutate remote data; non-interactive calls require --yes.',
         confirmTool: 'Tool "{name}" may mutate remote data. Redacted argument summary: {summary}\nType yes or y to confirm; anything else cancels: ',
         cancelled: 'Operation cancelled.',
@@ -638,7 +638,7 @@ export const messages = {
             resize: 'Terminal is too small', resizeHint: 'Resize to at least 40 columns × 16 rows.',
             detailFooter: 'Up/Down/PgUp/PgDn read | Esc back',
             empty: 'No data.',
-            help: 'The MCP TUI displays status, capabilities, and redacted history and manages local Profiles; it never calls Tools, fetches Prompt content, or reads Resources.',
+            help: 'The manager MCP page displays status, capabilities, and redacted history and manages local Profiles; it never calls Tools, fetches Prompt content, or reads Resources.',
             profile: {
                 keyEntered: '[entered; content hidden]',
                 keyUnchanged: 'leave empty to keep the existing key',

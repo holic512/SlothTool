@@ -4,9 +4,9 @@
  * @file SlothVaultPluginEntry
  * @project SlothTool
  * @module SlothVault Multifunction Plugin / Entry
- * @description Exposes SlothTool-managed deployment, coding-agent Skill, and standalone MCP command registration operations.
- * @logic 1. Dispatch local management commands; 2. delegate deployment to the bundled Python runner; 3. require explicit confirmation before destructive local replacement; 4. keep standalone MCP execution in slothvault-mcp.
- * @dependencies Node: readline/process, Deploy Runner, Skill Manager, MCP Command Manager, Manager TUI
+ * @description Exposes the SlothTool interface for Vault-owned deployment, Skill, and standalone MCP command registration.
+ * @logic 1. Dispatch local management commands; 2. delegate deployment and Skill work through the installed Vault runtime; 3. require explicit confirmation before destructive local replacement; 4. keep standalone MCP execution in slothvault-mcp.
+ * @dependencies Node: readline/process, Deploy Runner, Runtime Adapter, Manager TUI
  * @index_tags slothvault,cli,deploy,skill,mcp,registration,tui
  * @author holic512
  */
@@ -15,9 +15,8 @@ import process from 'node:process';
 import {runSetupCli} from '../lib/setup-cli.js';
 import {createInterface} from 'node:readline/promises';
 import {runDeployment} from '../lib/deploy-runner.js';
-import {checkSkillUpdate, updateSkill} from '../lib/skill-update.js';
-import {getSkillStatus, installSkill, uninstallSkill} from '../lib/skill-manager.js';
-import {getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from '../lib/mcp-command-manager.js';
+import {checkSkillUpdate, updateSkill, getSkillStatus, installSkill, uninstallSkill,
+    getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from '../lib/runtime-adapter.js';
 import {startSlothVaultManagerTui} from '../lib/manager-tui.js';
 import {t} from '../lib/i18n.js';
 

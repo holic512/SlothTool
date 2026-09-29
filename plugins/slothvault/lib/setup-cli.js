@@ -2,15 +2,16 @@
  * @file setup-cli.js
  * @project SlothTool
  * @module SlothVault Setup CLI
- * @description Presents the two-field connection flow and a concise, secret-free result.
- * @logic Read URL and hidden key, invoke the shared setup service, then distinguish saved from connected.
- * @dependencies cli-input, setup, i18n, node:readline/promises
+ * @description Forwards the connection setup flow to the installed Vault runtime.
+ * @logic Reject raw command-line Keys, run Vault setup with inherited streams, and preserve its exit status.
+ * @dependencies Vault runtime adapter, Node child_process
  * @index_tags setup,cli,url,key
  * @author holic512
  */
-import {createInterface} from 'node:readline/promises';
-import {resolveApiKey} from './cli-input.js';
-import {setupConnection} from './setup.js';
+import {spawn} from 'node:child_process';
+import path from 'node:path';
+import process from 'node:process';
+import {getRuntimeRoot} from './runtime-adapter.js';
 import {t, formatSlothVaultError} from './i18n.js';
 
 export function setupResultText(result) {
@@ -24,17 +25,10 @@ export function setupResultText(result) {
 }
 export async function runSetupCli(args, options = {}) {
     if (args.some(arg => arg === '--key' || arg.startsWith('--key='))) throw Object.assign(new Error(t('directKeyUnsupported')), {code: 'USAGE_ERROR', exitCode: 2});
-    const index = args.indexOf('--url');
-    let endpoint = index >= 0 ? args[index + 1] : '';
-    if (index >= 0 && (!endpoint || endpoint.startsWith('--'))) throw Object.assign(new Error(t('optionValueRequired', {option: '--url'})), {code: 'USAGE_ERROR', exitCode: 2});
-    if (!endpoint) {
-        if (!process.stdin.isTTY || !process.stdout.isTTY || args.includes('--json')) throw Object.assign(new Error(t('optionRequired', {option: '--url'})), {code: 'USAGE_ERROR', exitCode: 2});
-        const reader = createInterface({input: process.stdin, output: process.stdout});
-        try { endpoint = await reader.question(t('setup.urlPrompt')); } finally { reader.close(); }
-    }
-    const apiKey = await resolveApiKey(args);
-    const result = await setupConnection({endpoint, apiKey}, options);
-    console.log(args.includes('--json') ? JSON.stringify(result, null, 2) : setupResultText(result));
-    if (!result.connected) process.exitCode = 4;
-    return result;
+    const entry = path.join(getRuntimeRoot(), 'bin', options.managed ? 'slothvault-runtime.js' : 'slothvault-mcp.js');
+    await new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, [entry, 'setup', ...args], {stdio: 'inherit', env: process.env});
+        child.on('error', reject);
+        child.on('close', code => {process.exitCode = code ?? 1; resolve();});
+    });
 }

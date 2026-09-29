@@ -1,8 +1,8 @@
 {
   "name": "@holic512/plugin-slothvault",
-  "version": "2.1.0",
-  "description": "SlothVault deployment, coding-agent Skill, and separately registrable administrator MCP tooling for SlothTool",
-  "main": "lib/service.js",
+  "version": "2.2.0",
+  "description": "SlothTool interface for the Vault-owned SlothVault runtime",
+  "main": "lib/runtime-adapter.js",
   "type": "module",
   "bin": {
     "slothvault": "bin/slothvault.js",
@@ -23,8 +23,7 @@
     }
   },
   "scripts": {
-    "test": "node --test",
-    "prepack": "node scripts/skill-metadata.js"
+    "test": "node --test"
   },
   "keywords": [
     "slothtool",
@@ -37,21 +36,13 @@
   "license": "ISC",
   "files": [
     "bin",
-    "deploy/README.md",
-    "deploy/install.py",
-    "deploy/slothvault_deploy/*.py",
-    "deploy/tests/*.py",
     "lib",
-    "skills",
-    "README.md",
-    "scripts/skill-metadata.js",
-    "skill-release.json"
+    "README.md"
   ],
   "engines": {
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
     "ink": "^7.0.4",
     "react": "^19.2.0"
   }

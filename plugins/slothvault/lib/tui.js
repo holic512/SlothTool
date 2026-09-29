@@ -1,10 +1,10 @@
 /**
  * @file SlothVaultMcpTui
  * @project SlothTool
- * @module SlothVault Multifunction Plugin / MCP TUI
- * @description Ink interface for read-only MCP inspection plus local Profile management.
+ * @module SlothVault UI adapter / MCP page
+ * @description Ink interface for read-only MCP inspection and local Profile management through the Vault runtime protocol.
  * @logic 根据共享外壳预算展示列表、表单及可重排详情；1. 展示远端只读发现与脱敏历史；2. 管理不加载原始 Key 的本地 Profile；3. 将 Skill 管理限定在 SlothVault 多功能主入口。
- * @dependencies React/Ink, Config/History/Service/I18N
+ * @dependencies React/Ink, Runtime Adapter/I18N
  * @index_tags slothvault,mcp,tui,profile,read-only
  * @author holic512
  */
@@ -18,11 +18,11 @@ import {
     getConfigSummary,
     removeProfile,
     updateProfile,
-    useProfile
-} from './config.js';
-import {listHistory} from './history.js';
-import {inspectServer} from './service.js';
-import {setupConnection} from './setup.js';
+    useProfile,
+    listHistory,
+    inspectServer,
+    setupConnection
+} from './runtime-adapter.js';
 import {setupResultText} from './setup-cli.js';
 import {formatSlothVaultError, t} from './i18n.js';
 

@@ -2,9 +2,9 @@
  * @file SlothVaultDeployRunner
  * @project SlothTool
  * @module SlothVault Multifunction Plugin / Deployment Runner
- * @description Starts the bundled standard-library SlothVault deployment program from the Node plugin without shell interpolation.
- * @logic 1. Resolve the packaged Python entrypoint; 2. launch python3 with inherited terminal streams and a plugin-version marker; 3. preserve the deployment process exit status and surface missing-runtime errors clearly.
- * @dependencies Node: child_process/fs/path/url, Plugin: package.json and deploy/install.py
+ * @description Bridges the SlothTool UI to the Vault toolkit's standard-library Python deployment program.
+ * @logic 1. Resolve the active Vault runtime; 2. launch its Python entry without shell interpolation; 3. exchange JSON-line events and pass through CLI exit status.
+ * @dependencies Node: child_process/fs/path/readline, Vault runtime package.json and deploy/install.py
  * @index_tags slothvault,deploy,python,docker,runner,security
  * @author holic512
  */
@@ -14,10 +14,7 @@ import path from 'node:path';
 import process from 'node:process';
 import {spawn} from 'node:child_process';
 import readline from 'node:readline';
-import {fileURLToPath} from 'node:url';
-
-const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
-const pluginRoot = path.resolve(moduleDirectory, '..');
+import {getRuntimeRoot} from './runtime-adapter.js';
 
 export class SlothVaultDeployError extends Error {
     constructor(message, options = {}) {
@@ -29,7 +26,7 @@ export class SlothVaultDeployError extends Error {
 }
 
 export function getDeploymentPaths(options = {}) {
-    const root = path.resolve(options.pluginRoot || pluginRoot);
+    const root = path.resolve(options.pluginRoot || getRuntimeRoot());
     return {
         pluginRoot: root,
         entryPath: path.resolve(options.entryPath || path.join(root, 'deploy', 'install.py')),

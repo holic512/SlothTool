@@ -85,8 +85,34 @@ function createTempHome(
         };
     }
 
+    if (withLocalSlothVault || withLocalSlothVaultMcp) addRuntimeFixture(homeDir);
+
     fs.writeFileSync(path.join(slothDir, 'registry.json'), JSON.stringify(registry, null, 2));
     return homeDir;
+}
+
+function addRuntimeFixture(homeDir) {
+    const bin = path.join(homeDir, '.pipker', 'slothtool', 'runtimes', 'slothvault', 'current', 'bin');
+    fs.mkdirSync(bin, {recursive: true});
+    fs.writeFileSync(path.join(bin, 'slothvault-mcp.js'), `
+console.log('slothvault-mcp doctor\\nslothvault-mcp tools list\\nslothvault-mcp resources list');
+`);
+    fs.writeFileSync(path.join(bin, 'slothvault-runtime.js'), `
+const fs = require('node:fs');
+const path = require('node:path');
+const [command, action] = process.argv.slice(2);
+if (command === 'skill') console.log(JSON.stringify({name: 'slothvault-mcp', agents: []}));
+else if (command === 'mcp' && action === 'register') {
+  if (process.env.SLOTHTOOL_COMMAND_PATH_VERIFIED !== '1') {
+    console.log(JSON.stringify({ok: false, error: {code: 'MCP_COMMAND_SLOTHTOOL_PATH_UNAVAILABLE', message: 'Command path unavailable'}}));
+    process.exitCode = 2;
+  } else {
+    const targetPath = path.join(path.dirname(process.env.SLOTHTOOL_COMMAND_PATH), 'slothvault-mcp');
+    fs.symlinkSync(path.join(__dirname, 'slothvault-mcp.js'), targetPath);
+    console.log(JSON.stringify({state: 'registered', targetPath}));
+  }
+} else console.log('{}');
+`);
 }
 
 function runNode(filePath, args = [], env = {}) {
@@ -362,7 +388,7 @@ test('a PATH-resolved SlothTool command registers the standalone MCP executable 
     assert.equal(response.targetPath, registeredPath);
     assert.equal(fs.lstatSync(registeredPath).isSymbolicLink(), true);
     assert.equal(
-        path.resolve(path.dirname(registeredPath), fs.readlinkSync(registeredPath)),
-        slothVaultMcpBin
+        fs.realpathSync(path.resolve(path.dirname(registeredPath), fs.readlinkSync(registeredPath))),
+        fs.realpathSync(path.join(homeDir, '.pipker', 'slothtool', 'runtimes', 'slothvault', 'current', 'bin', 'slothvault-mcp.js'))
     );
 });

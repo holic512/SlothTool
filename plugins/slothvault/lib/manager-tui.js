@@ -17,11 +17,10 @@ import {Box, Spacer, Text, useApp, useInput, usePaste, useWindowSize, render} fr
 import pluginPackage from '../package.json' with {type: 'json'};
 import {editText, editorViewport, graphemes, nextTabIndex, statusSymbol, truncateFromRight, wrapText} from './shared-interaction.js';
 import {createDeploymentSession, inspectDeployment} from './deploy-runner.js';
-import {getConfigSummary} from './config.js';
+import {getConfigSummary} from './runtime-adapter.js';
 import {SlothVaultTuiApp} from './tui.js';
-import {checkSkillUpdate, updateSkill} from './skill-update.js';
-import {getSkillStatus, installSkill, uninstallSkill} from './skill-manager.js';
-import {getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from './mcp-command-manager.js';
+import {checkSkillUpdate, updateSkill, getSkillStatus, installSkill, uninstallSkill,
+    getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from './runtime-adapter.js';
 import {t} from './i18n.js';
 
 const TABS = ['overview', 'deploy', 'skill', 'mcp'];

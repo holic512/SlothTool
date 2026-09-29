@@ -47,16 +47,12 @@ function createArchive(packageName = '@holic512/plugin-loc', dependencies = {}) 
     return archivePath;
 }
 
-/** Creates a self-contained SlothVault multifunction archive with its SDK runtime dependency. */
+/** Creates a UI-only SlothVault archive; its toolkit is fetched separately. */
 function createSlothVaultArchive() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-slothvault-mcp-archive-'));
     const packageDir = path.join(root, 'package');
     const binDir = path.join(packageDir, 'bin');
-    const skillDir = path.join(packageDir, 'skills', 'slothvault-mcp');
-    const sdkDir = path.join(packageDir, 'node_modules', '@modelcontextprotocol', 'sdk');
     fs.mkdirSync(binDir, {recursive: true});
-    fs.mkdirSync(skillDir, {recursive: true});
-    fs.mkdirSync(sdkDir, {recursive: true});
     fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({
         name: '@holic512/plugin-slothvault',
         version: '2.0.0-test',
@@ -65,19 +61,14 @@ function createSlothVaultArchive() {
             slothvault: 'bin/slothvault.js',
             'slothvault-mcp': 'bin/slothvault-mcp.js'
         },
-        dependencies: {'@modelcontextprotocol/sdk': '1.30.0'}
+        dependencies: {}
     }, null, 2));
-    fs.writeFileSync(
-        path.join(sdkDir, 'package.json'),
-        JSON.stringify({name: '@modelcontextprotocol/sdk', version: '1.30.0'}, null, 2)
-    );
     const binPath = path.join(binDir, 'slothvault.js');
     const mcpBinPath = path.join(binDir, 'slothvault-mcp.js');
     fs.writeFileSync(binPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MULTIFUNCTION_OFFLINE_OK");\n');
     fs.writeFileSync(mcpBinPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MCP_OFFLINE_OK");\n');
     fs.chmodSync(binPath, 0o755);
     fs.chmodSync(mcpBinPath, 0o755);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: slothvault-mcp\ndescription: Test Skill.\n---\n');
     const archivePath = path.join(root, 'slothvault-offline.tgz');
     execFileSync('tar', ['-czf', archivePath, '-C', root, 'package']);
     return archivePath;
@@ -184,10 +175,14 @@ test('offline bundle contains a package root and can be reinstalled', async () =
     });
 });
 
-test('slothvault offline bundle retains its MCP SDK runtime dependency and both executables', async () => {
+test('slothvault offline bundle contains only the UI and installs the Vault toolkit separately', async () => {
     await withHome(async home => {
         const initialArchive = createSlothVaultArchive();
-        const installResult = await installPluginFromArchive('slothvault-mcp', initialArchive);
+        let runtimeInstallCount = 0;
+        const installResult = await installPluginFromArchive('slothvault-mcp', initialArchive, {
+            runtimeInstaller: async () => { runtimeInstallCount += 1; }
+        });
+        assert.equal(runtimeInstallCount, 1);
         assert.equal(installResult.alias, 'slothvault');
         assert.equal(installResult.plugin.packageName, '@holic512/plugin-slothvault');
         assert.equal(installResult.plugin.sourceType, 'offline-archive');
@@ -203,8 +198,18 @@ test('slothvault offline bundle retains its MCP SDK runtime dependency and both 
         assert.equal(bundle.packageName, '@holic512/plugin-slothvault');
         assert.match(listing, /package\/bin\/slothvault\.js/u);
         assert.match(listing, /package\/bin\/slothvault-mcp\.js/u);
-        assert.match(listing, /package\/skills\/slothvault-mcp\/SKILL\.md/u);
-        assert.match(listing, /package\/node_modules\/@modelcontextprotocol\/sdk\/package\.json/u);
+        assert.doesNotMatch(listing, /package\/skills\//u);
+        assert.doesNotMatch(listing, /package\/node_modules\/@modelcontextprotocol\/sdk\//u);
+    });
+});
+
+test('failed toolkit download rolls back a new offline SlothVault UI install', async () => {
+    await withHome(async home => {
+        await assert.rejects(installPluginFromArchive('slothvault', createSlothVaultArchive(), {
+            runtimeInstaller: async () => { throw new Error('toolkit unavailable'); }
+        }), /toolkit unavailable/u);
+        assert.equal(registry.getPlugin('slothvault'), null);
+        assert.equal(fs.existsSync(path.join(home, '.pipker', 'slothtool', 'plugins', 'slothvault')), false);
     });
 });
 

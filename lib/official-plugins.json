@@ -117,8 +117,8 @@
       "packageDir": "plugins/slothvault",
       "releaseTagPrefix": "plugin-slothvault-v",
       "assetNamePrefix": "holic512-plugin-slothvault-",
-      "description": "提供 SlothVault Linux 部署、Codex/Claude Code Skill 管理，以及可单独注册的管理员 MCP 客户端",
-      "descriptionEn": "Provide SlothVault Linux deployment, Codex/Claude Code Skill management, and a separately registrable administrator MCP client",
+      "description": "提供 SlothVault 管理界面，并安装 Vault 发布的部署、Skill 与管理员 MCP 运行包",
+      "descriptionEn": "Provide the SlothVault manager interface and install the Vault-owned deployment, Skill, and administrator MCP runtime",
       "version": "latest",
       "author": "MengJiaXu",
       "features": [

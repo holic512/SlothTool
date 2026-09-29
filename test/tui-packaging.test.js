@@ -48,12 +48,8 @@ test('root and every official plugin pack their own interaction runtime', () => 
         });
         assert.equal(smoke.status, 0, `${folder}: ${smoke.stderr}`);
         if (folder === 'plugins/slothvault') {
-            const mcp = spawnSync(process.execPath, ['bin/slothvault-mcp.js'], {
-                cwd: packagedRoot,
-                encoding: 'utf8',
-                env: {...process.env, SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION: 'exit'}
-            });
-            assert.equal(mcp.status, 0, `slothvault-mcp: ${mcp.stderr}`);
+            assert.equal(names.has('skills/slothvault-mcp/SKILL.md'), false);
+            assert.equal(names.has('deploy/install.py'), false);
         }
     }
     } finally {
