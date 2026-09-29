@@ -92,6 +92,16 @@ function createTempHome(
 }
 
 function addRuntimeFixture(homeDir) {
+    const components = path.join(homeDir, '.pipker', 'slothtool', 'runtimes', 'slothvault', 'components');
+    const client = path.join(components, 'mcp-client', 'current');
+    const pythonBin = path.join(client, '.venv', 'bin');
+    fs.mkdirSync(pythonBin, {recursive: true});
+    fs.symlinkSync(process.execPath, path.join(pythonBin, 'python'));
+    fs.writeFileSync(path.join(client, 'slothvault_mcp.py'), "console.log('slothvault-mcp doctor\\nslothvault-mcp tools list\\nslothvault-mcp resources list');\n");
+    const skill = path.join(components, 'skill', 'current');
+    fs.mkdirSync(path.join(skill, 'slothvault-mcp'), {recursive: true});
+    fs.writeFileSync(path.join(skill, 'module.json'), JSON.stringify({module: 'skill', version: '1.0.0'}));
+    fs.writeFileSync(path.join(skill, 'slothvault-mcp', 'SKILL.md'), '---\nmetadata:\n  version: "1.0.0"\n---\n');
     const bin = path.join(homeDir, '.pipker', 'slothtool', 'runtimes', 'slothvault', 'current', 'bin');
     fs.mkdirSync(bin, {recursive: true});
     fs.writeFileSync(path.join(bin, 'slothvault-mcp.js'), `
@@ -266,6 +276,16 @@ test('root shorthand runs the canonical SlothVault multifunction workspace entry
     assert.match(output, /slothvault deploy/u);
 });
 
+test('sv opens the same SlothVault plugin without a second registry entry', () => {
+    const homeDir = createTempHome(false, false, false, true);
+    const output = runNode(rootBin, ['sv', '--help'], {HOME: homeDir});
+    assert.match(output, /SlothVault multifunction plugin/u);
+    runNode(rootBin, ['sv'], {HOME: homeDir, SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION: 'exit'});
+    const registry = JSON.parse(fs.readFileSync(path.join(homeDir, '.pipker', 'slothtool', 'registry.json'), 'utf8'));
+    assert.equal(registry.plugins.sv, undefined);
+    assert.ok(registry.plugins.slothvault);
+});
+
 test('deprecated root shorthand routes MCP calls to the secondary executable', () => {
     const output = runNode(rootBin, ['slothvault-mcp', '--help'], {
         HOME: createTempHome(false, false, true)
@@ -389,6 +409,6 @@ test('a PATH-resolved SlothTool command registers the standalone MCP executable 
     assert.equal(fs.lstatSync(registeredPath).isSymbolicLink(), true);
     assert.equal(
         fs.realpathSync(path.resolve(path.dirname(registeredPath), fs.readlinkSync(registeredPath))),
-        fs.realpathSync(path.join(homeDir, '.pipker', 'slothtool', 'runtimes', 'slothvault', 'current', 'bin', 'slothvault-mcp.js'))
+        fs.realpathSync(slothVaultMcpBin)
     );
 });

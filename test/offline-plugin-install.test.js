@@ -175,12 +175,12 @@ test('offline bundle contains a package root and can be reinstalled', async () =
     });
 });
 
-test('slothvault offline bundle contains only the UI and installs the Vault toolkit separately', async () => {
+test('slothvault offline bundle contains only the UI and installs the Vault components separately', async () => {
     await withHome(async home => {
         const initialArchive = createSlothVaultArchive();
         let runtimeInstallCount = 0;
         const installResult = await installPluginFromArchive('slothvault-mcp', initialArchive, {
-            runtimeInstaller: async () => { runtimeInstallCount += 1; }
+            componentInstaller: async () => { runtimeInstallCount += 1; }
         });
         assert.equal(runtimeInstallCount, 1);
         assert.equal(installResult.alias, 'slothvault');
@@ -203,11 +203,11 @@ test('slothvault offline bundle contains only the UI and installs the Vault tool
     });
 });
 
-test('failed toolkit download rolls back a new offline SlothVault UI install', async () => {
+test('failed component download rolls back a new offline SlothVault UI install', async () => {
     await withHome(async home => {
         await assert.rejects(installPluginFromArchive('slothvault', createSlothVaultArchive(), {
-            runtimeInstaller: async () => { throw new Error('toolkit unavailable'); }
-        }), /toolkit unavailable/u);
+            componentInstaller: async () => { throw new Error('component unavailable'); }
+        }), /component unavailable/u);
         assert.equal(registry.getPlugin('slothvault'), null);
         assert.equal(fs.existsSync(path.join(home, '.pipker', 'slothtool', 'plugins', 'slothvault')), false);
     });

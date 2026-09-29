@@ -2,9 +2,9 @@
  * @file SlothVaultDeployRunner
  * @project SlothTool
  * @module SlothVault Multifunction Plugin / Deployment Runner
- * @description Bridges the SlothTool UI to the Vault toolkit's standard-library Python deployment program.
- * @logic 1. Resolve the active Vault runtime; 2. launch its Python entry without shell interpolation; 3. exchange JSON-line events and pass through CLI exit status.
- * @dependencies Node: child_process/fs/path/readline, Vault runtime package.json and deploy/install.py
+ * @description Bridges the SlothTool UI to Vault's independently released Python deployment program.
+ * @logic Resolve the active deployment component, launch its Python entry, and exchange JSON-line events.
+ * @dependencies Node child_process/fs/path/readline, Vault deployment module.json and install.py
  * @index_tags slothvault,deploy,python,docker,runner,security
  * @author holic512
  */
@@ -14,7 +14,7 @@ import path from 'node:path';
 import process from 'node:process';
 import {spawn} from 'node:child_process';
 import readline from 'node:readline';
-import {getRuntimeRoot} from './runtime-adapter.js';
+import {getComponentRoot} from './runtime-adapter.js';
 
 export class SlothVaultDeployError extends Error {
     constructor(message, options = {}) {
@@ -26,11 +26,11 @@ export class SlothVaultDeployError extends Error {
 }
 
 export function getDeploymentPaths(options = {}) {
-    const root = path.resolve(options.pluginRoot || getRuntimeRoot());
+    const root = path.resolve(options.pluginRoot || getComponentRoot('deployment'));
     return {
         pluginRoot: root,
-        entryPath: path.resolve(options.entryPath || path.join(root, 'deploy', 'install.py')),
-        packagePath: path.resolve(options.packagePath || path.join(root, 'package.json'))
+        entryPath: path.resolve(options.entryPath || path.join(root, 'install.py')),
+        packagePath: path.resolve(options.packagePath || path.join(root, 'module.json'))
     };
 }
 
@@ -64,7 +64,7 @@ export function runDeployment(deploymentArguments = [], options = {}) {
         });
         child.on('error', error => {
             if (error?.code === 'ENOENT') {
-                reject(new SlothVaultDeployError('python3 is required for SlothVault deployment. Install Python 3.8 or newer and retry.', {
+                reject(new SlothVaultDeployError('python3 is required for SlothVault deployment. Install Python 3.10 or newer and retry.', {
                     code: 'DEPLOY_PYTHON_UNAVAILABLE',
                     cause: error
                 }));
@@ -95,7 +95,7 @@ export function createDeploymentSession(deploymentArguments = [], options = {}) 
             if (settled) return;
             settled = true;
             reject(new SlothVaultDeployError(error.code === 'ENOENT'
-                ? 'python3 is required for SlothVault deployment. Install Python 3.8 or newer and retry.'
+                ? 'python3 is required for SlothVault deployment. Install Python 3.10 or newer and retry.'
                 : `Unable to start SlothVault deployment: ${error.message}`,
             {code: error.code === 'ENOENT' ? 'DEPLOY_PYTHON_UNAVAILABLE' : 'DEPLOY_START_FAILED', cause: error}));
         });

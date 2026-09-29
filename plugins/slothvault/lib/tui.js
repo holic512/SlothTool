@@ -21,7 +21,8 @@ import {
     useProfile,
     listHistory,
     inspectServer,
-    setupConnection
+    setupConnection,
+    updateMcpClient,
 } from './runtime-adapter.js';
 import {setupResultText} from './setup-cli.js';
 import {formatSlothVaultError, t} from './i18n.js';
@@ -174,7 +175,7 @@ function profileFieldValue(field, form, mode) {
 }
 
 /** Render connection status and the active profile without exposing its key. */
-function StatusPage({config, discovery, loading, error, layout}) {
+function StatusPage({config, discovery, loading, error, compatibilityCode, layout}) {
     const profile = discovery?.profile || config.profiles.find(item => item.isDefault) || null;
     return h(Panel, {title: t('tui.panels.connection'), layout, color: error ? COLORS.danger : discovery ? COLORS.success : COLORS.border},
         h(Field, {label: t('tui.labels.status'), value: loading ? t('tui.status.loading') : error ? t('error') : discovery ? t('ok') : t('tui.status.ready')}),
@@ -183,8 +184,11 @@ function StatusPage({config, discovery, loading, error, layout}) {
         h(Field, {label: t('tui.labels.server'), value: discovery?.server?.name || '-'}),
         h(Field, {label: t('tui.labels.version'), value: discovery?.server?.version || '-'}),
         h(Field, {label: t('tui.labels.protocol'), value: discovery?.server?.protocolVersion || discovery?.protocolVersion || '-'}),
+        h(Field, {label: t('tui.compatibilityLabel'), value: discovery?.compatibility?.status || '-'}),
+        h(Field, {label: t('tui.minimumClientVersion'), value: discovery?.compatibility?.minimumClientVersion || t('tui.minimumUnverified')}),
         profile?.endpoint?.startsWith('http://') ? h(Text, {color: COLORS.warning, wrap: 'truncate-end'}, t('httpWarning')) : null,
         error ? h(Text, {color: COLORS.danger, wrap: 'truncate-end'}, error) : null,
+        compatibilityCode ? h(Text, {color: COLORS.warning}, t('tui.compatibilityUpdateHint')) : null,
         h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.help')));
 }
 
@@ -259,6 +263,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
     const [discovery, setDiscovery] = useState(initialDiscovery);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [compatibilityCode, setCompatibilityCode] = useState(null);
     const [status, setStatus] = useState(t('tui.status.ready'));
     const [statusTone, setStatusTone] = useState('success');
     const [profileMode, setProfileMode] = useState(initialSetup ? 'setup' : 'browse');
@@ -291,6 +296,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         // Step 0: Enter a visible loading state before reading local snapshots.
         setLoading(true);
         setError('');
+        setCompatibilityCode(null);
         setStatus(t('tui.status.loading'));
         setStatusTone('warning');
 
@@ -312,6 +318,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             const message = formatSlothVaultError(refreshError);
             setDiscovery(null);
             setError(message);
+            if (['MCP_CLIENT_OUTDATED', 'MCP_PROTOCOL_INCOMPATIBLE'].includes(refreshError.code)) setCompatibilityCode(refreshError.code);
             setStatus(t('tui.status.failed', {message}));
             setStatusTone('danger');
         } finally {
@@ -326,6 +333,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         refreshGeneration.current += 1;
         setDiscovery(null);
         setError('');
+        setCompatibilityCode(null);
         setLoading(false);
     }
 
@@ -591,6 +599,16 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             setActiveTab('profiles'); setProfileMode('setup'); setProfileForm(createProfileForm('setup'));
             setProfileFieldIndex(0); setProfileCursor(0); setProfileInputError(''); return;
         }
+        if (activeTab === 'status' && input === 'n' && compatibilityCode && !loading) {
+            setLoading(true);
+            setStatus(t('tui.compatibilityUpdating'));
+            void updateMcpClient().then(() => refresh()).catch(updateError => {
+                setStatus(t('tui.status.failed', {message: formatSlothVaultError(updateError)}));
+                setStatusTone('danger');
+                setLoading(false);
+            });
+            return;
+        }
         if (input === 'v') {
             const lines = [t(`tui.tabs.${activeTab}`), status, ''];
             if (activeTab === 'status') {
@@ -676,7 +694,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         ? h(TuiDetails, {title: t('tui.panels.details'), lines: detailLines, scroll: detailScroll,
             width: shell.contentWidth, height: shell.contentHeight, accent: COLORS.accent, border: COLORS.border})
         : activeTab === 'status'
-        ? h(StatusPage, {config, discovery, loading, error, layout})
+        ? h(StatusPage, {config, discovery, loading, error, compatibilityCode, layout})
         : activeTab === 'capabilities'
             ? h(CapabilitiesPage, {discovery, selectedIndex: selectedIndices.capabilities, layout})
             : activeTab === 'history'

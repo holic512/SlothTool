@@ -17,7 +17,8 @@ import {Box, Spacer, Text, useApp, useInput, usePaste, useWindowSize, render} fr
 import pluginPackage from '../package.json' with {type: 'json'};
 import {editText, editorViewport, graphemes, nextTabIndex, statusSymbol, truncateFromRight, wrapText} from './shared-interaction.js';
 import {createDeploymentSession, inspectDeployment} from './deploy-runner.js';
-import {getConfigSummary} from './runtime-adapter.js';
+import {getConfigSummary, getComponentVersion, checkMcpClientUpdate, updateMcpClient,
+    checkDeploymentPackageUpdate, updateDeploymentPackage} from './runtime-adapter.js';
 import {SlothVaultTuiApp} from './tui.js';
 import {checkSkillUpdate, updateSkill, getSkillStatus, installSkill, uninstallSkill,
     getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from './runtime-adapter.js';
@@ -131,7 +132,7 @@ function updateReleaseLines(update) {
     ].filter(Boolean));
 }
 
-function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, editing, draft, draftCursor, pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy}) {
+function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, editing, draft, draftCursor, pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy, component}) {
     const action = DEPLOY_ACTIONS[selectedIndex];
     const usesNginx = NGINX_ACTIONS.has(action);
     const listLimit = Math.max(1, Math.min(DEPLOY_ACTIONS.length, layout.listHeight - 3));
@@ -152,6 +153,12 @@ function DeployPage({layout, selectedIndex, root, nginxMode, nginxContainer, edi
     const details = h(Panel, {title: t('manager.panels.deployment'), color: pending ? COLORS.warning : COLORS.border,
         badge: busy ? t('manager.running') : null},
         h(Text, {bold: true, wrap: 'truncate-end'}, t('manager.actions.' + action)),
+        h(Field, {label: t('manager.deploymentPackageVersion'), value: component.currentVersion || '-'}),
+        h(Field, {label: t('manager.deployedAppVersion'), value: instance?.appVersion || '-'}),
+        h(Field, {label: t('manager.latestPackageVersion'), value: component.latestVersion || '-'}),
+        h(Text, {dimColor: true}, t('manager.packageStatus', {status: component.status || 'unchecked'})),
+        component.updateResult ? h(Text, {color: COLORS.success}, t('manager.packageUpdateResult', {result: component.updateResult})) : null,
+        component.reason ? h(Text, {color: COLORS.warning, wrap: 'truncate-end'}, clip(component.reason, layout.width - 12)) : null,
         layout.short ? null : h(Text, {dimColor: true}, t('manager.actionDetails.' + action)),
         h(Box, {flexDirection: 'column'},
             h(Field, {label: t('manager.fields.root'), value: editing === 'root'
@@ -202,6 +209,8 @@ function ManagerShell({inspect = inspectDeployment, createSession = createDeploy
     const [tab, setTab] = useState('overview');
     const [skill, setSkill] = useState(() => getSkillStatus());
     const [mcp, setMcp] = useState(() => getMcpCommandStatus());
+    const [mcpPackage, setMcpPackage] = useState(() => ({currentVersion: getComponentVersion('mcp-client'), status: 'unchecked'}));
+    const [deploymentPackage, setDeploymentPackage] = useState(() => ({currentVersion: getComponentVersion('deployment'), status: 'unchecked'}));
     const [instance, setInstance] = useState(null);
     const [update, setUpdate] = useState(null);
     const [preview, setPreview] = useState(null);
@@ -267,6 +276,8 @@ function ManagerShell({inspect = inspectDeployment, createSession = createDeploy
         try {
             setSkill(getSkillStatus());
             setMcp(getMcpCommandStatus());
+            setMcpPackage(current => ({...current, currentVersion: getComponentVersion('mcp-client')}));
+            setDeploymentPackage(current => ({...current, currentVersion: getComponentVersion('deployment')}));
             setMessage(t('manager.refreshed'));
             setMessageColor(COLORS.success);
         } catch (error) {
@@ -285,6 +296,24 @@ function ManagerShell({inspect = inspectDeployment, createSession = createDeploy
             setMessageColor(result.checkState === 'unavailable' || result.state === 'conflict' ? COLORS.warning : COLORS.success);
         } catch (error) {setMessage(t('manager.skillActionFailed', {message: error.message})); setMessageColor(COLORS.warning);}
         finally {setBusy(false);}
+    }
+    async function operateComponent(module, action) {
+        setBusy(true);
+        setMessage(t('manager.packageChecking', {module}));
+        try {
+            const result = module === 'mcp-client'
+                ? await (action === 'check' ? checkMcpClientUpdate() : updateMcpClient())
+                : await (action === 'check' ? checkDeploymentPackageUpdate() : updateDeploymentPackage());
+            const next = {currentVersion: getComponentVersion(module), latestVersion: result.latestVersion || result.components?.[0]?.version || null,
+                status: result.status, updateResult: action === 'update' ? result.status : null, reason: result.reason || null};
+            (module === 'mcp-client' ? setMcpPackage : setDeploymentPackage)(next);
+            setMessage(t('manager.packageResult', {module, status: result.status}));
+            setMessageColor(result.status === 'error' ? COLORS.warning : COLORS.success);
+        } catch (error) {
+            (module === 'mcp-client' ? setMcpPackage : setDeploymentPackage)(current => ({...current, status: 'error', reason: error.message}));
+            setMessage(t('manager.packageFailed', {module, message: error.message}));
+            setMessageColor(COLORS.warning);
+        } finally { setBusy(false); }
     }
     function operateMcp(action) {
         try {
@@ -412,6 +441,8 @@ function ManagerShell({inspect = inspectDeployment, createSession = createDeploy
             if (input === 'e') {setTab('deploy'); setEditing('root'); setDraft(root); setDraftCursor(graphemes(root).length); return;}
         }
         if (tab === 'deploy') {
+            if (input === 'p') {operateComponent('deployment', 'check'); return;}
+            if (input === 'k') {operateComponent('deployment', 'update'); return;}
             if (input === '[') {setNoteOffset(index => Math.max(0, index - 3)); return;}
             if (input === ']') {
                 const length = preview
@@ -441,6 +472,8 @@ function ManagerShell({inspect = inspectDeployment, createSession = createDeploy
         if (tab === 'skill' && input === 'u') operateSkill('uninstall');
         if (tab === 'mcp' && input === 'i') operateMcp('register');
         if (tab === 'mcp' && input === 'u') operateMcp('unregister');
+        if (tab === 'mcp' && input === 'c') operateComponent('mcp-client', 'check');
+        if (tab === 'mcp' && input === 'n') operateComponent('mcp-client', 'update');
     });
 
     usePaste(value => {
@@ -456,15 +489,22 @@ function ManagerShell({inspect = inspectDeployment, createSession = createDeploy
     if (detailLines) content = h(TuiDetails, {title: t('manager.panels.details'), lines: detailLines,
         scroll: detailScroll, width: shell.contentWidth, height: shell.contentHeight});
     else if (tab === 'deploy') content = h(DeployPage, {layout, selectedIndex: selectedAction, root, nginxMode, nginxContainer, editing, draft, draftCursor,
-        pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy});
+        pending, instance, update, preview, noteOffset, logs, prompt, promptValue, promptCursor, busy, component: deploymentPackage});
     else if (tab === 'skill') content = h(TwoPanels, {layout,
-        left: h(Panel, {title: t('manager.panels.skill')}, h(Field, {label: t('manager.fields.status'), value: stateText(skill.state)}), h(Text, {}, t('skillVersion.current', {version: skill.version || '-'})), h(Text, {}, skill.checkState ? t(`skillVersion.${skill.checkState}`, {version: skill.latestVersion || '-'}) : ''), h(Text, {dimColor: true}, t('skillVersion.hint'))),
+        left: h(Panel, {title: t('manager.panels.skill')}, h(Field, {label: t('manager.fields.status'), value: stateText(skill.state)}), h(Text, {}, t('skillVersion.current', {version: skill.version || '-'})), h(Text, {}, skill.checkState ? t(`skillVersion.${skill.checkState}`, {version: skill.latestVersion || '-'}) : ''), h(Text, {dimColor: true}, t('manager.packageStatus', {status: skill.updateStatus || 'unchecked'})), h(Text, {dimColor: true}, t('skillVersion.hint'))),
         right: h(Panel, {title: t('manager.panels.targets')}, ...skill.agents.map(agent => h(Box, {key: agent.id, flexDirection: 'column'},
             h(Text, {color: agent.detected ? COLORS.success : COLORS.muted}, agent.name + ': ' + stateText(agent.detected ? agent.state : 'not-detected')),
             h(Text, {dimColor: true}, clip(agent.targetPath, detailWidth)))))
     });
     else if (tab === 'mcp') content = h(TwoPanels, {layout,
-        left: h(Panel, {title: t('manager.panels.command')}, h(Field, {label: t('manager.fields.status'), value: stateText(mcp.state)}), h(Text, {dimColor: true}, t('manager.mcpGuideAction'))),
+        left: h(Panel, {title: t('manager.panels.command')},
+            h(Field, {label: t('manager.fields.status'), value: stateText(mcp.state)}),
+            h(Field, {label: t('manager.clientPackageVersion'), value: mcpPackage.currentVersion || '-'}),
+            h(Field, {label: t('manager.latestPackageVersion'), value: mcpPackage.latestVersion || '-'}),
+            h(Text, {dimColor: true}, t('manager.packageStatus', {status: mcpPackage.status})),
+            mcpPackage.updateResult ? h(Text, {color: COLORS.success}, t('manager.packageUpdateResult', {result: mcpPackage.updateResult})) : null,
+            mcpPackage.reason ? h(Text, {color: COLORS.warning, wrap: 'truncate-end'}, clip(mcpPackage.reason, detailWidth)) : null,
+            h(Text, {dimColor: true}, t('manager.mcpGuideAction'))),
         right: h(Panel, {title: t('manager.panels.details')}, h(Text, {}, mcp.targetPath ? t('manager.target', {target: clip(mcp.targetPath, detailWidth)}) : t('manager.reason', {reason: clip(mcp.reason || '-', detailWidth)})), h(Text, {dimColor: true}, t('manager.mcpGuide')))
     });
     else content = layout.compact && layout.short

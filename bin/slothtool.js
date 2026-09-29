@@ -25,7 +25,7 @@ function printHelp() {
     console.log(`  slothtool install <alias>       ${t('commands.install')}`);
     console.log(`  slothtool bundle <alias>        ${t('commands.bundle')}`);
     console.log(`  slothtool uninstall <alias>     ${t('commands.uninstall')}`);
-    console.log(`  slothtool update <alias> [--check] [--json] ${t('commands.update')}`);
+    console.log(`  slothtool update <alias> [--module mcp-client|skill|deployment] [--check] [--json] ${t('commands.update')}`);
     console.log(`  slothtool --update-all          ${t('commands.updateAll')}`);
     console.log(`  slothtool list                  ${t('commands.list')}`);
     console.log(`  slothtool run <plugin> [args]   ${t('commands.run')}`);
@@ -40,6 +40,7 @@ function printHelp() {
     console.log('  slothtool install loc --file ./loc-offline.tgz');
     console.log('  slothtool bundle loc --output ./loc-offline.tgz');
     console.log('  slothtool loc');
+    console.log('  slothtool sv');
     console.log('  slothtool loc ./src');
     console.log('  slothtool config language en');
     console.log('  slothtool config proxy show');

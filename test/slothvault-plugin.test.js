@@ -15,38 +15,37 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 function fixture(t) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-vault-adapter-'));
     t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
-    const bin = path.join(dir, 'bin');
-    fs.mkdirSync(bin);
-    fs.writeFileSync(path.join(bin, 'slothvault-runtime.js'), `
+    const bin = path.join(dir, '.venv', 'bin');
+    fs.mkdirSync(bin, {recursive: true});
+    fs.symlinkSync(process.execPath, path.join(bin, 'python'));
+    fs.writeFileSync(path.join(dir, 'slothvault_mcp.py'), `
       const command = process.argv[2];
       if (command === 'config') console.log(JSON.stringify({profiles: [], defaultProfile: null}));
-      else if (command === 'skill') console.log(JSON.stringify({version: '1.0.0', agents: [], state: 'not-installed'}));
-      else if (command === 'mcp') console.log(JSON.stringify({state: 'not-registered'}));
-      else console.log(JSON.stringify({schema: 1, adapterApiMajor: 1, version: '1.0.0'}));
-    `);
-    fs.writeFileSync(path.join(bin, 'slothvault-mcp.js'), `
-      let input = ''; process.stdin.on('data', part => input += part);
-      process.stdin.on('end', () => console.log(JSON.stringify({name: process.argv[4], apiKey: input ? '[redacted]' : null})));
+      else if (command === '--version') console.log(JSON.stringify({version: '1.0.0', bridgeApiMajor: 2}));
+      else {
+        let input = ''; process.stdin.on('data', part => input += part);
+        process.stdin.on('end', () => console.log(JSON.stringify({name: process.argv[4], apiKey: input ? '[redacted]' : null})));
+      }
     `);
     return dir;
 }
 
 test('UI adapter uses the runtime JSON contract and puts keys only on stdin', t => {
     const dir = fixture(t);
-    const old = process.env.SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT;
-    process.env.SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT = dir;
-    t.after(() => { if (old === undefined) delete process.env.SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT; else process.env.SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT = old; });
+    const old = process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT;
+    process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = dir;
+    t.after(() => { if (old === undefined) delete process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT; else process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = old; });
     assert.deepEqual(getConfigSummary().profiles, []);
-    assert.equal(runRuntimeSync('control', ['--version']).adapterApiMajor, 1);
+    assert.equal(runRuntimeSync('mcp', ['--version']).bridgeApiMajor, 2);
     const key = 'private-test-key';
     assert.equal(addProfile('work', {endpoint: 'https://vault.example', apiKey: key}).apiKey, '[redacted]');
     assert.equal(getRuntimeRoot(), dir);
 });
 
 test('offline UI has a safe missing-runtime state', t => {
-    const old = process.env.SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT;
-    process.env.SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT = path.join(os.tmpdir(), 'missing-slothtool-vault-runtime');
-    t.after(() => { if (old === undefined) delete process.env.SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT; else process.env.SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT = old; });
+    const old = process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT;
+    process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = path.join(os.tmpdir(), 'missing-slothtool-vault-runtime');
+    t.after(() => { if (old === undefined) delete process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT; else process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = old; });
     assert.deepEqual(getConfigSummary().profiles, []);
     assert.throws(() => runRuntimeSync('control', ['status']), {code: 'SLOTHVAULT_RUNTIME_MISSING'});
 });
@@ -56,13 +55,13 @@ test('UI and deployment runner keep their existing local interaction contract', 
     assert.equal(resolveSlothVaultManagerLayout(60, 24).compact, true);
     assert.ok(DEPLOY_ACTIONS.includes('check-update'));
     assert.deepEqual(buildDeploymentArguments('status', {root: '/data/slothvault'}), ['--action', 'status', '--root', '/data/slothvault']);
-    assert.equal(getDeploymentPaths({pluginRoot: '/tmp/slothvault-runtime'}).entryPath, '/tmp/slothvault-runtime/deploy/install.py');
+    assert.equal(getDeploymentPaths({pluginRoot: '/tmp/slothvault-runtime'}).entryPath, '/tmp/slothvault-runtime/install.py');
 });
 
 test('legacy MCP executable forwards to Vault runtime without loading business modules', t => {
     const dir = fixture(t);
     const result = spawnSync(process.execPath, [path.join(root, 'plugins/slothvault/bin/slothvault-mcp.js'), 'profile', 'add', 'work', '--json'], {
-        input: 'secret', encoding: 'utf8', env: {...process.env, SLOTHTOOL_SLOTHVAULT_RUNTIME_ROOT: dir}
+        input: 'secret', encoding: 'utf8', env: {...process.env, SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT: dir}
     });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).apiKey, '[redacted]');

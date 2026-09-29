@@ -182,6 +182,9 @@ export const messages = {
             'already-absent': '原本未安装'
         },
         tui: {
+            compatibilityUpdateHint: '客户端版本或协议不兼容。按 n 更新 MCP Client，更新后重新连接。',
+            compatibilityUpdating: '正在更新 MCP Client…',
+            compatibilityLabel: '兼容状态', minimumClientVersion: '最低客户端版本', minimumUnverified: '未验证',
             tabs: {status: '状态', capabilities: '能力', history: '历史', profiles: '配置', skill: '技能'},
             panels: {
                 connection: '连接状态',
@@ -280,7 +283,10 @@ export const messages = {
         },
         manager: {
             title: 'SlothVault 多功能包',
-            tabs: {overview: '概览', deploy: '部署', skill: '技能', mcp: 'MCP 命令'},
+            tabs: {overview: '概览', deploy: '部署', skill: '技能', mcp: 'MCP Client'},
+            deploymentPackageVersion: '部署脚本包版本', deployedAppVersion: '已部署应用版本', clientPackageVersion: '客户端包版本', latestPackageVersion: '最新包版本',
+            packageStatus: '检查/更新状态：{status}', packageChecking: '正在检查 {module} 包…', packageResult: '{module} 包状态：{status}', packageFailed: '{module} 包操作失败：{message}',
+            packageUpdateResult: '更新结果：{result}',
             ready: '就绪。当前实例状态显示在概览页。',
             refreshed: '本地状态已刷新。',
             refreshFailed: '刷新本地状态失败：{message}',
@@ -346,9 +352,9 @@ export const messages = {
             resize: '终端过小，请至少使用 30 列、18 行。',
             footers: {
                 overview: 'e 更换目录 | v 详情 | r 刷新 | Tab/Shift+Tab 切页 | q 退出',
-                deploy: '↑↓ 选择 | [/] 说明 | e 目录 | Space/m Nginx | c 容器 | v 详情 | q 退出',
-                skill: 'i 安装 | u 卸载 | v 路径 | Tab/Shift+Tab 切页 | q 退出',
-                mcp: 'i 注册 | u 注销 | v 路径 | Tab/Shift+Tab 切页 | q 退出',
+                deploy: '↑↓ 选择 | p 检查脚本包 | k 更新脚本包 | e 目录 | v 详情 | q 退出',
+                skill: 'c 检查 | n 更新 | i 安装 | u 卸载 | v 路径 | q 退出',
+                mcp: 'c 检查 | n 更新 | i 注册 | u 注销 | v 路径 | q 退出',
                 edit: '输入/粘贴 | ←→/Home/End 光标 | Delete/Ctrl+U 编辑 | Enter 保存 | Esc 取消',
                 confirm: 'y 确认 | n/Esc 取消',
                 prompt: '输入/粘贴 | ←→/Home/End 光标 | Enter 提交 | Esc 向部署服务请求取消',
@@ -570,6 +576,9 @@ export const messages = {
             'already-absent': 'already absent'
         },
         tui: {
+            compatibilityUpdateHint: 'The client version or protocol is incompatible. Press n to update MCP Client, then reconnect.',
+            compatibilityUpdating: 'Updating MCP Client…',
+            compatibilityLabel: 'Compatibility', minimumClientVersion: 'Minimum client', minimumUnverified: 'Unverified',
             tabs: {status: 'Status', capabilities: 'Capabilities', history: 'History', profiles: 'Profiles', skill: 'Skill'},
             panels: {
                 connection: 'Connection',
@@ -668,7 +677,10 @@ export const messages = {
         },
         manager: {
             title: 'SlothVault multifunction package',
-            tabs: {overview: 'Overview', deploy: 'Deploy', skill: 'Skill', mcp: 'MCP command'},
+            tabs: {overview: 'Overview', deploy: 'Deploy', skill: 'Skill', mcp: 'MCP Client'},
+            deploymentPackageVersion: 'Deployment package', deployedAppVersion: 'Deployed app', clientPackageVersion: 'Client package', latestPackageVersion: 'Latest package',
+            packageStatus: 'Check/update status: {status}', packageChecking: 'Checking {module} package…', packageResult: '{module} package: {status}', packageFailed: '{module} package failed: {message}',
+            packageUpdateResult: 'Update result: {result}',
             ready: 'Ready. The current instance appears on the Overview page.',
             refreshed: 'Local state refreshed.',
             refreshFailed: 'Unable to refresh local state: {message}',
@@ -734,9 +746,9 @@ export const messages = {
             resize: 'Terminal too small; use at least 30 columns and 18 rows.',
             footers: {
                 overview: 'e change root | v details | r refresh | Tab/Shift+Tab page | q quit',
-                deploy: 'Up/Down select | [/] notes | e root | Space/m Nginx | c container | v details | q quit',
-                skill: 'i install | u uninstall | v paths | Tab/Shift+Tab page | q quit',
-                mcp: 'i register | u unregister | v paths | Tab/Shift+Tab page | q quit',
+                deploy: 'Up/Down select | p check package | k update package | e root | v details | q quit',
+                skill: 'c check | n update | i install | u uninstall | v paths | q quit',
+                mcp: 'c check | n update | i register | u unregister | v paths | q quit',
                 edit: 'Type/paste | Left/Right/Home/End cursor | Delete/Ctrl+U edit | Enter save | Esc cancel',
                 confirm: 'y confirm | n/Esc cancel',
                 prompt: 'Type/paste | Left/Right/Home/End cursor | Enter submit | Esc request cancellation from installer',

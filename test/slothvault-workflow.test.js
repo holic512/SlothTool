@@ -37,17 +37,21 @@ function staged(home, version) {
     return dir;
 }
 
-test('update check reports the Vault runtime separately from the UI adapter', async t => {
+test('update check reports all Vault components separately from the UI adapter', async t => {
     const home = fixture(t);
     const options = {slothToolHome: home, releaseFetcher: async () => release(), manifestFetcher: async () => manifest()};
     const runtime = await checkSlothVaultRuntimeUpdate(options);
     assert.equal(runtime.status, 'outdated');
     const check = await checkPluginUpdate('slothvault', {pluginInfo: {version: '2.2.0', sourceType: 'github-release'},
         officialReleaseFetcher: async () => ({version: '2.2.0', release: {assets: []}}),
-        runtimeChecker: async () => runtime});
+        componentChecker: async () => ({status: 'outdated', components: [
+            {module: 'mcp-client', currentVersion: null, latestVersion: '1.0.0', status: 'outdated'},
+            {module: 'skill', currentVersion: null, latestVersion: '1.0.0', status: 'outdated'},
+            {module: 'deployment', currentVersion: null, latestVersion: '1.0.0', status: 'outdated'},
+        ]})});
     assert.equal(check.status, 'outdated');
-    assert.equal(check.runtime.latestVersion, '1.0.0');
-    assert.equal(check.runtime.latestSkillVersion, '1.0.0');
+    assert.equal(check.components.length, 3);
+    assert.equal(check.components[1].latestVersion, '1.0.0');
 });
 
 test('toolkit release rejects a mismatched manifest or adapter protocol', async () => {

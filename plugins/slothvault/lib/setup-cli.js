@@ -2,16 +2,18 @@
  * @file setup-cli.js
  * @project SlothTool
  * @module SlothVault Setup CLI
- * @description Forwards the connection setup flow to the installed Vault runtime.
- * @logic Reject raw command-line Keys, run Vault setup with inherited streams, and preserve its exit status.
- * @dependencies Vault runtime adapter, Node child_process
+ * @description Runs Python MCP setup and then manages local SlothTool links.
+ * @logic Reject raw command-line Keys, pass setup through inherited streams, and link only verified managed targets.
+ * @dependencies Vault MCP Client, SlothTool Skill and command managers, Node child_process
  * @index_tags setup,cli,url,key
  * @author holic512
  */
 import {spawn} from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
-import {getRuntimeRoot} from './runtime-adapter.js';
+import {getComponentRoot} from './runtime-adapter.js';
+import {installSkill} from './skill-manager.js';
+import {registerMcpCommand} from './mcp-command-manager.js';
 import {t, formatSlothVaultError} from './i18n.js';
 
 export function setupResultText(result) {
@@ -25,10 +27,19 @@ export function setupResultText(result) {
 }
 export async function runSetupCli(args, options = {}) {
     if (args.some(arg => arg === '--key' || arg.startsWith('--key='))) throw Object.assign(new Error(t('directKeyUnsupported')), {code: 'USAGE_ERROR', exitCode: 2});
-    const entry = path.join(getRuntimeRoot(), 'bin', options.managed ? 'slothvault-runtime.js' : 'slothvault-mcp.js');
+    const root = getComponentRoot('mcp-client');
+    const entry = path.join(root, 'slothvault_mcp.py');
+    const python = process.platform === 'win32' ? path.join(root, '.venv', 'Scripts', 'python.exe') : path.join(root, '.venv', 'bin', 'python');
+    let status = 1;
     await new Promise((resolve, reject) => {
-        const child = spawn(process.execPath, [entry, 'setup', ...args], {stdio: 'inherit', env: process.env});
+        const child = spawn(python, [entry, 'setup', ...args], {stdio: 'inherit', env: process.env});
         child.on('error', reject);
-        child.on('close', code => {process.exitCode = code ?? 1; resolve();});
+        child.on('close', code => {status = code ?? 1; process.exitCode = status; resolve();});
     });
+    if (options.managed && [0, 4].includes(status)) {
+        try { installSkill({skipConflicts: true}); }
+        catch (error) { if (error.code !== 'SKILL_AGENT_NOT_DETECTED') console.error(t('setup.skillPending')); }
+        try { registerMcpCommand(); }
+        catch { console.error(t('setup.commandPending', {state: 'unavailable'})); }
+    }
 }
