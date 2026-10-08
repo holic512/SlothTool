@@ -16,7 +16,5 @@ export async function operatePackage(module, action, options = {}) {
     if (action === 'install' || action === 'update') return installComponent(module, options);
     throw new Error(`Unknown package action: ${action}`);
 }
-export const checkMcpClientUpdate = options => operatePackage('mcp-client', 'check', options);
-export const updateMcpClient = options => operatePackage('mcp-client', 'update', options);
 export const checkDeploymentPackageUpdate = options => operatePackage('deployment', 'check', options);
 export const updateDeploymentPackage = options => operatePackage('deployment', 'update', options);

@@ -1,6 +1,6 @@
 # SlothVault Deployment 包对接提示词
 
-SlothTool 已将界面与 Deployment、Skill、MCP Client 生命周期分离，并支持部署桥协议主版本 1 的新增可选进度字段。当前 SlothVault Deployment 脚本只发送阶段事件，SlothTool 显示阶段和耗时；真实镜像层进度需要在 SlothVault 仓库实现并独立发布。本次未修改另一仓库，也未执行真实部署。
+SlothTool 只管理界面与独立 Deployment、Skill，智能体通过原生 MCP 连接服务端，并支持部署桥协议主版本 1 的新增可选进度字段。当前 SlothVault Deployment 脚本只发送阶段事件，SlothTool 显示阶段和耗时；真实镜像层进度需要在 SlothVault 仓库实现并独立发布。本次未修改另一仓库，也未执行真实部署。
 
 下面文本可直接交给处理 SlothVault 仓库的代理。
 

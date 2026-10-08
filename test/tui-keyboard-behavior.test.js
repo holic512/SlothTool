@@ -11,7 +11,6 @@ import {LocTuiApp} from '../plugins/loc/lib/tui.js';
 import {ImageCompressTuiApp} from '../plugins/image-compress/lib/tui.js';
 import {GStoreTuiApp} from '../plugins/gstore/lib/tui.js';
 import {PzipTuiApp} from '../plugins/pzip/lib/tui.js';
-import {SlothVaultTuiApp} from '../plugins/slothvault/lib/tui.js';
 import {ManagerApp} from '../plugins/slothvault/lib/manager-tui.js';
 
 const originalHome = process.env.HOME;
@@ -190,25 +189,6 @@ test('pzip edit, detail, and reverse tab obey the innermost layer', async () => 
     } finally {await ui.close();}
 });
 
-test('SlothVault profile form isolates page keys and never renders the typed Key', async () => {
-    const ui = harness(SlothVaultTuiApp, {initialDiscovery: {tools: [], prompts: [], resourceTemplates: []}});
-    try {
-        for (let index = 0; index < 3; index += 1) await ui.press('\t');
-        await ui.press('a');
-        await ui.press('q');
-        await ui.press('y');
-        await ui.press('\t');
-        assert.match(ui.frame(), /新增配置档案|添加配置档案|Profile/u);
-        assert.match(ui.frame(), /qy/u);
-        await ui.press('\u001b[B');
-        await ui.press('\u001b[B');
-        await ui.press('svmcp_sensitive-key');
-        assert.doesNotMatch(ui.frame(), /svmcp_sensitive-key/u);
-        await ui.press('\u001b');
-        assert.match(ui.frame(), /配置档案/u);
-    } finally {await ui.close();}
-});
-
 test('SlothVault manager requires y for deployment and cancels before later keys', async () => {
     const launched = [];
     const ui = harness(ManagerApp, {initialSetup: false,
@@ -249,36 +229,10 @@ test('SlothVault manager requires y for deployment and cancels before later keys
 });
 
 test('very small plugin windows show resize guidance without activating hidden pages', async () => {
-    const mcp = harness(SlothVaultTuiApp,
-        {initialDiscovery: {tools: [], prompts: [], resourceTemplates: []}}, {columns: 30, rows: 10});
-    try {
-        await mcp.press('\t');
-        await mcp.press('a');
-        assert.match(mcp.frame(), /终端空间不足/u);
-        assert.doesNotMatch(mcp.frame(), /新增配置档案/u);
-    } finally {await mcp.close();}
     const pzip = harness(PzipTuiApp, {initialSourceDirectory: home}, {columns: 28, rows: 7});
     try {
         await pzip.press('s');
         assert.match(pzip.frame(), /终端空间不足/u);
         assert.doesNotMatch(pzip.frame(), /输入目录路径/u);
     } finally {await pzip.close();}
-});
-
-
-test('first connection form asks only for URL and key and clears secret input on cancel', async () => {
-    const ui = harness(SlothVaultTuiApp, {initialSetup: true});
-    try {
-        await waitForFrame(ui, /连接 SlothVault/u);
-        assert.match(ui.frame(), /服务器地址/u);
-        assert.match(ui.frame(), /访问密钥/u);
-        assert.doesNotMatch(ui.frame(), /超时|设为默认/u);
-        await ui.press('https://vault.example');
-        await ui.press('\t');
-        await ui.press('private-test-key');
-        assert.doesNotMatch(ui.frame(), /private-test-key/u);
-        await ui.press('\u001b');
-        await ui.press('c');
-        assert.doesNotMatch(ui.frame(), /private-test-key|https:\/\/vault.example/u);
-    } finally { await ui.close(); }
 });

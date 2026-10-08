@@ -4,25 +4,23 @@
  * @file SlothVaultPluginEntry
  * @project SlothTool
  * @module SlothVault Multifunction Plugin / Entry
- * @description Exposes the SlothTool interface for Vault-owned deployment, Skill, and standalone MCP command registration.
- * @logic 1. Dispatch local management commands; 2. delegate deployment and Skill work through the installed Vault runtime; 3. require explicit confirmation before destructive local replacement; 4. keep standalone MCP execution in slothvault-mcp.
- * @dependencies Node: readline/process, Deploy Runner, Runtime Adapter, Manager TUI
- * @index_tags slothvault,cli,deploy,skill,mcp,registration,tui
+ * @description Manages Vault-owned deployment and Skill packages; agents connect to MCP through their native configuration.
+ * @logic Dispatch deployment, Skill and cleanup commands; confirm destructive local replacement; reject retired Client commands with native connection guidance.
+ * @dependencies Node: readline/process, Deploy Runner, Package/Skill Services, Manager TUI
+ * @index_tags slothvault,cli,deploy,skill,native-mcp,tui
  * @author holic512
  */
 
 import process from 'node:process';
-import {runSetupCli} from '../lib/setup-cli.js';
 import {createInterface} from 'node:readline/promises';
 import {runDeployment} from '../lib/deploy-runner.js';
 import {checkSkillUpdate, updateSkill, getSkillStatus, installSkill, uninstallSkill} from '../lib/skill-service.js';
-import {getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from '../lib/mcp-command-manager.js';
 import {operatePackage} from '../lib/package-service.js';
 import {planSlothVaultCleanup, cleanupSlothVault} from '../lib/slothvault-storage.js';
 import {startSlothVaultManagerTui} from '../lib/manager-tui.js';
 import {t} from '../lib/i18n.js';
 
-const MCP_EXECUTION_COMMANDS = new Set(['profile', 'doctor', 'tools', 'prompts', 'resources', 'history', 'storage']);
+const MCP_EXECUTION_COMMANDS = new Set(['mcp', 'setup', 'profile', 'doctor', 'tools', 'prompts', 'resources', 'history', 'storage']);
 
 function interactive() {
     return Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -45,14 +43,11 @@ function print(value, json) {
 function printHelp() {
     console.log('SlothVault multifunction plugin\n');
     console.log('  slothtool slothvault');
-    console.log('  slothtool slothvault setup [--url <url>] [--key-stdin|--key-env <env>] [--json]');
     console.log('  slothtool slothvault deploy [deployment installer arguments]');
     console.log('  slothtool slothvault deploy package status|install|check|update [--json]');
-    console.log('  slothtool slothvault mcp package status|install|check|update [--json]');
     console.log('  slothtool slothvault cleanup [--dry-run] [--yes] [--json]');
     console.log('  slothtool slothvault skill status|install|update|uninstall [--check] [--local] [--yes] [--json]');
-    console.log('  slothtool slothvault mcp status|register|unregister [--replace --yes] [--json]');
-    console.log('\nMCP calls use the separately registered slothvault-mcp command.');
+    console.log('\n' + t('nativeMcpGuidance'));
 }
 
 async function confirm(question) {
@@ -66,10 +61,10 @@ async function confirm(question) {
     }
 }
 
-/** Keep MCP execution on the separately registered executable without forwarding or local writes. */
-function mcpExecutableRequiredError() {
-    const error = new Error(t('mcpExecutableRequired'));
-    error.code = 'SLOTHVAULT_MCP_COMMAND_REQUIRED';
+/** Retired MCP commands explain native agent configuration without starting a client or writing credentials. */
+function nativeMcpRequiredError() {
+    const error = new Error(t('nativeMcpGuidance'));
+    error.code = 'SLOTHVAULT_MCP_CLIENT_REMOVED';
     error.category = 'usage';
     error.exitCode = 2;
     return error;
@@ -111,25 +106,6 @@ async function runSkill(args, json) {
     throw new Error(`Unknown skill command: ${action}`);
 }
 
-async function runMcp(args, json) {
-    const action = args[0] || 'status';
-    if (action === 'status') return print(getMcpCommandStatus(), json);
-    if (action === 'unregister') return print(unregisterMcpCommand(), json);
-    if (action !== 'register') throw new Error(`Unknown MCP command: ${action}`);
-    const initial = getMcpCommandStatus();
-    let replace = hasFlag(args, '--replace');
-    if (initial.state === 'conflict') {
-        if (!interactive() && !(replace && hasFlag(args, '--yes'))) {
-            throw new Error('A conflicting slothvault-mcp command requires --replace --yes outside an interactive terminal.');
-        }
-        if (interactive() && !await confirm(`Replace the non-managed command at ${initial.targetPath}?`)) {
-            throw new Error('MCP command registration was cancelled.');
-        }
-        replace = true;
-    }
-    return print(registerMcpCommand({replace}), json);
-}
-
 async function main() {
     const args = process.argv.slice(2);
     if (hasFlag(args, '--help') || hasFlag(args, '-h')) return printHelp();
@@ -139,10 +115,9 @@ async function main() {
     }
     const [command, ...rest] = args;
     const json = hasFlag(rest, '--json');
-    if (MCP_EXECUTION_COMMANDS.has(command)) throw mcpExecutableRequiredError();
-    if (command === 'setup') return runSetupCli(rest);
-    if ((command === 'deploy' || command === 'mcp') && rest[0] === 'package') {
-        const result = await operatePackage(command === 'deploy' ? 'deployment' : 'mcp-client', rest[1] || 'status');
+    if (MCP_EXECUTION_COMMANDS.has(command)) throw nativeMcpRequiredError();
+    if (command === 'deploy' && rest[0] === 'package') {
+        const result = await operatePackage('deployment', rest[1] || 'status');
         print(result, json);
         if (result.status === 'error') process.exitCode = 1;
         return;
@@ -166,7 +141,6 @@ async function main() {
         return;
     }
     if (command === 'skill') return runSkill(rest, json);
-    if (command === 'mcp') return runMcp(rest, json);
     throw new Error(`Unknown SlothVault command: ${command}`);
 }
 

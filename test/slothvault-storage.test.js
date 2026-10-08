@@ -22,7 +22,7 @@ function fixture(t, useHome = false) {
 function write(file, data = 'sentinel') {fs.mkdirSync(path.dirname(file), {recursive: true}); fs.writeFileSync(file, data); return file;}
 function link(source, target) {fs.mkdirSync(path.dirname(target), {recursive: true}); fs.symlinkSync(source, target, 'dir'); return target;}
 function component(module, options, version = '1.0.0', active = true) {
-    const paths = componentPaths(module, options);
+    const paths = module === 'mcp-client' ? {root: path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client'), releases: path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client/releases'), current: path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client/current')} : componentPaths(module, options);
     const root = active && module === 'skill' ? paths.current : path.join(paths.releases, version);
     write(path.join(root, 'module.json'), JSON.stringify({schema: 1, module, version, bridgeApiMajor: module === 'mcp-client' ? 2 : 1}));
     write(path.join(root, module === 'skill' ? 'slothvault-mcp/SKILL.md' : module === 'deployment' ? 'install.py' : 'slothvault_mcp.py'));
@@ -86,7 +86,7 @@ test('legacy links are previewed and migrated before deleting redundant toolkit 
     assert.equal(fs.existsSync(pointer), false);
 });
 
-test('a verified legacy command reference protects its toolkit and active operation locks block cleanup', t => {
+test('cleanup removes retired commands; active operation locks block cleanup', t => {
     const options = fixture(t);
     for (const module of ['skill', 'deployment', 'mcp-client']) component(module, options);
     const legacy = path.join(options.slothToolHome, 'runtimes/slothvault/releases/0.8.0');
@@ -95,10 +95,78 @@ test('a verified legacy command reference protects its toolkit and active operat
     const command = write(path.join(options.homeDir, 'bin/slothtool'));
     link(path.join(pointer, 'bin/slothvault-mcp.js'), path.join(options.homeDir, 'bin/slothvault-mcp'));
     options.env = {SLOTHTOOL_COMMAND_PATH_VERIFIED: '1', SLOTHTOOL_COMMAND_PATH: command};
-    assert.ok(planSlothVaultCleanup(options).kept.some(item => item.path === legacy));
+    assert.ok(planSlothVaultCleanup(options).items.some(item => item.kind === 'command-link'));
     cleanupSlothVault(options);
-    assert.equal(fs.existsSync(legacy), true);
+    assert.equal(fs.existsSync(path.join(options.homeDir, 'bin/slothvault-mcp')), false);
     const lock = write(path.join(componentPaths('skill', options).root, '.operation-lock'));
+    assert.throws(() => cleanupSlothVault(options), {code: 'COMPONENT_BUSY'});
+    assert.equal(fs.existsSync(lock), true);
+});
+
+test('retired Client cleanup removes verified scripts and commands while preserving native agent configuration', t => {
+    const options = fixture(t);
+    const skill = component('skill', options), deployment = component('deployment', options);
+    const client = component('mcp-client', options), oldClient = component('mcp-client', options, '0.9.0', false);
+    const clientRoot = path.dirname(path.dirname(client));
+    const scratch = write(path.join(clientRoot, '.stage-client-residue/download.tgz'));
+    const codexConfig = write(path.join(options.homeDir, '.codex/config.toml'), '[mcp_servers.slothvault]\nurl = "https://vault.example/mcp"\n');
+    const claudeConfig = write(path.join(options.homeDir, '.claude.json'), '{"mcpServers":{"slothvault":{"type":"http","url":"https://vault.example/mcp"}}}');
+    const claudeSettings = write(path.join(options.homeDir, '.claude/settings.json'), '{"permissions":{}}');
+    const nativeFiles = [codexConfig, claudeConfig, claudeSettings].map(file => [file, fs.readFileSync(file, 'utf8')]);
+    const command = write(path.join(options.homeDir, 'bin/slothtool'));
+    const legacyEntry = write(path.join(options.slothToolHome, 'plugins/slothvault/bin/slothvault-mcp.js'));
+    const managedCommand = link(legacyEntry, path.join(options.homeDir, 'bin/slothvault-mcp'));
+    options.env = {PATH: '', SLOTHTOOL_COMMAND_PATH_VERIFIED: '1', SLOTHTOOL_COMMAND_PATH: command};
+    const oldProfiles = slothVaultDataPaths(options).filter(file => file.endsWith('.json')).map(file => write(file, '{"profiles":[]}'));
+    const preview = cleanupSlothVault({...options, dryRun: true});
+    for (const target of [client, oldClient, managedCommand]) {
+        assert.ok(preview.items.some(item => item.path === target));
+        assert.ok(fs.lstatSync(target));
+    }
+    assert.ok(nativeFiles.every(([file]) => !preview.items.some(item => item.path === file)));
+    const result = cleanupSlothVault(options);
+    assert.equal(result.status, 'completed');
+    for (const removed of [client, oldClient, managedCommand, scratch, ...oldProfiles]) {
+        assert.throws(() => fs.lstatSync(removed), {code: 'ENOENT'});
+    }
+    for (const [file, content] of nativeFiles) assert.equal(fs.readFileSync(file, 'utf8'), content);
+    assert.equal(fs.existsSync(skill), true);
+    assert.equal(fs.existsSync(deployment), true);
+});
+
+test('retired Client cleanup preserves custom command targets and referenced or unverified sources', t => {
+    const options = fixture(t);
+    const client = component('mcp-client', options);
+    const source = path.join(client, 'slothvault-mcp');
+    write(path.join(source, 'SKILL.md'), 'Custom retained Skill content');
+    const customLink = link(source, path.join(options.homeDir, '.codex/skills/slothvault-mcp'));
+    const command = write(path.join(options.homeDir, 'bin/slothtool'));
+    const customCommand = write(path.join(options.homeDir, 'bin/slothvault-mcp'), 'Custom user command');
+    options.env = {PATH: '', SLOTHTOOL_COMMAND_PATH_VERIFIED: '1', SLOTHTOOL_COMMAND_PATH: command};
+    const unknown = write(path.join(path.dirname(client), 'custom-source/slothvault_mcp.py'), 'Custom user payload');
+    const result = cleanupSlothVault(options);
+    assert.equal(result.status, 'completed');
+    assert.ok(result.kept.some(item => item.path === client && item.reason === 'referenced'));
+    assert.ok(result.skipped.some(item => item.path === path.dirname(unknown) && item.reason === 'unverified-content'));
+    assert.equal(fs.readlinkSync(customLink), source);
+    assert.equal(fs.readFileSync(customCommand, 'utf8'), 'Custom user command');
+    assert.equal(fs.readFileSync(unknown, 'utf8'), 'Custom user payload');
+    assert.equal(fs.existsSync(client), true);
+});
+
+test('retired Client cleanup rejects linked storage parents and respects legacy operation locks', t => {
+    const options = fixture(t);
+    const outside = path.join(options.homeDir, 'outside-client');
+    write(path.join(outside, 'module.json'), '{"module":"mcp-client","version":"1.0.0"}');
+    const payload = write(path.join(outside, 'slothvault_mcp.py'));
+    const clientRoot = path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client');
+    link(outside, clientRoot);
+    const result = cleanupSlothVault(options);
+    assert.equal(result.status, 'completed');
+    assert.ok(result.skipped.some(item => item.path === clientRoot && item.reason === 'unsafe-parent'));
+    assert.equal(fs.existsSync(payload), true);
+    fs.unlinkSync(clientRoot);
+    const lock = write(path.join(clientRoot, '.operation-lock'));
     assert.throws(() => cleanupSlothVault(options), {code: 'COMPONENT_BUSY'});
     assert.equal(fs.existsSync(lock), true);
 });

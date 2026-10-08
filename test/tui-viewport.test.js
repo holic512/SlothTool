@@ -13,7 +13,6 @@ import {LocTuiApp} from '../plugins/loc/lib/tui.js';
 import {ImageCompressTuiApp} from '../plugins/image-compress/lib/tui.js';
 import {GStoreTuiApp} from '../plugins/gstore/lib/tui.js';
 import {PzipTuiApp} from '../plugins/pzip/lib/tui.js';
-import {SlothVaultTuiApp} from '../plugins/slothvault/lib/tui.js';
 import {ManagerApp} from '../plugins/slothvault/lib/manager-tui.js';
 import {getDisplayWidth, getShellLayout, getDetailWindow} from '../lib/tui/shared-interaction.js';
 import {TuiHeader, TuiRow} from '../lib/tui/shared-layout.js';
@@ -60,6 +59,7 @@ function harness(Component, props, columns, rows) {
             stdout.columns = nextColumns;
             stdout.rows = nextRows;
             stdout.emit('resize');
+            await new Promise(resolve => setImmediate(resolve));
             await ink.waitUntilRenderFlush();
         },
         async close() {ink.unmount(); await ink.waitUntilExit();}
@@ -81,8 +81,7 @@ const surfaces = [
     ['image', ImageCompressTuiApp, {}, 3, [30, 14]],
     ['gstore', GStoreTuiApp, {}, 4, [30, 14]],
     ['pzip', PzipTuiApp, {initialSourceDirectory: home}, 2, [30, 8]],
-    ['mcp', SlothVaultTuiApp, {initialDiscovery: {tools: [], prompts: [], resourceTemplates: []}}, 4, [40, 16]],
-    ['manager', ManagerApp, {initialSetup: false, inspect: async root => ({state: 'absent', root, containers: []})}, 4, [30, 18]]
+    ['manager', ManagerApp, {initialSetup: false, inspect: async root => ({state: 'absent', root, containers: []})}, 3, [30, 18]]
 ];
 
 for (const language of ['zh', 'en']) {
@@ -128,24 +127,23 @@ test('narrow image action rows never overlap and every selected action remains v
 });
 
 test('details reflow after resize and can reach the end of long original lines', async () => {
-    const longName = 'capability_' + '中👩🏽‍💻'.repeat(45) + '_FINAL_NAME';
-    const ui = harness(SlothVaultTuiApp, {initialDiscovery: {tools: [{name: longName,
-        description: 'description '.repeat(80) + 'FINAL_DESCRIPTION', annotations: {readOnlyHint: true}}], prompts: [], resourceTemplates: []}}, 90, 24);
+    const longPath = '/packages/' + '中👩🏽‍💻'.repeat(80) + '/FINAL_DESCRIPTION';
+    const ui = harness(ManagerApp, {services: {getComponentStatus: module => ({module, state: 'missing', path: longPath, currentVersion: null})}}, 90, 24);
     try {
         await ui.settle();
         await ui.press('\t');
         await ui.press('v');
-        await ui.resize(40, 16);
+        await ui.resize(40, 18);
         let all = ui.frame();
         for (let index = 0; index < 35; index += 1) {
             await ui.press('\u001b[6~');
-            assertFrame(ui.frame(), 40, 16, 'resized details');
+            assertFrame(ui.frame(), 40, 18, 'resized details');
             all += ui.frame();
         }
-        assert.match(all, /FINAL_DESCRIPTION/u);
+        assert.match(all.replace(/[│\s]/gu, ''), /FINAL_DESCRIPTION/u);
         await ui.resize(120, 32);
         assertFrame(ui.frame(), 120, 32, 'expanded details');
-        assert.match(ui.frame(), /FINAL_DESCRIPTION/u);
+        assert.match(ui.frame().replace(/[│\s]/gu, ''), /FINAL_DESCRIPTION/u);
     } finally {await ui.close();}
 });
 

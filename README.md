@@ -24,7 +24,7 @@ SlothTool 把“插件管理器”作为默认交互入口：根命令负责安�
 | 平台资产选择 | `image-compress` 按当前系统和 CPU 架构选择匹配的预编译后端资产。 |
 | 配置云同步 | `gstore` 通过独立 Git 仓库缓存同步全局设置、插件配置和数据，并提供冲突检测与显式覆盖策略。 |
 | 项目 ZIP 压缩 | `pzip` 递归创建 ZIP，默认过滤 macOS、构建产物与 Git 元数据，并应用嵌套 `.gitignore`。 |
-| SlothVault 管理界面 | `sv`/`slothvault` 提供 TUI、安装更新与命令适配；Vault 仓库分别发布 MCP Client、Skill 和 Deployment 三包。注册后的 `slothvault-mcp` 动态发现管理员 MCP 能力并执行带风险确认的调用。 |
+| SlothVault 管理界面 | `sv`/`slothvault` 独立管理 Deployment 和 Skill 包，展示部署状态与真实进度；Codex 等智能体通过原生 MCP 配置直连服务端。 |
 | 双语界面 | 根管理器和官方插件支持中文 / English 文案。 |
 | 本地用户数据 | 设置、注册表、插件包、插件配置和同步数据都保存在 `~/.pipker/slothtool/`。 |
 
@@ -86,10 +86,9 @@ slothtool gstore sync
 slothtool pzip ./my-project
 slothtool pzip ./my-project --exclude "logs/" --dry-run
 
-slothtool sv mcp register
-slothvault-mcp profile add intranet --url http://vault.internal --default
-slothvault-mcp doctor
-slothvault-mcp tools list
+slothtool sv deploy package install
+slothtool sv skill install
+slothtool sv skill status --check --json
 ```
 
 ## TUI Pages
@@ -115,7 +114,7 @@ pzip 在宽屏中使用任务／结果、内置／自定义规则双面板；窄
 
 卸载先展示目标、数据策略和删除路径，↑↓／PageUp／PageDown 可查看完整范围；←→ 切换“保留配置和历史”与“清理配置和历史”，TUI 默认保留。普通插件按 `y` 确认，按 `n` 或 Esc 取消。批量卸载还需要输入 `DELETE ALL` 并按 Enter。Update 页仍须先检查，再更新；批量更新后可在“最近一次批量更新结果”或任务反馈中查看每个目标及失败原因。
 
-官方插件的危险操作同样要求明确的 `y`，普通 Enter 不会在确认层继续执行。插件任务执行期间按键栏只展示真实可用操作；SlothVault 部署程序的提示输入可向 Python 服务发送取消请求，强制退出进程不作为安全取消。SlothVault MCP Key 仅在受保护表单中以掩码编辑，不进入普通详情或会话回看。
+官方插件的危险操作同样要求明确的 `y`，普通 Enter 不会在确认层继续执行。插件任务执行期间按键栏只展示真实可用操作；SlothVault 部署程序的提示输入可向 Python 服务发送取消请求，强制退出进程不作为安全取消。SlothVault 插件不读取或编辑智能体原生 MCP Key。
 
 Run 页面会把最近运行的插件排在前面，未运行过的插件继续按别名稳定排序。插件退出后会返回根 TUI，并聚焦刚刚运行、已经移动到列表首位的插件。
 
@@ -150,7 +149,7 @@ Home 的最近插件入口也按此顺序排列。从 Home、Run 或安装成功
 | `image-compress` | `@holic512/plugin-image-compress` | JPEG / PNG 图片压缩、目录批处理、拖拽路径 TUI、多平台 Go 后端资产。 | `slothtool image-compress` / `image-compress` |
 | `gstore` | `@holic512/plugin-gstore` | GitHub CLI 登录、独立 Git 缓存、设置/插件配置/数据全量同步、冲突检测和显式覆盖策略。 | `slothtool gstore` / `gstore` |
 | `pzip` | `@holic512/plugin-pzip` | ZIP 目录压缩、递归过滤 `.DS_Store`/`__MACOSX`/`dist`/`target`/`.git`、嵌套 `.gitignore` 与规则配置。 | `slothtool pzip` / `pzip` |
-| `slothvault`（简写 `sv`） | `@holic512/plugin-slothvault` | 管理界面、三包独立安装更新、独立 MCP 命令注册；业务内容由 Vault 分包提供。 | `slothtool sv` / 注册后的 `slothvault-mcp` |
+| `slothvault`（简写 `sv`） | `@holic512/plugin-slothvault` | 管理界面、部署与 Skill 独立包管理；智能体原生 MCP 直连服务端。 | `slothtool sv` |
 
 ### `loc`
 
@@ -224,53 +223,40 @@ slothtool gstore conflicts --json
 slothtool install slothvault
 slothtool sv
 slothtool update slothvault --check
-slothtool slothvault mcp package install
-slothtool slothvault skill install
+slothtool slothvault deploy package status
 slothtool slothvault deploy package install
-slothtool sv mcp register
-
-slothtool slothvault
+slothtool slothvault deploy package check
+slothtool slothvault deploy package update
 slothtool slothvault deploy
-slothtool slothvault skill status
-slothtool slothvault mcp status
-slothvault-mcp profile add production --url https://vault.example.com --default
-slothvault-mcp doctor --profile production
-slothvault-mcp tools list --profile production
-slothvault-mcp tools show TOOL_NAME --profile production
-slothvault-mcp tools call TOOL_NAME --args '{}' --profile production --yes --json
-slothvault-mcp prompts list --profile production
-slothvault-mcp prompts get PROMPT_NAME --args '{}' --profile production
-slothvault-mcp resources list --profile production
-slothvault-mcp resources read RESOURCE_URI --output ./artifact.bin --profile production
-slothvault-mcp history list
-slothvault-mcp storage status --json
+slothtool slothvault skill install
+slothtool slothvault skill status --check --json
+slothtool slothvault skill update
+slothtool slothvault skill uninstall
 ```
 
-多功能入口包括 `deploy package status|install|check|update`、`mcp package status|install|check|update`、`skill status|install|update|uninstall`、`cleanup` 与 `mcp status|register|unregister`。根管理器的安装、检查、更新和批量更新只管理 SlothTool 发布的界面插件；外部包在各自 Tab 或上述 CLI 命令中独立管理。保留 `slothtool update slothvault --module …` 作为显式定向兼容入口。它不会转发 `profile`、`doctor`、Tool、Prompt、Resource、History 或 Storage 参数；这些 MCP 调用会明确提示改用已注册的独立命令。独立 `slothvault-mcp` 命令组包括 `profile add|update|list|show|use|remove`、`doctor`、`tools list|show|call`、`prompts list|get`、`resources list|read`、`history list|show|clear` 与只读的 `storage status`。JSON 参数可由 `--args` 或 `--args-file <path|->` 提供；凭据只通过隐藏输入、`--key-stdin` 或 `--key-env` 接收，不提供会泄漏到进程参数和 shell 历史中的 `--key`。
+根管理器只安装、检查和更新 SlothTool 发布的界面插件。Deployment 和 Skill 在各自 Tab 或 CLI 中独立同步正式 Release；`slothtool update slothvault --module skill|deployment [--check] [--json]` 保留为定向兼容入口。插件不再安装 MCP Client、建立 Python 虚拟环境、注册独立 MCP 命令或管理 Profile。旧的 `mcp`、`setup`、`doctor` 等入口返回 `SLOTHVAULT_MCP_CLIENT_REMOVED` 和原生连接说明，不读取旧密钥或执行旧脚本。旧 `slothvault-mcp` 插件别名只迁移并调度主入口。
 
-`slothtool slothvault` 始终进入“总览”，只读取本地包摘要。四个 Tab 为总览、部署、Skill 和 MCP；缺少或损坏 MCP 配置不影响部署和 Skill。每页保留左侧操作列表，右侧显示状态、Release 版本与变更说明、确认、输入、进度和结果。按 `v` 聚焦详情，↑↓／PageUp／PageDown 滚动，Esc 返回菜单；窄终端采用上下布局。正文、路径和边框使用终端默认前景色，选中项使用反色和加粗，状态由文字及符号表达。
+Codex 等智能体使用自己的原生 MCP 连接配置。Codex 配置示例（地址和密钥需要替换为你的 SlothVault 实例）：
 
-部署页分别显示脚本包版本与已部署应用版本，“更新包”只更新脚本，“更新应用”更新实例。脚本缺失、损坏或 Python 低于 3.10 时，应用操作显示不可用原因。按 `e` 修改部署目录，按 `m` 选择 Nginx 模式，Docker 模式按 `c` 输入容器名。MCP 页分别管理 Client 包、命令注册和连接配置；进入“连接和配置”才读取 Profile 或连接服务器。
+```toml
+[mcp_servers.slothvault]
+url = "https://vault.example.com/mcp"
+http_headers = { Authorization = "Bearer <SlothVault MCP Key>" }
+default_tools_approval_mode = "auto"
+tool_timeout_sec = 120
+```
 
-包下载显示实际字节数、总量、百分比和速度；无法测量总量时只显示阶段、耗时与运行状态。结果和错误保留至下一操作或主动刷新。现有 Deployment 脚本仍只提供阶段事件；SlothTool 已兼容真实镜像层计量等可选字段，另一仓库的增强要求见 [Deployment 对接提示词](./SLOTHVAULT_DEPLOYMENT_HANDOFF.md)。
+连接和审批由智能体宿主管理。配置生成弹窗、一次性密钥展示及 Skill 改为调用原生 MCP 的另一仓库实施要求，见 [原生 MCP 对接提示词](./SLOTHVAULT_NATIVE_MCP_HANDOFF.md)。当前 Vault 已发布的 Skill 仍可能包含旧 CLI 指引，需要在 Vault 仓库更新并发布；SlothTool 只同步该仓库的正式 Skill 内容。
 
-旧的 `slothtool slothvault-mcp …` 仍是带迁移提示的兼容入口：普通 MCP 参数会转发给独立 `slothvault-mcp` executable，而旧 `skill …` 参数会转发给 `slothtool slothvault skill …`。新脚本应只使用规范的 `slothvault` 插件别名和已注册的独立 MCP 命令。
+`slothtool slothvault` 始终进入总览，三个 Tab 为总览、部署和 Skill。左侧保留操作菜单，右侧展示可滚动的状态、Release 说明、确认、输入、进度、结果和错误。按 `v` 聚焦详情，↑↓／PageUp／PageDown 滚动，Esc 返回菜单；窄终端采用上下布局。正文、路径和边框使用终端前景色，选中项使用反色加粗。
 
-`--json` 成功时只输出一个 JSON 文档，警告写入 stderr。稳定退出码为：`0` 成功、`2` 用法/配置/缺少确认、`3` 认证失败、`4` 网络/超时/服务或协议失败、`5` MCP 业务失败、`1` 其他内部错误。
+部署页区分脚本包版本与已部署应用版本。脚本缺失、损坏或 Python 低于 3.10 时，应用操作显示不可用原因。按 `e` 修改部署目录，按 `m` 选择 Nginx 模式，Docker 模式按 `c` 输入容器名。包下载显示实际字节数、总量、百分比和速度；没有可靠总量时只显示阶段与耗时。部署桥进度增强要求见 [Deployment 对接提示词](./SLOTHVAULT_DEPLOYMENT_HANDOFF.md)。
 
-Vault 独立 MCP Client 包中的 Python 客户端先检查受认证保护的兼容接口，再通过 MCP 初始化与实时发现读取 Tool、Prompt 和 Resource Template，不硬编码业务清单。只有 `annotations.readOnlyHint === true` 的 Tool 会被视为只读；其他 Tool 在交互终端执行前要求确认，在非 TTY、`--json` 或 stdin 参数模式下必须显式传入 `--yes`。Prompt 只获取并展示 MCP messages，不自动执行其中描述的 Tool。`slothtool slothvault` 的 MCP 页面可查看连接状态、能力与脱敏历史，并管理本地 Profile；它不执行 Tool、获取 Prompt 内容或读取 Resource。`slothvault-mcp` 无参数时显示帮助。已授权的任务使用 `--yes` 连续执行，无需每一步重新确认。
+Skill 安装和更新先查询正式 `skill-v*` Release，校验后替换唯一的 `components/skill/current/` 生效目录，修复智能体链接并清理暂存；失败恢复旧内容。Codex 使用 `$CODEX_HOME/skills/slothvault-mcp`，Claude Code 使用 `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp`，未设置时使用各自默认目录。`slothvault-mcp` 仍是 Skill 目录名，不再是插件的 CLI 命令。自动更新保留自定义目标；显式替换需要确认。`--local` 只修复现有链接，界面安装和更新均同步 Release。
 
-Vault 独立 Skill 包含有 `slothvault-mcp` Skill，也可从仓库手动复制。安装和更新 Skill 都先查询正式 `skill-v*` Release，下载并校验后替换唯一的 `components/skill/current/` 生效目录，再校验智能体链接并清理归档、暂存及经验证的旧内容。最新版校验通过时仅修复链接，失败恢复旧生效内容；其他组件不参与。通过 `slothtool slothvault skill install` 会检测 Codex 与 Claude Code，并只在已检测智能体自己的目录创建链接：Codex 使用 `$CODEX_HOME/skills/slothvault-mcp`（默认 `~/.codex/skills/slothvault-mcp`），Claude Code 使用 `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp`（默认 `~/.claude/skills/slothvault-mcp`）；不再向 `~/.agents/skills` 新装链接。若目标有自定义内容，自动更新会保留并报告冲突；显式安装时非交互或 `--json` 模式只有指定 `--yes` 才能覆盖。卸载只删除当前或旧版的已识别受管链接。未出现 Skill 时请重启对应智能体。
+`slothtool uninstall slothvault` 删除界面、部署与 Skill 包、旧 Client 运行包和受管链接，默认保留旧 SlothTool 配置与历史；`--purge-data --yes` 清理插件拥有的数据。总览“清理旧数据”或 `slothtool slothvault cleanup --dry-run --json` 预览旧包、暂存、退役 Client、旧 Profile／历史及受管命令，确认后用 `cleanup --yes` 执行。只删除受管且经验证的内容，保留自定义引用、有效 Skill／Deployment、其他插件、已部署应用、数据库、Nginx 和证书。
 
-TUI 的 Profile 表单不会载入现有明文 Key，也不会显示本次输入的新 Key；编辑时 Key 留空会保留原值。配置变更不会自动连接服务端，默认 Profile 或连接参数变化后需按 `r` 重新发现能力。
-
-配置保存在 `~/.pipker/slothtool/plugin-configs/slothvault.json`，其中 Bearer Key 为明文；历史保存在 `~/.pipker/slothtool/data/slothvault/history.json`，只记录脱敏摘要，不保存完整参数、完整结果或 Resource 内容。首次使用时，旧 MCP-only 路径只会在新位置不存在时原子迁移；两者同时存在时绝不覆盖或合并。`slothvault-mcp storage status --json` 只报告各路径状态，不读取或打印任何 Key、Profile 或历史正文。若根命令输出 `SLOTHVAULT_PLUGIN_UPGRADE_REQUIRED`，说明旧 MCP-only 包仍处于规范别名下；先执行 `slothtool update slothvault`，重新注册 `slothvault-mcp`，再使用独立命令配置或诊断。`gstore` 默认会同步 `plugin-configs/` 和 `data/`，因此其私有同步仓库可能包含明文 Key 与脱敏历史元数据。优先使用 HTTPS；HTTP endpoint 可以用于受控内网，但插件会持续显示明文传输警告。
-
-读取 Resource 时必须显式指定 `--output`，目标文件已存在则拒绝覆盖。插件只接受 SlothVault 受保护的 Resource URI，校验 MIME、Base64、大小及 `_meta["slothvault/file-name"]` 文件名后再原子落盘，并兼容旧服务端的顶层 `name` 字段；托管文件上限为 10 MiB，合同附件上限为 25 MiB，Resource Base64 不会打印到终端。
-
-需要管理员权限管理 `/data`、Nginx 或 Certbot 时，使用 `sudo env HOME="$HOME" "$(command -v slothtool)" slothvault deploy …`，以保留安装用户的 SlothTool 数据目录。注册独立 MCP 命令时不会覆盖同名用户命令；非交互替换需要 `--replace --yes`。`slothtool uninstall slothvault` 删除界面、三个运行包和受管链接，默认保留 Profile/Key 和脱敏历史；`--purge-data --yes` 同时删除该插件拥有的配置、历史、数据及缓存。两种策略都保留已部署应用、容器、数据库、Nginx 和证书。
-
-总览的“清理旧数据”或 `slothtool slothvault cleanup --dry-run` 先预览旧组件、暂存残留及配置和历史的范围与大小。确认执行 `slothtool slothvault cleanup --yes [--json]` 后，会清空当前和旧 MCP Profile／历史路径，避免重新迁移回来；当前组件、有效链接、自定义冲突及已部署应用保留。需要迁移的旧链接会先修复；仍被引用或无法验证的目录会保留并报告。清理后需重新配置 MCP。
+**智能体原生 MCP 配置不属于 SlothTool 数据，清理与卸载都不会修改它。** 本轮源码调整也不删除本机已安装包或用户数据；旧残留通过明确的清理或卸载操作处理。
 
 ## Offline Plugin Archives
 
@@ -286,7 +272,7 @@ slothtool install loc --file ./loc-offline.tgz
 slothtool bundle loc --output ./loc-offline.tgz
 ```
 
-离线归档使用 `package/` 根布局。若归档没有 `node_modules` 但声明了依赖，安装器只会尝试 `npm install --omit=dev --offline`；npm 缓存不完整时会失败并提示先在联网机器上执行 `slothtool bundle`。SlothVault 归档仅包含界面及 Node 运行依赖；安装界面不下载外部包。进入相应 Tab 后，显式安装 MCP Client、Skill 或 Deployment 包才需要访问 Vault Release。
+离线归档使用 `package/` 根布局。若归档没有 `node_modules` 但声明了依赖，安装器只会尝试 `npm install --omit=dev --offline`；npm 缓存不完整时会失败并提示先在联网机器上执行 `slothtool bundle`。SlothVault 归档仅包含界面及 Node 运行依赖；安装界面不下载外部包。进入相应 Tab 后，显式安装 Skill 或 Deployment 包才需要访问 Vault Release。
 
 ## Configuration
 
@@ -351,8 +337,8 @@ flowchart TD
 安装流程：
 
 1. `slothtool install <alias>` 或 `install <alias> --file <archive.tgz>` 从 `lib/official-plugins.json` 查找内置官方插件。
-2. 在线安装按插件策略、当前平台和 CPU 架构选择 GitHub Release `.tgz`；本地归档安装校验包名。SlothVault 的三个外部包只通过各自服务显式下载和校验。
-3. 界面插件被部署到 `~/.pipker/slothtool/plugins/<alias>/`；MCP Client 和 Deployment 分别部署到 `~/.pipker/slothtool/runtimes/slothvault/components/<module>/releases/<version>/` 并切换 `current` 指针；Skill 只保留实际的 `components/skill/current/` 生效目录。
+2. 在线安装按插件策略、当前平台和 CPU 架构选择 GitHub Release `.tgz`；本地归档安装校验包名。SlothVault 的两个外部包只通过各自服务显式下载和校验。
+3. 界面插件被部署到 `~/.pipker/slothtool/plugins/<alias>/`；Deployment 部署到 `~/.pipker/slothtool/runtimes/slothvault/components/<module>/releases/<version>/` 并切换 `current` 指针；Skill 只保留实际的 `components/skill/current/` 生效目录。
 4. 插件入口、版本和来源类型写入 `~/.pipker/slothtool/registry.json`。
 5. `slothtool <plugin>` 从注册表解析插件入口；无额外参数时优先进入插件默认 TUI。
 
@@ -363,8 +349,6 @@ flowchart TD
 ├── settings.json
 ├── registry.json
 ├── data/
-│   ├── slothvault/
-│   │   └── history.json
 │   └── <plugin-data>/
 ├── cache/
 │   └── gstore/
@@ -379,12 +363,10 @@ flowchart TD
 ├── runtimes/
 │   └── slothvault/
 │       └── components/
-│           ├── mcp-client/
 │           ├── skill/
 │           └── deployment/
 └── plugin-configs/
     ├── gstore.json
-    ├── slothvault.json
     └── <plugin-config>.json
 ```
 
@@ -421,7 +403,6 @@ node plugins/image-compress/bin/image-compress.js --help
 node plugins/gstore/bin/gstore.js --help
 node plugins/pzip/bin/pzip.js --help
 node plugins/slothvault/bin/slothvault.js --help
-node plugins/slothvault/bin/slothvault-mcp.js --help
 ```
 
 Focused checks:
@@ -435,7 +416,6 @@ SLOTHTOOL_IMAGE_COMPRESS_TUI_TEST_ACTION=exit node plugins/image-compress/bin/im
 SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault.js
-SLOTHTOOL_SLOTHVAULT_MCP_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault-mcp.js
 ```
 
 Full regression:
@@ -453,14 +433,9 @@ More project docs:
 
 ISC, as declared in [package.json](./package.json). This repository does not currently include a standalone `LICENSE` file.
 
-### SlothVault 快速连接与 Skill 更新
-
-首次进入 SlothVault TUI 展示总览。先在 MCP Tab 安装 Client，再选择“连接和配置”；连接表单只管理服务器地址和访问密钥，高级 Profile 管理保留。CLI 使用同一服务：
+### SlothVault Skill 更新
 
 ```bash
-slothtool slothvault mcp package install
-slothtool slothvault setup --url https://vault.example --key-env SLOTHVAULT_KEY
-slothvault-mcp setup --url https://vault.example --key-stdin
 slothtool slothvault skill status --json
 slothtool slothvault skill status --check --json
 slothtool slothvault skill update
@@ -468,8 +443,4 @@ slothtool slothvault skill update --local
 slothtool update slothvault --check --json
 ```
 
-`setup` 自动补全 `/mcp`、复用同地址连接，并保留其他连接。保存后检测服务，连接失败时明确报告“配置已保存”。连接操作只管理连接与 Profile。安装 Skill 和注册受管命令分别通过 `skill install` 与 `mcp register` 明确触发。
-
-MCP Client、Skill 与 Deployment 分别使用 Vault 的 `mcp-client-vX.Y.Z`、`skill-vX.Y.Z` 和 `deployment-vX.Y.Z` Release；SlothTool 界面另有插件版本。每包清单记录归档与文件 SHA-256 和桥协议主版本。`slothtool update slothvault` 只检查并更新界面，旧 `--module` 显式选择一个外部包；`--local` 仅作为修复本地 Skill 链接的兼容操作，TUI 安装和更新均直接同步 Release。旧受管链接和缺失链接可修复，自定义文件保持原状。TUI 的 Skill 页按 `c` 检查、`n` 更新，并显示当前和最新版本；网络失败显示“未能检查”。
-
-MCP 业务错误保留脱敏后的 `reason`、实体 ID 和校验问题；例如目标非空或正文已发布，不再只显示通用错误。Skill 对已授权任务连续完成准备、编辑、校验、发布与回查，正文使用具体项目事实，并优先使用 `loc`、`pzip` 和已有附件。
+Skill 与 Deployment 分别使用 Vault 的 `skill-vX.Y.Z` 和 `deployment-vX.Y.Z` Release，界面插件拥有自己的版本。每包清单记录 SHA-256 和桥协议主版本。Skill 页按 `c` 检查、`n` 更新；网络失败显示“未能检查”。业务流程说明属于 Vault Skill，连接、工具发现和调用由智能体原生 MCP 支持完成。

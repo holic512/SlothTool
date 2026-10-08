@@ -117,29 +117,23 @@
       "packageDir": "plugins/slothvault",
       "releaseTagPrefix": "plugin-slothvault-v",
       "assetNamePrefix": "holic512-plugin-slothvault-",
-      "description": "提供 SlothVault 管理界面，并安装 Vault 发布的部署、Skill 与管理员 MCP 运行包",
-      "descriptionEn": "Provide the SlothVault manager interface and install the Vault-owned deployment, Skill, and administrator MCP runtime",
+      "description": "管理 SlothVault 独立部署脚本与 Skill 包，智能体通过原生 MCP 配置直连服务端",
+      "descriptionEn": "Manage independent SlothVault Deployment and Skill packages; agents connect through native MCP configuration",
       "version": "latest",
       "author": "MengJiaXu",
       "features": [
-        "Linux 部署、更新、Nginx 与 HTTPS 入口",
+        "Linux 部署、应用更新、Nginx 与 HTTPS 入口",
         "Codex / Claude Code Skill 管理",
-        "可单独注册的 slothvault-mcp 命令",
-        "动态发现 Tool、Prompt 与 Resource Template",
-        "多配置档案与 Bearer Key 脱敏",
-        "基于 Tool annotations 的写操作确认",
-        "受限 Resource 校验与安全落盘",
-        "远端只读诊断、本地 Profile 管理与脱敏调用历史"
+        "部署与 Skill 独立 Release 安装更新",
+        "持续可查看的状态、进度与操作结果",
+        "受管旧包、Client 残留与链接清理"
       ],
       "featuresEn": [
-        "Dynamic Tool, Prompt, and Resource Template discovery",
-        "Multiple profiles with redacted Bearer Keys",
-        "Write-operation confirmation based on Tool annotations",
-        "Validated Resource downloads with safe file writes",
-        "Linux deployment, update, Nginx, and HTTPS entry",
+        "Linux deployment, application updates, Nginx and HTTPS",
         "Codex / Claude Code Skill management",
-        "Separately registered slothvault-mcp command",
-        "Read-only remote diagnostics, local profile management, and redacted call history"
+        "Independent Deployment and Skill Release synchronization",
+        "Persistent state, progress and operation results",
+        "Managed legacy package, Client residue and link cleanup"
       ]
     }
   ]

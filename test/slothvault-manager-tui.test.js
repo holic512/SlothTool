@@ -25,7 +25,7 @@ after(() => {
 });
 function services(overrides = {}) {
     return {getComponentStatus: module => ({module, state: 'missing', currentVersion: null, path: '/packages/' + module}),
-        getSkillStatus: () => ({agents: [], sourceState: 'missing'}), getMcpCommandStatus: () => ({state: 'unavailable'}),
+        getSkillStatus: () => ({agents: [], sourceState: 'missing'}),
         getDeploymentAvailability: async () => ({available: false, reason: 'missing'}), ...overrides};
 }
 function harness(props, columns = 100, rows = 28) {
@@ -61,11 +61,8 @@ test('Overview reads no MCP configuration, even when the installed client has a 
         await ui.press('\t'); await ui.press('\t');
         assert.equal(fs.existsSync(marker), false);
         await ui.press('\t');
-        for (let i = 0; i < 4; i++) await ui.press('\u001b[B');
-        await ui.press('\r');
-        await waitFor(() => /broken Profile/u.test(ui.frame()), ui);
-        assert.equal(fs.existsSync(marker), true); assert.equal(ui.errors(), '');
-        await ui.press('\u001b'); assert.match(ui.frame(), /连接和配置/u);
+        assert.match(ui.frame(), /组件总览/u);
+        assert.doesNotMatch(ui.frame(), /MCP Client|连接和配置|broken Profile/u);
     } finally {await ui.close(); delete process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT;}
 });
 
@@ -115,20 +112,21 @@ test('package checks keep full Release notes reachable after completion and pres
     } finally {await ui.close();}
 });
 
-test('embedded MCP setup fits representative narrow terminals and returns to its parent', async () => {
+test('all three manager pages fit narrow terminals without a Client page', async () => {
     for (const [columns, rows] of [[90, 24], [60, 18], [30, 18]]) {
-        const ui = harness({services: services({getComponentStatus: module => ({module, state: module === 'mcp-client' ? 'installed' : 'missing', currentVersion: '1.0.0'})})}, columns, rows);
+        const ui = harness({services: services()}, columns, rows);
         try {
-            await ui.settle(); for (let i = 0; i < 3; i++) await ui.press('\t');
-            for (let i = 0; i < 4; i++) await ui.press('\u001b[B');
-            await ui.press('\r');
-            const lines = ui.frame().replace(/\n$/u, '').split('\n');
-            assert.ok(lines.length <= rows, ui.frame());
-            assert.ok(lines.every(line => getDisplayWidth(line) <= columns), ui.frame());
-            assert.equal((ui.frame().match(/╭/gu) || []).length, (ui.frame().match(/╰/gu) || []).length, ui.frame());
+            await ui.settle();
+            for (let page = 0; page < 3; page++) {
+                const lines = ui.frame().replace(/\n$/u, '').split('\n');
+                assert.ok(lines.length <= rows, ui.frame());
+                assert.ok(lines.every(line => getDisplayWidth(line) <= columns), ui.frame());
+                assert.equal((ui.frame().match(/╭/gu) || []).length, (ui.frame().match(/╰/gu) || []).length, ui.frame());
+                assert.doesNotMatch(ui.frame(), /MCP Client|连接和配置/u);
+                await ui.press('\t');
+            }
+            assert.match(ui.frame(), /组件总览/u);
             assert.equal(ui.errors(), '');
-            await ui.press('\u001b'); await ui.press('\u001b');
-            assert.match(ui.frame(), /连接和配置/u);
         } finally {await ui.close();}
     }
 });

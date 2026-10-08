@@ -17,23 +17,20 @@ import {createDeploymentSession, inspectDeployment, getDeploymentAvailability} f
 import {VAULT_COMPONENTS, getComponentStatus} from './slothvault-paths.js';
 import {operatePackage} from './package-service.js';
 import {getSkillStatus, checkSkillUpdate, installSkill, updateSkill, uninstallSkill} from './skill-service.js';
-import {getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand} from './mcp-command-manager.js';
-import {planSlothVaultCleanup, cleanupSlothVault, getMcpLocalState} from './slothvault-storage.js';
-import {SlothVaultTuiApp} from './tui.js';
+import {planSlothVaultCleanup, cleanupSlothVault} from './slothvault-storage.js';
 import {t, formatSlothVaultError} from './i18n.js';
 
-const TABS = ['overview', 'deploy', 'skill', 'mcp'];
+const TABS = ['overview', 'deploy', 'skill'];
 export const DEPLOY_ACTIONS = ['install', 'status', 'check-update', 'update', 'start', 'stop', 'nginx', 'https', 'renew'];
 const NGINX_MODES = ['auto', 'system', 'docker'];
 const NGINX_ACTIONS = new Set(['install', 'nginx', 'https', 'renew']);
 const ACTIONS = {
     overview: ['summary', 'status', 'root', 'cleanup'],
     deploy: ['package-status', 'package-install', 'package-check', 'package-update', ...DEPLOY_ACTIONS],
-    skill: ['package-status', 'package-install', 'package-check', 'package-update', 'skill-uninstall'],
-    mcp: ['package-status', 'package-install', 'package-check', 'package-update', 'client', 'command-status', 'register', 'unregister']
+    skill: ['package-status', 'package-install', 'package-check', 'package-update', 'skill-uninstall']
 };
 const defaults = {getComponentStatus, operatePackage, getSkillStatus, checkSkillUpdate, installSkill, updateSkill, uninstallSkill,
-    getMcpCommandStatus, registerMcpCommand, unregisterMcpCommand, planSlothVaultCleanup, cleanupSlothVault, getMcpLocalState,
+    planSlothVaultCleanup, cleanupSlothVault,
     inspectDeployment, createDeploymentSession, getDeploymentAvailability};
 
 export function resolveSlothVaultManagerLayout(columns = 80, rows = 24) {
@@ -79,11 +76,9 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
     const {columns = 80, rows = 24} = useWindowSize();
     const base = resolveSlothVaultManagerLayout(columns, rows);
     const [tab, setTab] = useState('overview');
-    const [selections, setSelections] = useState({overview: 0, deploy: 0, skill: 0, mcp: 0});
+    const [selections, setSelections] = useState({overview: 0, deploy: 0, skill: 0});
     const [packages, setPackages] = useState(() => Object.fromEntries(VAULT_COMPONENTS.map(module => [module, services.getComponentStatus(module)])));
     const [skill, setSkill] = useState(() => services.getSkillStatus());
-    const [command, setCommand] = useState(() => services.getMcpCommandStatus());
-    const [mcpState, setMcpState] = useState(() => services.getMcpLocalState());
     const [root, setRoot] = useState('/data/slothvault');
     const [nginxMode, setNginxMode] = useState('auto');
     const [nginxContainer, setNginxContainer] = useState('');
@@ -101,14 +96,13 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
     const [pending, setPending] = useState(null);
     const [prompt, setPrompt] = useState(null);
     const [editor, setEditor] = useState(null);
-    const [client, setClient] = useState(false);
     const [clock, setClock] = useState(Date.now());
     const busyRef = useRef(false), sessionRef = useRef(null), abortRef = useRef(null), pendingRef = useRef(null), mounted = useRef(true);
     const action = ACTIONS[tab][selections[tab]];
-    const module = tab === 'deploy' ? 'deployment' : tab === 'mcp' ? 'mcp-client' : 'skill';
+    const module = tab === 'deploy' ? 'deployment' : 'skill';
     const shell = getShellLayout(columns, rows, {inverseFooter: true, status: message,
         keys: prompt || editor ? t('workspace.footerInput') : pending ? t('workspace.footerConfirm') : focused ? t('workspace.footerDetails') : busy ? t('workspace.footerBusy') : t('workspace.footer')});
-    const leftHeight = base.compact ? client ? 3 : Math.max(4, Math.min(6, Math.floor(shell.contentHeight / 3))) : shell.contentHeight;
+    const leftHeight = base.compact ? Math.max(4, Math.min(6, Math.floor(shell.contentHeight / 3))) : shell.contentHeight;
     const rightHeight = base.compact ? shell.contentHeight - leftHeight - 1 : shell.contentHeight;
     const leftWidth = base.compact ? shell.contentWidth : base.sidebarWidth;
     const rightWidth = base.compact ? shell.contentWidth : shell.contentWidth - leftWidth - 1;
@@ -142,8 +136,6 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
             }
         }
         if (tab === 'skill') for (const agent of skill.agents || []) lines.push(`${agent.name}: ${localState(agent.detected ? agent.state : 'not-detected')} (${agent.version || '-'})`, agent.targetPath);
-        if (tab === 'mcp') lines.push(field('workspace.command', localState(command.state)), command.targetPath || command.reason || '',
-            field('workspace.profileState', localState(mcpState.profileState)), field('workspace.connectionState', localState(mcpState.connectionState)), t('workspace.mcpHint'));
         if (component.releaseNotes && action.startsWith('package-')) lines.push('', t('workspace.releaseNotes'), ...component.releaseNotes.split(/\r?\n/u), component.releaseUrl || '');
     }
     // Tasks are kept per page. Put live progress before long state and release data.
@@ -172,7 +164,7 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
 
     function refreshLocal() {
         setPackages(current => Object.fromEntries(VAULT_COMPONENTS.map(item => [item, {...current[item], ...services.getComponentStatus(item)}])));
-        setSkill(services.getSkillStatus()); setCommand(services.getMcpCommandStatus());
+        setSkill(services.getSkillStatus());
     }
     async function taskRun(work) {
         if (busyRef.current) return;
@@ -213,23 +205,18 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
         const value = {action: next, ...extra}; pendingRef.current = value; setPending(value); setScroll(0);
     }
     async function run(next, {replace = false} = {}) {
-        if (next === 'summary' || next === 'package-status' || next === 'command-status') {refreshLocal(); setTasks(current => ({...current, [tab]: null})); setMessage(t('manager.refreshed')); return;}
+        if (next === 'summary' || next === 'package-status') {refreshLocal(); setTasks(current => ({...current, [tab]: null})); setMessage(t('manager.refreshed')); return;}
         if (next === 'root') {setEditor({kind: 'root', value: root, cursor: graphemes(root).length}); return;}
-        if (next === 'client') {
-            if (packages['mcp-client'].state !== 'installed') {setMessage(t('workspace.mcpBlocked')); return;}
-            setClient(true); return;
-        }
         if (next === 'cleanup') {
             const planned = services.planSlothVaultCleanup(); setCleanupPreview(planned); setCleanupResult(null);
             requestConfirmation('cleanup'); return;
         }
-        if (next === 'skill-uninstall' || next === 'unregister') {requestConfirmation(next); return;}
+        if (next === 'skill-uninstall') {requestConfirmation(next); return;}
         if (tab === 'deploy' && DEPLOY_ACTIONS.includes(next)) {
             if (packages.deployment.state !== 'installed' || availability?.available === false) {setMessage(t('workspace.deployBlocked', {reason: availability?.reason || localState(packages.deployment.state)})); return;}
             if (next === 'update' && !update?.application_update_available) {setMessage(t('manager.checkFirst')); return;}
             if (!['status', 'check-update'].includes(next)) {requestConfirmation(next); return;}
         }
-        if (next === 'register' && command.state === 'conflict' && !replace) {requestConfirmation(next, {replace: true}); return;}
         if (tab === 'skill' && next === 'package-install' && skill.agents?.some(agent => agent.detected && agent.state === 'conflict') && !replace) {requestConfirmation(next, {replace: true}); return;}
         return perform(next, {replace});
     }
@@ -245,10 +232,8 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
                 return result;
             }
             if (next === 'skill-uninstall') return services.uninstallSkill();
-            if (next === 'register') {const result = services.registerMcpCommand({replace}); setCommand(result); return result;}
-            if (next === 'unregister') {const result = services.unregisterMcpCommand(); setCommand(result); return result;}
             if (next === 'cleanup') {
-                const result = services.cleanupSlothVault({onEvent}); setCleanupResult(result); setMcpState(services.getMcpLocalState()); setInstance(null); setUpdate(null); setPreview(null); return result;
+                const result = services.cleanupSlothVault({onEvent}); setCleanupResult(result); setInstance(null); setUpdate(null); setPreview(null); return result;
             }
             const available = await services.getDeploymentAvailability();
             setAvailability(available);
@@ -308,15 +293,14 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
         if (tab === 'deploy' && input === 'm') {setNginxMode(mode => NGINX_MODES[(NGINX_MODES.indexOf(mode) + 1) % NGINX_MODES.length]); return;}
         if (tab === 'deploy' && input === 'c' && nginxMode === 'docker') {setEditor({kind: 'container', value: nginxContainer, cursor: graphemes(nginxContainer).length}); return;}
         const shortcut = tab === 'skill' ? {c: 'package-check', n: 'package-update', i: 'package-install', u: 'skill-uninstall'}
-            : tab === 'mcp' ? {c: 'package-check', n: 'package-update', i: 'package-install', u: 'unregister'}
                 : tab === 'deploy' ? {p: 'package-check', k: 'package-update'} : {};
         if (shortcut[input]) {setSelections(current => ({...current, [tab]: ACTIONS[tab].indexOf(shortcut[input])})); void run(shortcut[input]); return;}
         if (key.return) void run(action);
-    }, {isActive: !client});
+    });
     usePaste(value => {
         if (prompt) setPrompt(current => change(current, value, {}));
         else if (editor) setEditor(current => change(current, value, {}));
-    }, {isActive: !client});
+    });
 
     if (base.tooSmall) return h(Box, {height: rows, width: columns, flexDirection: 'column'}, h(Text, {wrap: 'truncate-end'}, t('manager.resize')), rows > 1 ? h(Text, {}, 'q') : null);
     const capacity = Math.max(1, leftHeight - 3);
@@ -325,8 +309,7 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
         h(Text, {bold: true, wrap: 'truncate-end'}, t('workspace.actionsTitle')),
         ...ACTIONS[tab].slice(offset, offset + capacity).map((item, index) => h(Text, {key: item, inverse: selections[tab] === offset + index && !focused, bold: selections[tab] === offset + index, wrap: 'truncate-end'},
             truncateFromRight((selections[tab] === offset + index ? '› ' : '  ') + label(item, tab), leftWidth - 4))));
-    const right = client ? h(SlothVaultTuiApp, {embedded: true, layoutOverride: {columns: rightWidth, rows: rightHeight, compact: true, tooSmall: false}, onClose: () => {setClient(false); refreshLocal();}, onState: setMcpState})
-        : h(TuiDetails, {title: label(action, tab), lines, scroll, width: rightWidth, height: rightHeight, focused});
+    const right = h(TuiDetails, {title: label(action, tab), lines, scroll, width: rightWidth, height: rightHeight, focused});
     return h(TuiFrame, {layout: shell, header: h(TuiHeader, {tabs: TABS.map(id => ({id, label: t('manager.tabs.' + id)})), activeTab: tab, width: shell.contentWidth, meta: 'v' + pluginPackage.version})},
         h(Box, {height: shell.contentHeight, flexDirection: base.compact ? 'column' : 'row', gap: 1}, left, right));
 }

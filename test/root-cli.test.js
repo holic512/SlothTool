@@ -24,7 +24,6 @@ const rootBin = path.join(rootDir, 'bin', 'slothtool.js');
 const locBin = path.join(rootDir, 'plugins', 'loc', 'bin', 'loc.js');
 const gstoreBin = path.join(rootDir, 'plugins', 'gstore', 'bin', 'gstore.js');
 const slothVaultBin = path.join(rootDir, 'plugins', 'slothvault', 'bin', 'slothvault.js');
-const slothVaultMcpBin = path.join(rootDir, 'plugins', 'slothvault', 'bin', 'slothvault-mcp.js');
 
 function createTempHome(
     withLocalLoc = false,
@@ -68,7 +67,7 @@ function createTempHome(
             name: '@holic512/plugin-slothvault-mcp',
             packageName: '@holic512/plugin-slothvault-mcp',
             version: 'workspace',
-            binPath: slothVaultMcpBin,
+            binPath: path.join(path.dirname(slothVaultBin), 'slothvault-mcp.js'),
             installedAt: '2026-09-20T00:00:00.000Z',
             sourceType: 'github-release'
         };
@@ -92,37 +91,10 @@ function createTempHome(
 }
 
 function addRuntimeFixture(homeDir) {
-    const components = path.join(homeDir, '.pipker', 'slothtool', 'runtimes', 'slothvault', 'components');
-    const client = path.join(components, 'mcp-client', 'current');
-    const pythonBin = path.join(client, '.venv', 'bin');
-    fs.mkdirSync(pythonBin, {recursive: true});
-    fs.symlinkSync(process.execPath, path.join(pythonBin, 'python'));
-    fs.writeFileSync(path.join(client, 'slothvault_mcp.py'), "console.log('slothvault-mcp doctor\\nslothvault-mcp tools list\\nslothvault-mcp resources list');\n");
-    const skill = path.join(components, 'skill', 'current');
+    const skill = path.join(homeDir, '.pipker/slothtool/runtimes/slothvault/components/skill/current');
     fs.mkdirSync(path.join(skill, 'slothvault-mcp'), {recursive: true});
-    fs.writeFileSync(path.join(skill, 'module.json'), JSON.stringify({module: 'skill', version: '1.0.0'}));
-    fs.writeFileSync(path.join(skill, 'slothvault-mcp', 'SKILL.md'), '---\nmetadata:\n  version: "1.0.0"\n---\n');
-    const bin = path.join(homeDir, '.pipker', 'slothtool', 'runtimes', 'slothvault', 'current', 'bin');
-    fs.mkdirSync(bin, {recursive: true});
-    fs.writeFileSync(path.join(bin, 'slothvault-mcp.js'), `
-console.log('slothvault-mcp doctor\\nslothvault-mcp tools list\\nslothvault-mcp resources list');
-`);
-    fs.writeFileSync(path.join(bin, 'slothvault-runtime.js'), `
-const fs = require('node:fs');
-const path = require('node:path');
-const [command, action] = process.argv.slice(2);
-if (command === 'skill') console.log(JSON.stringify({name: 'slothvault-mcp', agents: []}));
-else if (command === 'mcp' && action === 'register') {
-  if (process.env.SLOTHTOOL_COMMAND_PATH_VERIFIED !== '1') {
-    console.log(JSON.stringify({ok: false, error: {code: 'MCP_COMMAND_SLOTHTOOL_PATH_UNAVAILABLE', message: 'Command path unavailable'}}));
-    process.exitCode = 2;
-  } else {
-    const targetPath = path.join(path.dirname(process.env.SLOTHTOOL_COMMAND_PATH), 'slothvault-mcp');
-    fs.symlinkSync(path.join(__dirname, 'slothvault-mcp.js'), targetPath);
-    console.log(JSON.stringify({state: 'registered', targetPath}));
-  }
-} else console.log('{}');
-`);
+    fs.writeFileSync(path.join(skill, 'module.json'), JSON.stringify({schema: 1, module: 'skill', version: '1.0.0', bridgeApiMajor: 1}));
+    fs.writeFileSync(path.join(skill, 'slothvault-mcp/SKILL.md'), '---\nmetadata:\n  version: "1.0.0"\n---\n');
 }
 
 function runNode(filePath, args = [], env = {}) {
@@ -286,13 +258,12 @@ test('sv opens the same SlothVault plugin without a second registry entry', () =
     assert.ok(registry.plugins.slothvault);
 });
 
-test('deprecated root shorthand routes MCP calls to the secondary executable', () => {
+test('deprecated alias routes to the manager without a secondary executable', () => {
     const output = runNode(rootBin, ['slothvault-mcp', '--help'], {
         HOME: createTempHome(false, false, true)
     });
-    assert.match(output, /slothvault-mcp doctor/u);
-    assert.match(output, /slothvault-mcp tools list/u);
-    assert.match(output, /slothvault-mcp resources list/u);
+    assert.match(output, /slothvault deploy/u);
+    assert.doesNotMatch(output, /mcp register|mcp package/u);
 });
 
 test('deprecated root Skill shorthand forwards to the multifunction entry', () => {
@@ -377,38 +348,4 @@ test('canonical SlothVault commands stop on an existing legacy/canonical migrati
     assert.equal(fs.readFileSync(path.join(canonicalDirectory, 'keep.txt'), 'utf8'), 'canonical install');
     assert.ok(persistedRegistry.plugins['slothvault-mcp']);
     assert.equal(persistedRegistry.plugins.slothvault, undefined);
-});
-
-test('source-root dispatch refuses MCP command registration without a verified SlothTool bin directory', () => {
-    assert.throws(() => runNode(rootBin, ['slothvault', 'mcp', 'register', '--json'], {
-        HOME: createTempHome(false, false, false, true)
-    }), error => {
-        const output = String(error.stdout || '');
-        const response = JSON.parse(output);
-        assert.equal(response.ok, false);
-        assert.equal(response.error.code, 'MCP_COMMAND_SLOTHTOOL_PATH_UNAVAILABLE');
-        return true;
-    });
-});
-
-test('a PATH-resolved SlothTool command registers the standalone MCP executable beside itself', () => {
-    const commandBin = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-command-bin-'));
-    const commandPath = path.join(commandBin, 'slothtool');
-    const homeDir = createTempHome(false, false, false, true);
-    fs.symlinkSync(rootBin, commandPath);
-
-    const output = runNode(commandPath, ['slothvault', 'mcp', 'register', '--json'], {
-        HOME: homeDir,
-        PATH: `${commandBin}${path.delimiter}${process.env.PATH}`
-    });
-    const response = JSON.parse(output);
-    const registeredPath = path.join(commandBin, 'slothvault-mcp');
-
-    assert.equal(response.state, 'registered');
-    assert.equal(response.targetPath, registeredPath);
-    assert.equal(fs.lstatSync(registeredPath).isSymbolicLink(), true);
-    assert.equal(
-        fs.realpathSync(path.resolve(path.dirname(registeredPath), fs.readlinkSync(registeredPath))),
-        fs.realpathSync(slothVaultMcpBin)
-    );
 });

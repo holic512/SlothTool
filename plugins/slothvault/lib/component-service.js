@@ -4,7 +4,7 @@
  * @module SlothVault component lifecycle
  * @description Manages one Vault-owned component at a time without depending on the root manager or MCP state.
  * @logic Resolve a component Release, stream and validate its payload, activate with rollback, and synchronize only its own local links.
- * @dependencies Standalone Release transport, component paths, Python venv/pip, local Skill links
+ * @dependencies Standalone Release transport, component paths, local Skill links
  * @index_tags slothvault,components,release,install,update,rollback
  * @author holic512
  */
@@ -12,8 +12,7 @@
 import {createHash, randomUUID} from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import {buildProxyEnv} from './network-helper.js';
-import {downloadFile, extractTarballSafely, fetchLatestOfficialRelease, githubRequestJson, runCommand, readNetworkSettings} from './release-client.js';
+import {downloadFile, extractTarballSafely, fetchLatestOfficialRelease, githubRequestJson} from './release-client.js';
 import {VAULT_COMPONENTS, BRIDGE_MAJOR, componentPaths, installedComponent, getComponentStatus, slothToolHome} from './slothvault-paths.js';
 import {installSkill as linkSkill} from './skill-manager.js';
 import {skillLinkReferences, assertComponentStorage} from './slothvault-storage.js';
@@ -95,7 +94,6 @@ function verifyFiles(root, module, manifest) {
     const actual = [];
     function visit(directory) {
         for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
-            if (directory === root && entry.name === '.venv') continue;
             const file = path.join(directory, entry.name);
             if (entry.isSymbolicLink()) throw new Error(`${module} payload contains a symbolic link.`);
             if (entry.isDirectory()) visit(file);
@@ -107,48 +105,8 @@ function verifyFiles(root, module, manifest) {
     if (actual.length !== Object.keys(manifest.files).length || actual.some(file => !manifest.files[file])) {
         throw new Error(`${module} payload contains unlisted files.`);
     }
-    const required = module === 'mcp-client' ? ['slothvault_mcp.py', 'requirements.lock']
-        : module === 'skill' ? ['slothvault-mcp/SKILL.md'] : ['install.py'];
+    const required = module === 'skill' ? ['slothvault-mcp/SKILL.md'] : ['install.py'];
     for (const file of required) if (!manifest.files[file]) throw new Error(`${module} release is missing ${file}.`);
-}
-
-function pythonExecutable(venv) {
-    return process.platform === 'win32' ? path.join(venv, 'Scripts', 'python.exe') : path.join(venv, 'bin', 'python');
-}
-
-async function validateMcpEnvironment(root, options) {
-    await (options.commandRunner || runCommand)(pythonExecutable(path.join(root, '.venv')),
-        [path.join(root, 'slothvault_mcp.py'), '--version', '--json'], {env: {PYTHONDONTWRITEBYTECODE: '1'}, signal: options.signal});
-}
-
-export async function installPythonDependencies(root, options = {}) {
-    const command = options.commandRunner || runCommand;
-    const systemPython = options.pythonCommand || process.env.SLOTHTOOL_SLOTHVAULT_PYTHON || 'python3';
-    const version = await command(systemPython, ['-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'], {signal: options.signal});
-    const [major, minor] = version.trim().split('.').map(Number);
-    if (!Number.isFinite(major) || !Number.isFinite(minor) || major < 3 || (major === 3 && minor < 10)) throw new Error('SlothVault requires Python 3.10 or newer.');
-    const venv = path.join(root, '.venv');
-    emit(options, 'environment');
-    await command(systemPython, ['-m', 'venv', venv], {signal: options.signal});
-    const python = pythonExecutable(venv);
-    const network = options.networkSettings || readNetworkSettings(options).network || {};
-    const primary = 'https://pypi.org/simple';
-    const fallback = process.env.SLOTHTOOL_PYPI_MIRROR || network.pypi?.fallbackUrl || 'https://pypi.tuna.tsinghua.edu.cn/simple';
-    const env = {...buildProxyEnv({network}), PIP_CONFIG_FILE: process.platform === 'win32' ? 'NUL' : '/dev/null'};
-    const install = index => command(python, ['-m', 'pip', 'install', '--disable-pip-version-check', '--no-input',
-        '--require-hashes', '--timeout', '12', '--retries', '1', '--index-url', index,
-        '-r', path.join(root, 'requirements.lock')], {env, signal: options.signal, maxBuffer: 2 * 1024 * 1024});
-    try {
-        emit(options, 'dependencies');
-        await install(primary);
-    } catch (error) {
-        if (!/(?:timed? out|name.?resolution|temporary failure|connection|dns|enotfound|network is unreachable)/iu.test(error.message || '')) throw error;
-        await install(fallback);
-    }
-    emit(options, 'runtime-validation');
-    await command(python, [path.join(root, 'slothvault_mcp.py'), '--version', '--json'], {
-        env: {PYTHONDONTWRITEBYTECODE: '1'}, signal: options.signal
-    });
 }
 
 async function stageComponent(module, release, options = {}) {
@@ -173,7 +131,6 @@ async function stageComponent(module, release, options = {}) {
         verifyFiles(packageRoot, module, release.manifest);
         const prepared = path.join(temporary, 'prepared');
         fs.cpSync(packageRoot, prepared, {recursive: true});
-        if (module === 'mcp-client') await (options.dependencyInstaller || installPythonDependencies)(prepared, options);
         verifyFiles(prepared, module, release.manifest);
         return {module, release, paths, temporary, prepared};
     } catch (error) {
@@ -253,10 +210,6 @@ export async function installComponent(module, options = {}) {
         if (current?.version === release.version && getComponentStatus(module, options).state === 'installed') {
             try {
                 verifyFiles(paths.current, module, release.manifest);
-                if (module === 'mcp-client') {
-                    emit(options, 'runtime-validation');
-                    await (options.runtimeValidator || validateMcpEnvironment)(paths.current, options);
-                }
                 if (module === 'skill') emit(options, 'links');
                 const skillSync = module === 'skill' ? syncSkill(options) : null;
                 // Convert the historical Skill pointer to a single active directory too.
@@ -281,9 +234,6 @@ export async function installComponent(module, options = {}) {
             if (fs.existsSync(target)) {
                 try {
                     verifyFiles(target, module, release.manifest);
-                    // Reaching staging means the installed Client/environment
-                    // could not be reused. Activate the freshly prepared venv too.
-                    if (module === 'mcp-client') throw new Error('Replace the prepared Client environment.');
                 }
                 catch {
                     releaseBackup = path.join(paths.root, `.previous-${randomUUID()}`);

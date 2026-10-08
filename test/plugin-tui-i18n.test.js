@@ -15,7 +15,7 @@ import {messages as imageCompressMessages} from '../plugins/image-compress/lib/i
 import {messages as gstoreMessages} from '../plugins/gstore/lib/i18n.js';
 import {messages as locMessages} from '../plugins/loc/lib/i18n.js';
 import {messages as pzipMessages} from '../plugins/pzip/lib/i18n.js';
-import {messages as slothVaultMcpMessages} from '../plugins/slothvault/lib/i18n.js';
+import {messages as slothVaultMessages} from '../plugins/slothvault/lib/i18n.js';
 import {messages as templateMessages} from '../plugins/template-basic/lib/i18n.js';
 
 test('loc TUI shell keys exist in zh and en', () => {
@@ -65,21 +65,14 @@ test('gstore exposes the shared tab and footer shell in both languages', () => {
     assert.match(gstoreMessages.zh.tui.footer.sync, /Tab/u);
 });
 
-test('SlothVault multifunction package exposes bilingual MCP and local-manager TUI copy', () => {
-    assert.equal(slothVaultMcpMessages.zh.tui.tabs.status, '状态');
-    assert.equal(slothVaultMcpMessages.en.tui.tabs.status, 'Status');
-    assert.equal(slothVaultMcpMessages.zh.tui.tabs.capabilities, '能力');
-    assert.equal(slothVaultMcpMessages.en.tui.tabs.profiles, 'Profiles');
-    assert.match(slothVaultMcpMessages.zh.tui.footer, /Tab/u);
-    assert.match(slothVaultMcpMessages.en.tui.footer, /refresh/u);
-    assert.match(slothVaultMcpMessages.zh.tui.help, /不会调用 Tool/u);
-    assert.match(slothVaultMcpMessages.en.tui.help, /never calls Tools/u);
-    assert.match(slothVaultMcpMessages.zh.tui.profile.browseFooter, /新增/u);
-    assert.match(slothVaultMcpMessages.en.tui.profile.browseFooter, /add/u);
-    assert.match(slothVaultMcpMessages.zh.httpWarning, /明文传输/u);
-    assert.match(slothVaultMcpMessages.en.httpWarning, /clear text/u);
-    assert.equal(slothVaultMcpMessages.zh.manager.title, 'SlothVault 多功能包');
-    assert.equal(slothVaultMcpMessages.en.manager.title, 'SlothVault multifunction package');
-    assert.equal(slothVaultMcpMessages.zh.manager.states.registered, '已注册');
-    assert.equal(slothVaultMcpMessages.en.manager.states['not-registered'], 'not registered');
+test('SlothVault exposes only bilingual deployment and Skill pages with native connection guidance', () => {
+    assert.deepEqual(Object.keys(slothVaultMessages.zh.manager.tabs), ['overview', 'deploy', 'skill']);
+    assert.deepEqual(Object.keys(slothVaultMessages.en.manager.tabs), ['overview', 'deploy', 'skill']);
+    assert.match(slothVaultMessages.zh.workspace.footer, /Tab/u);
+    assert.match(slothVaultMessages.en.workspace.footer, /Tab/u);
+    assert.match(slothVaultMessages.zh.nativeMcpGuidance, /原生 MCP/u);
+    assert.match(slothVaultMessages.en.nativeMcpGuidance, /native MCP/u);
+    assert.equal(slothVaultMessages.zh.tui, undefined);
+    assert.equal(slothVaultMessages.en.setup, undefined);
+    assert.equal(slothVaultMessages.zh.manager.states.registered, undefined);
 });

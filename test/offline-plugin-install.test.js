@@ -58,17 +58,13 @@ function createSlothVaultArchive() {
         version: '2.0.0-test',
         type: 'module',
         bin: {
-            slothvault: 'bin/slothvault.js',
-            'slothvault-mcp': 'bin/slothvault-mcp.js'
+            slothvault: 'bin/slothvault.js'
         },
         dependencies: {}
     }, null, 2));
     const binPath = path.join(binDir, 'slothvault.js');
-    const mcpBinPath = path.join(binDir, 'slothvault-mcp.js');
     fs.writeFileSync(binPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MULTIFUNCTION_OFFLINE_OK");\n');
-    fs.writeFileSync(mcpBinPath, '#!/usr/bin/env node\nconsole.log("SLOTHVAULT_MCP_OFFLINE_OK");\n');
     fs.chmodSync(binPath, 0o755);
-    fs.chmodSync(mcpBinPath, 0o755);
     const archivePath = path.join(root, 'slothvault-offline.tgz');
     execFileSync('tar', ['-czf', archivePath, '-C', root, 'package']);
     return archivePath;
@@ -197,7 +193,7 @@ test('slothvault offline UI installation does not download any Vault component',
 
         assert.equal(bundle.packageName, '@holic512/plugin-slothvault');
         assert.match(listing, /package\/bin\/slothvault\.js/u);
-        assert.match(listing, /package\/bin\/slothvault-mcp\.js/u);
+        assert.doesNotMatch(listing, /package\/bin\/slothvault-mcp\.js/u);
         assert.doesNotMatch(listing, /package\/skills\//u);
         assert.doesNotMatch(listing, /package\/node_modules\/@modelcontextprotocol\/sdk\//u);
     });

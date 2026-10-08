@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {checkComponentUpdate, componentPaths, installComponent, installedComponent,
-    installPythonDependencies, getComponentStatus} from '../plugins/slothvault/lib/component-service.js';
+    VAULT_COMPONENTS, getComponentStatus} from '../plugins/slothvault/lib/component-service.js';
 import {installSkill, updateSkill} from '../plugins/slothvault/lib/skill-service.js';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -15,10 +15,9 @@ function fixture(root, module, version = '1.0.0') {
     const directory = path.join(root, `${module}-${version}`);
     const packageDir = path.join(directory, 'package');
     fs.mkdirSync(packageDir, {recursive: true});
-    const bridgeApiMajor = module === 'mcp-client' ? 2 : 1;
+    const bridgeApiMajor = 1;
     const files = {'module.json': JSON.stringify({schema: 1, module, version, bridgeApiMajor})};
-    if (module === 'mcp-client') Object.assign(files, {'slothvault_mcp.py': 'print("ready")\n', 'requirements.lock': '# locked\n'});
-    else if (module === 'skill') files['slothvault-mcp/SKILL.md'] = `---\nmetadata:\n  version: "${version}"\n---\n`;
+    if (module === 'skill') files['slothvault-mcp/SKILL.md'] = `---\nmetadata:\n  version: "${version}"\n---\n`;
     else files['install.py'] = 'print("ready")\n';
     for (const [relative, content] of Object.entries(files)) {
         const target = path.join(packageDir, relative);
@@ -46,13 +45,12 @@ test('each package installs independently and a failed update retains only its o
         releaseFetcher: info => {queried.push(info.alias); return fixtures[info.alias].release;},
         manifestFetcher: url => fixtures[url.slice('manifest:'.length)].manifest,
         download: (url, destination) => fs.copyFileSync(new URL(url), destination),
-        dependencyInstaller: async () => {},
     };
     fixtures.deployment.manifest.sha256 = '0'.repeat(64);
     await assert.rejects(installComponent('deployment', options), /checksum mismatch/u);
     assert.equal(installedComponent('deployment', options), null);
     assert.equal((await installComponent('skill', options)).status, 'updated');
-    assert.equal(installedComponent('mcp-client', options), null);
+    assert.equal(fs.existsSync(path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client')), false);
 
     fixtures.deployment.manifest.sha256 = sha(fs.readFileSync(fixtures.deployment.archive));
     const installed = await installComponent('deployment', options);
@@ -78,7 +76,7 @@ test('Skill installation and updates sync Releases, repair links without downloa
         download: (url, destination) => {downloads++; fs.copyFileSync(new URL(url), destination);}};
     const installed = await installSkill(options);
     assert.equal(installed.agents[0].state, 'installed');
-    assert.equal(installedComponent('mcp-client', options), null);
+    assert.equal(fs.existsSync(path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client')), false);
     const paths = componentPaths('skill', options), target = installed.agents[0].targetPath;
     assert.equal(fs.lstatSync(paths.current).isDirectory(), true);
     fs.unlinkSync(target);
@@ -119,34 +117,32 @@ test('unavailable update source is reported without changing an installed compon
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothvault-components-check-'));
     t.after(() => fs.rmSync(root, {recursive: true, force: true}));
     const options = {slothToolHome: root, releaseFetcher: async () => {throw new Error('release source unavailable');}};
-    const result = await checkComponentUpdate('mcp-client', options);
+    const result = await checkComponentUpdate('deployment', options);
     assert.equal(result.status, 'error');
     assert.match(result.reason, /unavailable/u);
-    assert.equal(installedComponent('mcp-client', options), null);
+    assert.equal(fs.existsSync(path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client')), false);
 });
 
-test('MCP repair replaces a damaged or missing environment at the same Release and failures retain the old Client', async t => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothvault-client-repair-'));
+test('remaining package types reject unlisted virtual environments and keep their old active content', async t => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothvault-no-client-environment-'));
     t.after(() => fs.rmSync(root, {recursive: true, force: true}));
-    let payload = fixture(root, 'mcp-client'), environments = 0;
-    const pythonPath = directory => path.join(directory, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-    const options = {slothToolHome: path.join(root, 'tool'),
-        releaseFetcher: () => payload.release, manifestFetcher: () => payload.manifest,
-        download: (url, destination) => fs.copyFileSync(new URL(url), destination),
-        dependencyInstaller: async directory => {const python = pythonPath(directory); fs.mkdirSync(path.dirname(python), {recursive: true}); fs.writeFileSync(python, 'environment-' + ++environments);}};
-    await installComponent('mcp-client', options);
-    const current = componentPaths('mcp-client', options).current;
-    assert.equal(getComponentStatus('mcp-client', options).state, 'installed');
-    await installComponent('mcp-client', {...options, runtimeValidator: async () => {throw new Error('broken dependency');}});
-    assert.equal(fs.readFileSync(pythonPath(current), 'utf8'), 'environment-2');
-    fs.unlinkSync(pythonPath(current));
-    assert.equal(getComponentStatus('mcp-client', options).state, 'invalid');
-    await installComponent('mcp-client', options);
-    assert.equal(fs.readFileSync(pythonPath(current), 'utf8'), 'environment-3');
-    payload = fixture(root, 'mcp-client', '1.0.1');
-    await assert.rejects(installComponent('mcp-client', {...options, dependencyInstaller: async () => {throw new Error('pip failed');}}), /pip failed/u);
-    assert.equal(installedComponent('mcp-client', options)?.version, '1.0.0');
-    assert.equal(fs.readFileSync(pythonPath(current), 'utf8'), 'environment-3');
+    for (const module of ['skill', 'deployment']) {
+        let payload = fixture(root, module);
+        const options = {slothToolHome: path.join(root, 'tool'), skipSkillSync: true,
+            releaseFetcher: () => payload.release, manifestFetcher: () => payload.manifest,
+            download: (url, destination) => fs.copyFileSync(new URL(url), destination)};
+        await installComponent(module, options);
+        payload = fixture(root, module, '1.0.1');
+        const directory = path.dirname(payload.archive), extra = path.join(directory, 'package/.venv/bin/python');
+        fs.mkdirSync(path.dirname(extra), {recursive: true});
+        fs.writeFileSync(extra, 'unlisted executable');
+        const tar = spawnSync('tar', ['-czf', payload.archive, '-C', directory, 'package']);
+        assert.equal(tar.status, 0, tar.stderr?.toString());
+        payload.manifest.sha256 = sha(fs.readFileSync(payload.archive));
+        await assert.rejects(installComponent(module, options), /Python environment/u);
+        assert.equal(installedComponent(module, options)?.version, '1.0.0');
+        assert.equal(fs.existsSync(path.join(componentPaths(module, options).current, '.venv')), false);
+    }
 });
 
 test('cleanup locks block installation before any Release request, and aborted preparation keeps the active Skill', async t => {
@@ -168,35 +164,4 @@ test('cleanup locks block installation before any Release request, and aborted p
         download: (url, destination) => {fs.copyFileSync(new URL(url), destination); controller.abort();}}), {name: 'AbortError'});
     assert.equal(installedComponent('skill', options)?.version, '1.0.0');
     assert.ok(fs.readdirSync(componentPaths('skill', options).root).every(name => !/^\.(stage|previous)-/u.test(name)));
-});
-
-test('Python dependencies retry a mirror only after a connection failure', async t => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothvault-pip-retry-'));
-    t.after(() => fs.rmSync(root, {recursive: true, force: true}));
-    const calls = [];
-    let installAttempts = 0;
-    const commandRunner = async (command, args, options) => {
-        calls.push({args, options});
-        if (args[0] === '-c') return '3.10\n';
-        if (args.includes('install') && installAttempts++ === 0) throw new Error('Temporary failure in name resolution');
-        return '{}\n';
-    };
-    await installPythonDependencies(root, {commandRunner, networkSettings: {proxy: {enabled: false}, pypi: {fallbackUrl: 'https://mirror.example/simple'}}});
-    const installCalls = calls.filter(({args}) => args.includes('install')).map(({args}) => args);
-    assert.equal(installCalls.length, 2);
-    assert.equal(installCalls[0][installCalls[0].indexOf('--index-url') + 1], 'https://pypi.org/simple');
-    assert.equal(installCalls[1][installCalls[1].indexOf('--index-url') + 1], 'https://mirror.example/simple');
-    assert.ok(installCalls.every(args => args.includes('--require-hashes')));
-    assert.equal(calls.at(-1).options.env.PYTHONDONTWRITEBYTECODE, '1');
-
-    calls.length = 0;
-    installAttempts = 0;
-    await assert.rejects(installPythonDependencies(root, {networkSettings: {proxy: {enabled: false}},
-        commandRunner: async (command, args) => {
-            calls.push({args});
-            if (args[0] === '-c') return '3.10';
-            if (args.includes('install')) throw new Error('THESE PACKAGES DO NOT MATCH THE HASHES');
-            return '';
-        }}), /HASHES/u);
-    assert.equal(calls.filter(({args}) => args.includes('install')).length, 1);
 });

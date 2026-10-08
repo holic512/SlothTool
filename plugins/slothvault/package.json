@@ -1,12 +1,11 @@
 {
   "name": "@holic512/plugin-slothvault",
-  "version": "2.4.0",
-  "description": "SlothTool interface for the Vault-owned SlothVault runtime",
-  "main": "lib/runtime-adapter.js",
+  "version": "3.0.0",
+  "description": "SlothTool deployment and Skill manager for SlothVault",
+  "main": "lib/package-service.js",
   "type": "module",
   "bin": {
-    "slothvault": "bin/slothvault.js",
-    "slothvault-mcp": "bin/slothvault-mcp.js"
+    "slothvault": "bin/slothvault.js"
   },
   "slothtool": {
     "interactive": true,
@@ -29,8 +28,8 @@
     "slothtool",
     "plugin",
     "slothvault",
-    "mcp",
-    "client"
+    "deployment",
+    "skill"
   ],
   "author": "MengJiaXu",
   "license": "ISC",

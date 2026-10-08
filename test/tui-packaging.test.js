@@ -48,6 +48,10 @@ test('root and every official plugin pack their own interaction runtime', () => 
         });
         assert.equal(smoke.status, 0, `${folder}: ${smoke.stderr}`);
         if (folder === 'plugins/slothvault') {
+            assert.deepEqual(declared.bin, {slothvault: 'bin/slothvault.js'});
+            for (const filename of ['bin/slothvault-mcp.js', 'lib/runtime-adapter.js', 'lib/mcp-command-manager.js', 'lib/setup-cli.js', 'lib/tui.js']) {
+                assert.equal(names.has(filename), false, `Retired Client file packed: ${filename}`);
+            }
             assert.equal(names.has('skills/slothvault-mcp/SKILL.md'), false);
             assert.equal(names.has('deploy/install.py'), false);
             for (const name of ['release-client', 'network-helper', 'slothvault-paths', 'slothvault-storage']) {

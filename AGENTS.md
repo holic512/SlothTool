@@ -11,8 +11,8 @@ Concise repo rules for Codex working on SlothTool.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing SlothTool settings, plugin configs, and data through an isolated Git repository cache and a GitHub private repository via local `git` and `gh`.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
-- `plugins/slothvault` ships the SlothTool UI and command adapter. SlothVault independently releases MCP Client, Skill, and Deployment packages; `slothtool install/update slothvault` manages only the UI. Independent package services manage each Vault package explicitly through its Tab or CLI, without importing MCP state or depending on the root command path.
-- Root alias migration moves only the SlothVault plugin identity, registry entry, and installed directory; Profile and redacted-history path migration belongs exclusively to a current SlothVault multifunction plugin.
+- `plugins/slothvault` ships a Deployment and Skill manager with one executable. SlothVault independently releases Skill and Deployment packages; `slothtool install/update slothvault` manages only the UI. Independent package services manage each Vault package explicitly through its Tab or CLI, without MCP Client packages, Profiles, command registration or agent credential storage. Agents connect directly through native MCP configuration.
+- Root alias migration moves only the SlothVault plugin identity, registry entry, and installed directory; legacy Profile/history paths are cleanup-only and must never be read or migrated back into active configuration.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
 - Runtime baseline:
@@ -104,20 +104,15 @@ Cross-platform official plugin rules:
 
 SlothVault multifunction package rules:
 
-- Discover Tools, Prompts, and Resource Templates from the live MCP server; do not hardcode the SlothVault business catalog.
-- Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require the CLI confirmation boundary, and non-interactive calls require `--yes`. A user-authorized task covers its necessary writes; the Skill must not demand another confirmation for each step.
-- Keep remote business operations read-only in the TUI. Local Profile add/update/default/remove operations are allowed, while Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
 - Skill install and update resolve the official Release directly, retain one stable active directory, verify links and remove temporary payloads, with rollback on failure. Preserve referenced historical/custom sources.
 - Keep Skill content in the Vault Skill Package. SlothTool manages detected Codex or Claude Code links locally and must not duplicate Skill content or import Vault business modules.
 - Detect Codex through its config directory or `codex` executable and target `$CODEX_HOME/skills` (default `~/.codex/skills`); detect Claude Code through its config directory or `claude` executable and target `$CLAUDE_CONFIG_DIR/skills` (default `~/.claude/skills`). Do not create new links under `~/.agents/skills`.
 - Skill conflict replacement requires explicit confirmation and may delete only fixed detected-agent Skill targets. Skill update preserves custom targets; install replacement still requires explicit authorization. Skill uninstall may remove only current or verified legacy managed links.
-- Never load a stored raw MCP Key into TUI state or render typed Key content; clear transient Key input after save, cancellation, or validation failure.
-- Never print or persist complete credentials, request arguments, results, or Resource payloads outside their explicit output file.
-- Register `slothvault-mcp` only beside the verified, PATH-resolved running `slothtool` command. Direct source execution must report that registration is unavailable; Unix/macOS launchers are managed links, Windows launchers are marked `.cmd` shims, and non-managed targets are never replaced or deleted without the explicit registration flow.
-- Do not forward MCP operations from `slothtool slothvault`; reject them with the standalone-command guidance. Before launching SlothVault, reject any installed package that is not the current dual-executable `@holic512/plugin-slothvault` runtime so it cannot recreate the legacy configuration path.
+- Do not add an MCP Client runtime, Python venv/pip installation, standalone `slothvault-mcp` command, Profile editor or remote MCP inspector to this plugin. Keep native agent credentials and configuration outside SlothTool.
+- Retired MCP CLI commands return native connection guidance without reading credentials or starting old scripts. Legacy aliases route to the main manager; package validation requires only the named `slothvault` executable while rejecting former MCP-only package names.
 
 - Uninstall defaults to retaining configuration/history in single CLI and all TUI flows; explicit purge removes only fixed plugin-owned paths. Legacy `--uninstall-all` without a data flag keeps its complete-purge meaning. Noninteractive purge or bulk uninstall requires `--yes` and a preview.
-- SlothVault uninstall cleans links before their sources even if Python/packages are missing, and always preserves deployed applications, containers, databases, Nginx and certificates. Old-data cleanup protects active/reference paths, clears current and legacy MCP configuration/history, and never runs Python.
+- SlothVault uninstall cleans links before their sources even if Python/packages are missing, and always preserves deployed applications, containers, databases, Nginx and certificates. Old-data cleanup protects active/reference paths, clears only legacy SlothTool MCP configuration/history and verified retired Client payloads/commands, never touches native agent MCP configuration, and never runs Python.
 - Canonical standalone helpers live in `lib/services/{release-client,network-helper,slothvault-paths,slothvault-storage}.js`; run `npm run sync:slothvault-helpers` after edits and `npm run check:slothvault-helpers` before packaging. Plugin copies must work without the root installation.
 
 ## 5. Fast Change Map
@@ -130,7 +125,7 @@ SlothVault multifunction package rules:
 - `image-compress` plugin: `plugins/image-compress/bin/image-compress.js`, `plugins/image-compress/lib/*`, `plugins/image-compress/backend/**`, `test/image-compress-plugin.test.js`
 - `gstore` plugin: `plugins/gstore/bin/gstore.js`, `plugins/gstore/lib/*`, `test/gstore-cli.test.js`
 - `pzip` plugin: `plugins/pzip/bin/pzip.js`, `plugins/pzip/lib/*`, `test/pzip-plugin.test.js`
-- `slothvault` adapter: `plugins/slothvault/bin/*`, `plugins/slothvault/lib/runtime-adapter.js`, `plugins/slothvault/lib/manager-tui.js`, `plugins/slothvault/lib/tui.js`, `test/slothvault-plugin.test.js`; Vault owns the runtime sources and tests.
+- `slothvault` adapter: `plugins/slothvault/bin/*`, `plugins/slothvault/lib/component-service.js`, `plugins/slothvault/lib/manager-tui.js`, `test/slothvault-plugin.test.js`; Vault owns the runtime sources and tests.
 - Offline install/bundle: `lib/commands/install.js`, `lib/commands/bundle.js`, `lib/services/plugin-service.js`, `test/offline-plugin-install.test.js`
 - `plugins/template-basic/**` is scaffold-only, not a published workspace package.
 
@@ -179,8 +174,7 @@ node --test test/pzip-plugin.test.js
 
 ```bash
 node plugins/slothvault/bin/slothvault.js --help
-node plugins/slothvault/bin/slothvault-mcp.js --help
-node --check plugins/slothvault/lib/runtime-adapter.js
+node --check plugins/slothvault/lib/component-service.js
 node --check plugins/slothvault/lib/deploy-runner.js
 SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault.js
 node --test test/slothvault-plugin.test.js test/slothvault-components.test.js test/slothvault-skill-manager.test.js test/slothvault-storage.test.js test/slothvault-manager-tui.test.js
@@ -249,5 +243,4 @@ Testing conventions:
   - `plugins/gstore/bin/gstore.js`
   - `plugins/pzip/bin/pzip.js`
   - `plugins/slothvault/bin/slothvault.js`
-  - `plugins/slothvault/bin/slothvault-mcp.js`
   - `plugins/template-basic/bin/mytool.js`

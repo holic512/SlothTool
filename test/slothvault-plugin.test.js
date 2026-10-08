@@ -5,76 +5,67 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {getConfigSummary, getRuntimeRoot, runRuntimeSync, addProfile} from '../plugins/slothvault/lib/runtime-adapter.js';
 import {getDeploymentPaths} from '../plugins/slothvault/lib/deploy-runner.js';
-import {resolveSlothVaultTuiLayout} from '../plugins/slothvault/lib/tui.js';
 import {buildDeploymentArguments, DEPLOY_ACTIONS, resolveSlothVaultManagerLayout} from '../plugins/slothvault/lib/manager-tui.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-
-function fixture(t) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-vault-adapter-'));
-    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
-    const bin = path.join(dir, '.venv', 'bin');
-    fs.mkdirSync(bin, {recursive: true});
-    fs.symlinkSync(process.execPath, path.join(bin, 'python'));
-    fs.writeFileSync(path.join(dir, 'slothvault_mcp.py'), `
-      const command = process.argv[2];
-      if (command === 'config') console.log(JSON.stringify({profiles: [], defaultProfile: null}));
-      else if (command === '--version') console.log(JSON.stringify({version: '1.0.0', bridgeApiMajor: 2}));
-      else {
-        let input = ''; process.stdin.on('data', part => input += part);
-        process.stdin.on('end', () => console.log(JSON.stringify({name: process.argv[4], apiKey: input ? '[redacted]' : null})));
-      }
-    `);
-    return dir;
+const entry = path.join(root, 'plugins/slothvault/bin/slothvault.js');
+function environment(t, language = 'zh') {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'slothvault-native-mcp-'));
+    t.after(() => fs.rmSync(home, {recursive: true, force: true}));
+    fs.mkdirSync(path.join(home, '.pipker/slothtool'), {recursive: true});
+    fs.writeFileSync(path.join(home, '.pipker/slothtool/settings.json'), JSON.stringify({language}));
+    return {...process.env, HOME: home, USERPROFILE: home, CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude')};
 }
 
-test('UI adapter uses the runtime JSON contract and puts keys only on stdin', t => {
-    const dir = fixture(t);
-    const old = process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT;
-    process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = dir;
-    t.after(() => { if (old === undefined) delete process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT; else process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = old; });
-    assert.deepEqual(getConfigSummary().profiles, []);
-    assert.equal(runRuntimeSync('mcp', ['--version']).bridgeApiMajor, 2);
-    const key = 'private-test-key';
-    assert.equal(addProfile('work', {endpoint: 'https://vault.example', apiKey: key}).apiKey, '[redacted]');
-    assert.equal(getRuntimeRoot(), dir);
-});
-
-test('offline UI has a safe missing-runtime state', t => {
-    const old = process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT;
-    process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = path.join(os.tmpdir(), 'missing-slothtool-vault-runtime');
-    t.after(() => { if (old === undefined) delete process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT; else process.env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = old; });
-    assert.deepEqual(getConfigSummary().profiles, []);
-    assert.throws(() => runRuntimeSync('control', ['status']), {code: 'SLOTHVAULT_RUNTIME_MISSING'});
-});
-
-test('UI and deployment runner keep their existing local interaction contract', () => {
-    assert.equal(resolveSlothVaultTuiLayout(30, 10).tooSmall, true);
+test('manager and deployment keep their local interaction contract without a Client', () => {
+    assert.equal(resolveSlothVaultManagerLayout(30, 10).tooSmall, true);
     assert.equal(resolveSlothVaultManagerLayout(60, 24).compact, true);
     assert.ok(DEPLOY_ACTIONS.includes('check-update'));
     assert.deepEqual(buildDeploymentArguments('status', {root: '/data/slothvault'}), ['--action', 'status', '--root', '/data/slothvault']);
-    assert.equal(getDeploymentPaths({pluginRoot: '/tmp/slothvault-runtime'}).entryPath, '/tmp/slothvault-runtime/install.py');
+    assert.equal(getDeploymentPaths({pluginRoot: '/tmp/slothvault-deployment'}).entryPath, '/tmp/slothvault-deployment/install.py');
 });
 
-test('standalone MCP help is available without a Client and missing-runtime JSON uses a stable config exit code', t => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'slothvault-missing-client-'));
-    t.after(() => fs.rmSync(home, {recursive: true, force: true}));
-    const env = {...process.env, HOME: home, SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT: path.join(home, 'missing')};
-    const command = path.join(root, 'plugins/slothvault/bin/slothvault-mcp.js');
-    const help = spawnSync(process.execPath, [command, '--help'], {env, encoding: 'utf8'});
-    assert.equal(help.status, 0, help.stderr); assert.match(help.stdout, /mcp package install/u);
-    const error = spawnSync(process.execPath, [command, 'doctor', '--json'], {env, encoding: 'utf8'});
-    assert.equal(error.status, 2); assert.equal(JSON.parse(error.stdout).error.code, 'SLOTHVAULT_RUNTIME_MISSING');
-    assert.equal(error.stderr, '');
+test('help and local package/Skill status work with no Python, Profile or MCP Client', t => {
+    const env = {...environment(t), PATH: ''};
+    for (const args of [['--help'], ['deploy', 'package', 'status', '--json'], ['skill', 'status', '--json']]) {
+        const result = spawnSync(process.execPath, [entry, ...args], {env, encoding: 'utf8'});
+        assert.equal(result.status, 0, result.stderr);
+        if (args[0] === '--help') {
+            assert.match(result.stdout, /原生 MCP/u);
+            assert.doesNotMatch(result.stdout, /mcp package|mcp register|slothvault setup/u);
+        } else JSON.parse(result.stdout);
+    }
+    const smoke = spawnSync(process.execPath, [entry], {env: {...env, SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION: 'exit'}, encoding: 'utf8'});
+    assert.equal(smoke.status, 0, smoke.stderr);
 });
 
-test('legacy MCP executable forwards to Vault runtime without loading business modules', t => {
-    const dir = fixture(t);
-    const result = spawnSync(process.execPath, [path.join(root, 'plugins/slothvault/bin/slothvault-mcp.js'), 'profile', 'add', 'work', '--json'], {
-        input: 'secret', encoding: 'utf8', env: {...process.env, SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT: dir}
-    });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(JSON.parse(result.stdout).apiKey, '[redacted]');
+test('retired Client commands return native guidance without executing a legacy Client or changing configuration', t => {
+    const env = environment(t);
+    const client = path.join(env.HOME, 'old-client'), marker = path.join(client, 'executed');
+    fs.mkdirSync(path.join(client, '.venv/bin'), {recursive: true});
+    fs.symlinkSync(process.execPath, path.join(client, '.venv/bin/python'));
+    fs.writeFileSync(path.join(client, 'slothvault_mcp.py'), `require('fs').writeFileSync(${JSON.stringify(marker)}, 'called');`);
+    env.SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT = client;
+    const config = path.join(env.HOME, '.pipker/slothtool/plugin-configs/slothvault.json');
+    fs.mkdirSync(path.dirname(config));
+    fs.writeFileSync(config, '{"profiles":{"old":{"apiKey":"private-test-key"}}}');
+    const before = fs.readFileSync(config, 'utf8');
+    for (const args of [['mcp', 'register'], ['mcp', 'package', 'install'], ['setup'], ['doctor'], ['tools', 'list'], ['profile', 'list']]) {
+        const result = spawnSync(process.execPath, [entry, ...args, '--json'], {env, encoding: 'utf8'});
+        assert.equal(result.status, 2, result.stderr);
+        const response = JSON.parse(result.stdout);
+        assert.equal(response.error.code, 'SLOTHVAULT_MCP_CLIENT_REMOVED');
+        assert.match(response.error.message, /原生 MCP/u);
+        assert.doesNotMatch(result.stdout + result.stderr, /private-test-key/u);
+    }
+    assert.equal(fs.existsSync(marker), false);
+    assert.equal(fs.readFileSync(config, 'utf8'), before);
+});
+
+test('native guidance is available in both manager languages', t => {
+    const env = environment(t, 'en');
+    const result = spawnSync(process.execPath, [entry, 'mcp', 'status', '--json'], {env, encoding: 'utf8'});
+    assert.equal(result.status, 2);
+    assert.match(JSON.parse(result.stdout).error.message, /native MCP settings/u);
 });
