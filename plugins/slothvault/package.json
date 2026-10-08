@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-slothvault",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "SlothTool interface for the Vault-owned SlothVault runtime",
   "main": "lib/runtime-adapter.js",
   "type": "module",

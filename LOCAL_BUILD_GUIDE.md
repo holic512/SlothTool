@@ -126,3 +126,16 @@ node bin/mytool.js
 ```
 
 `plugins/template-basic` 只是脚手架，不参与 workspace 发布或官方 Release 流程。
+
+## SlothVault standalone helper synchronization
+
+修改根目录的 Release、网络、SlothVault 路径或本地清理工具后，同步插件内的副本；独立打包不能依赖根安装目录。
+
+```bash
+npm run sync:slothvault-helpers
+npm run check:slothvault-helpers
+node --test test/slothvault-components.test.js test/slothvault-storage.test.js test/slothvault-manager-tui.test.js
+npm pack --dry-run --workspace @holic512/plugin-slothvault
+```
+
+SlothVault 界面可直接进入总览，无需 Python 或外部组件；部署与 MCP 执行需要各自包及 Python 3.10+。测试使用隔离 HOME 与本地 Release／桥协议夹具，不安装或清理真实用户数据。

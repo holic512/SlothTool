@@ -27,7 +27,7 @@ import {
 import {setupResultText} from './setup-cli.js';
 import {formatSlothVaultError, t} from './i18n.js';
 
-import {TuiFrame, TuiHeader, TuiDetails} from './shared-layout.js';
+import {TuiFrame, TuiHeader, TuiDetails} from './terminal-ui.js';
 import {getShellLayout, getDetailWindow, getDisplayWidth} from './shared-interaction.js';
 
 const h = React.createElement;
@@ -43,14 +43,7 @@ const PROFILE_FIELD_LIMITS = {
     timeoutMs: 9,
     apiKey: 512
 };
-const COLORS = {
-    accent: 'cyan',
-    border: 'blue',
-    success: 'green',
-    warning: 'yellow',
-    danger: 'red',
-    muted: 'gray'
-};
+const COLORS = {accent: undefined, border: undefined, success: 'green', warning: 'yellow', danger: 'red', muted: undefined};
 
 /** Resolve stable responsive dimensions for tests and narrow terminals. */
 export function resolveSlothVaultTuiLayout(columns = 80, rows = 24) {
@@ -71,17 +64,18 @@ const truncate = truncateFromRight;
 /** Draw one reusable rounded panel. */
 function Panel({title, children, layout, color = COLORS.border}) {
     return h(Box, {height: layout.contentHeight, width: layout.contentWidth, flexShrink: 0,
-        borderStyle: 'round', borderColor: color, paddingX: 1, flexDirection: 'column'},
+        borderStyle: 'round', paddingX: 1, flexDirection: 'column'},
     h(Text, {bold: true, color: COLORS.accent, wrap: 'truncate-end'}, title),
     h(Box, {height: Math.max(1, layout.contentHeight - 3), flexShrink: 0, flexDirection: 'column', overflow: 'hidden'}, children));
 }
 
 function Field({label, value, color, dim = false}) {
     return h(Box, {height: 1, flexShrink: 0}, h(Box, {flexShrink: 0}, h(Text, {color: COLORS.accent}, `${label}: `)),
-        h(Text, {color, dimColor: dim, wrap: 'truncate-end'}, String(value || '-')));
+        h(Text, {color, dimColor: false, wrap: 'truncate-end'}, String(value || '-')));
 }
 
 function CatalogPair({layout, items, selectedIndex, title, detailTitle, renderItem, details}) {
+    if (layout.compact && layout.contentHeight < 9) return h(Panel, {title: detailTitle, layout}, ...details);
     const leftHeight = layout.compact ? Math.max(4, layout.contentHeight - 8) : layout.contentHeight;
     const leftWidth = layout.compact ? layout.contentWidth : Math.floor((layout.contentWidth - 1) / 2);
     const rightHeight = layout.compact ? layout.contentHeight - leftHeight - 1 : layout.contentHeight;
@@ -91,9 +85,10 @@ function CatalogPair({layout, items, selectedIndex, title, detailTitle, renderIt
         h(Panel, {title: `${title} (${items.length})`, layout: {...layout, contentHeight: leftHeight, contentWidth: leftWidth}},
             ...(visible.items.length ? visible.items.map((item, index) => h(Text, {
                 key: visible.start + index, bold: visible.start + index === selectedIndex,
+                inverse: visible.start + index === selectedIndex,
                 color: visible.start + index === selectedIndex ? COLORS.accent : undefined, wrap: 'truncate-end'
             }, `${visible.start + index === selectedIndex ? '› ' : '  '}${renderItem(item)}`))
-                : [h(Text, {key: 'empty', dimColor: true}, t('tui.empty'))])),
+                : [h(Text, {key: 'empty', dimColor: false}, t('tui.empty'))])),
         h(Panel, {title: detailTitle, layout: {...layout, contentHeight: rightHeight, contentWidth: rightWidth}}, ...details));
 }
 
@@ -187,9 +182,9 @@ function StatusPage({config, discovery, loading, error, compatibilityCode, layou
         h(Field, {label: t('tui.compatibilityLabel'), value: discovery?.compatibility?.status || '-'}),
         h(Field, {label: t('tui.minimumClientVersion'), value: discovery?.compatibility?.minimumClientVersion || t('tui.minimumUnverified')}),
         profile?.endpoint?.startsWith('http://') ? h(Text, {color: COLORS.warning, wrap: 'truncate-end'}, t('httpWarning')) : null,
-        error ? h(Text, {color: COLORS.danger, wrap: 'truncate-end'}, error) : null,
+        error ? h(Text, {wrap: 'truncate-end'}, '! ' + error) : null,
         compatibilityCode ? h(Text, {color: COLORS.warning}, t('tui.compatibilityUpdateHint')) : null,
-        h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.help')));
+        h(Text, {dimColor: false, wrap: 'truncate-end'}, t('tui.help')));
 }
 
 function CapabilitiesPage({discovery, selectedIndex, layout}) {
@@ -212,25 +207,27 @@ function HistoryPage({history, selectedIndex, layout}) {
             h(Field, {key: 'profile', label: t('tui.labels.profile'), value: selected?.profile}),
             h(Field, {key: 'risk', label: t('tui.labels.risk'), value: selected?.risk}),
             h(Field, {key: 'status', label: t('tui.labels.status'), value: selected ? selected.success ? t('ok') : t('error') : '-'}),
-            h(Text, {key: 'summary', dimColor: true, wrap: 'truncate-end'}, selected?.summary || '-')
+            h(Text, {key: 'summary', dimColor: false, wrap: 'truncate-end'}, selected?.summary || '-')
         ]});
 }
 
 /** Render the profile add/edit form with secret-safe field values. */
 function ProfileFormPage({mode, form, fieldIndex, cursor, inputError, layout}) {
     const fields = profileFormFields(mode);
+    const visible = listWindow(fields, fieldIndex, Math.max(1, layout.contentHeight - 4));
     return h(Panel, {title: mode === 'setup' ? t('setup.title') : t(`tui.panels.profile${mode === 'add' ? 'Add' : 'Edit'}`), layout, color: COLORS.accent},
-        ...fields.map((field, index) => {
+        ...visible.items.map((field, offset) => {
+            const index = visible.start + offset;
             const label = `${index === fieldIndex ? '›' : ' '} ${profileFieldLabel(field, mode)}: `;
             const width = Math.max(1, layout.contentWidth - 4 - getDisplayWidth(label));
             const value = index === fieldIndex && field !== 'makeDefault'
                 ? editorViewport(form[field], cursor, width, {secret: field === 'apiKey'})
                 : truncate(profileFieldValue(field, form, mode), width);
-            return h(Text, {key: field, color: index === fieldIndex ? COLORS.accent : undefined, wrap: 'truncate-end'}, label + value);
+            return h(Text, {key: field, inverse: index === fieldIndex, bold: index === fieldIndex, wrap: 'truncate-end'}, label + value);
         }),
-        inputError ? h(Text, {color: COLORS.danger, wrap: 'truncate-end'}, inputError) : null,
-        mode === 'edit' ? h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.profile.editKeyHint')) : null,
-        h(Text, {dimColor: true, wrap: 'truncate-end'}, t('tui.profile.formHelp')));
+        inputError ? h(Text, {wrap: 'truncate-end'}, '! ' + inputError) : null,
+        mode === 'edit' ? h(Text, {dimColor: false, wrap: 'truncate-end'}, t('tui.profile.editKeyHint')) : null,
+        h(Text, {dimColor: false, wrap: 'truncate-end'}, t('tui.profile.formHelp')));
 }
 
 function ProfilesPage({config, selectedIndex, layout, mode, form, fieldIndex, cursor, inputError}) {
@@ -252,17 +249,21 @@ function ProfilesPage({config, selectedIndex, layout, mode, form, fieldIndex, cu
 }
 
 /** Provide read-only remote inspection plus local Profile management state. */
-export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null, initialSetup = false, managedSetup = false, onClose = null} = {}) {
+export function SlothVaultTuiApp({embedded = false, layoutOverride = null, initialDiscovery = null, initialSetup = false, managedSetup = false, onClose = null, onState = null} = {}) {
     const app = useApp();
     const windowSize = useWindowSize();
     const baseLayout = layoutOverride || resolveSlothVaultTuiLayout(windowSize.columns, windowSize.rows);
     const [activeTab, setActiveTab] = useState(initialSetup ? 'profiles' : 'status');
     const [selectedIndices, setSelectedIndices] = useState({capabilities: 0, history: 0, profiles: 0});
-    const [config, setConfig] = useState(() => getConfigSummary());
-    const [history, setHistory] = useState(() => listHistory({limit: 50}));
+    const [local] = useState(() => {
+        try {return {config: getConfigSummary(), history: listHistory({limit: 50}), error: ''};}
+        catch (readError) {return {config: {profiles: [], defaultProfile: null, readError: true}, history: [], error: formatSlothVaultError(readError)};}
+    });
+    const [config, setConfig] = useState(local.config);
+    const [history, setHistory] = useState(local.history);
     const [discovery, setDiscovery] = useState(initialDiscovery);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(local.error);
     const [compatibilityCode, setCompatibilityCode] = useState(null);
     const [status, setStatus] = useState(t('tui.status.ready'));
     const [statusTone, setStatusTone] = useState('success');
@@ -282,9 +283,10 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
                 ? 'tui.profile.browseFooter'
                 : 'tui.profile.formFooter'
         : 'tui.footer';
-    const shell = getShellLayout(baseLayout.columns, baseLayout.rows, {
+    const baseShell = getShellLayout(baseLayout.columns, baseLayout.rows, {
         status: `${statusSymbol(loading ? 'running' : 'result', statusTone)} ${status}`, keys: `${t('setup.hint')} · ${t(footerKey)}`, inverseFooter: true
     });
+    const shell = embedded ? {...baseShell, contentWidth: baseLayout.columns, contentHeight: Math.max(3, baseLayout.rows - 2)} : baseShell;
     const layout = {...baseLayout, contentWidth: shell.contentWidth, contentHeight: shell.contentHeight};
     const detailWindow = getDetailWindow(detailLines, detailScroll, shell.contentWidth, shell.contentHeight);
 
@@ -551,7 +553,9 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             app.exit();
             return;
         }
-        if (initialSetup || (!initialDiscovery && !config.profiles.length)) {
+        if (local.error) {
+            setStatus(t('tui.status.failed', {message: local.error})); setStatusTone('danger');
+        } else if (initialSetup || (!initialDiscovery && !config.profiles.length)) {
             setActiveTab('profiles');
             setProfileMode('setup');
             setProfileForm(createProfileForm('setup'));
@@ -566,6 +570,10 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
         history: history.length,
         profiles: config.profiles.length
     }), [config.profiles.length, discovery, history.length]);
+    useEffect(() => {
+        onState?.({profileState: config.readError ? 'error' : config.profiles.length ? 'configured' : 'not-configured',
+            profileCount: config.profiles.length, connectionState: error ? 'error' : discovery ? 'connected' : 'unchecked'});
+    }, [config, error, discovery]);
 
     useInput((input, key) => {
         if (loading && profileMode === 'setup') return;
@@ -652,7 +660,7 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
             setActiveTab(tab => TABS[(TABS.indexOf(tab) - 1 + TABS.length) % TABS.length]);
             return;
         }
-        if (key.escape) {setActiveTab('status'); return;}
+        if (key.escape) {if (onClose) onClose(); else setActiveTab('status'); return;}
         if (activeTab === 'profiles') {
             if (input === 'a') {
                 startAddingProfile();
@@ -711,11 +719,15 @@ export function SlothVaultTuiApp({layoutOverride = null, initialDiscovery = null
                 });
 
 
+    if (embedded) return h(Box, {height: baseLayout.rows, width: baseLayout.columns, flexDirection: 'column'},
+        h(TuiHeader, {tabs: TABS.map(id => ({id, label: t('tui.tabs.' + id)})), activeTab, width: shell.contentWidth}),
+        h(Box, {height: shell.contentHeight, flexShrink: 0, flexDirection: 'column'}, content),
+        h(Text, {inverse: true, wrap: 'truncate-end'}, t(footerKey)));
     if (layout.tooSmall) return h(Box, {flexDirection: 'column', width: layout.columns,
         height: layout.rows, paddingX: 1},
     h(Text, {bold: true, color: COLORS.warning}, truncate(t('tui.resize'), layout.columns - 2)),
     h(Text, {}, truncate(t('tui.resizeHint'), layout.columns - 2)),
-    h(Text, {dimColor: true}, 'q'));
+    h(Text, {dimColor: false}, 'q'));
 
     return h(TuiFrame, {layout: shell, statusColor: COLORS[statusTone] || COLORS.success,
         header: h(TuiHeader, {tabs: TABS.map(id => ({id, label: t('tui.tabs.' + id)})), activeTab,

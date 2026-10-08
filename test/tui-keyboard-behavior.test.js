@@ -212,6 +212,8 @@ test('SlothVault profile form isolates page keys and never renders the typed Key
 test('SlothVault manager requires y for deployment and cancels before later keys', async () => {
     const launched = [];
     const ui = harness(ManagerApp, {initialSetup: false,
+        services: {getComponentStatus: module => ({module, state: module === 'deployment' ? 'installed' : 'missing', currentVersion: null}),
+            getDeploymentAvailability: async () => ({available: true})},
         inspect: async root => ({state: 'absent', root, containers: []}),
         createSession(args) {
             launched.push(args);
@@ -221,10 +223,11 @@ test('SlothVault manager requires y for deployment and cancels before later keys
     try {
         await ui.press('\t');
         assert.match(ui.frame(), /\[部署\]/u);
+        for (let i = 0; i < 4; i++) await ui.press('\u001b[B');
         await ui.press('\r');
-        assert.match(ui.frame(), /确认执行/u);
+        assert.match(ui.frame(), /y 确认/u);
         await ui.press('\r');
-        assert.match(ui.frame(), /确认执行/u);
+        assert.match(ui.frame(), /y 确认/u);
         await ui.press('\u001b');
         await ui.press('y');
         assert.equal(launched.length, 0);
@@ -239,7 +242,7 @@ test('SlothVault manager requires y for deployment and cancels before later keys
         await ui.press('\u001b[Z');
         assert.match(ui.frame(), /\[概览\]/u);
         await ui.press('v');
-        assert.match(ui.frame(), /详细信息|详情/u);
+        assert.match(ui.frame(), /PgUp\/PgDn/u);
         await ui.press('\u001b');
         assert.match(ui.frame(), /\[概览\]/u);
     } finally {await ui.close();}

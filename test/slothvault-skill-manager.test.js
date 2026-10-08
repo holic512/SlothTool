@@ -50,5 +50,5 @@ test('only verified legacy Skill links move to the independent package; custom c
     assert.equal(fs.readFileSync(path.join(target, 'custom.txt'), 'utf8'), 'custom');
     assert.equal(fs.existsSync(config), true);
     assert.equal(fs.existsSync(history), true);
-    assert.equal(fs.existsSync(old), true);
+    assert.equal(fs.existsSync(old), false);
 });

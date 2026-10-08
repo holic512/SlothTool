@@ -11,7 +11,7 @@ Concise repo rules for Codex working on SlothTool.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing SlothTool settings, plugin configs, and data through an isolated Git repository cache and a GitHub private repository via local `git` and `gh`.
 - Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
-- `plugins/slothvault` ships the SlothTool UI and command adapter. SlothVault independently releases MCP Client, Skill, and Deployment packages; `slothtool install/update slothvault` manages the UI and all three packages.
+- `plugins/slothvault` ships the SlothTool UI and command adapter. SlothVault independently releases MCP Client, Skill, and Deployment packages; `slothtool install/update slothvault` manages only the UI. Independent package services manage each Vault package explicitly through its Tab or CLI, without importing MCP state or depending on the root command path.
 - Root alias migration moves only the SlothVault plugin identity, registry entry, and installed directory; Profile and redacted-history path migration belongs exclusively to a current SlothVault multifunction plugin.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
@@ -31,7 +31,7 @@ Concise repo rules for Codex working on SlothTool.
 ## 2. Product Invariants
 
 - TUI is the default product entry.
-- The SlothVault manager TUI shows each component version and structured state for the selected managed deployment; its CLI and TUI use the Vault Deployment Package through the JSON-line event bridge.
+- The SlothVault manager always enters local Overview without reading MCP configuration or connecting. It preserves the action menu and scrollable right-side progress/results. It shows each component version and structured state for the selected managed deployment; its CLI and TUI use the Vault Deployment Package through the JSON-line event bridge.
 - CLI remains the capability layer for scripting and automation.
 - `slothtool` with no args launches the root full-screen TUI.
 - `slothtool <plugin>` with no extra args launches that plugin's default TUI.
@@ -90,7 +90,7 @@ Offline official plugin rules:
 
 - `install <alias> --file <archive.tgz>` remains restricted to built-in official aliases and must validate the archive package name.
 - Offline archives should use the npm-pack-compatible `package/` root layout.
-- A self-contained archive must include production `node_modules`; otherwise installation may only use `npm install --omit=dev --offline` and must never silently fetch from the network. The SlothVault UI bundle is intentionally UI-only; installing it requires three separate online Vault package downloads.
+- A self-contained archive must include production `node_modules`; otherwise installation may only use `npm install --omit=dev --offline` and must never silently fetch from the network. The SlothVault UI bundle is intentionally UI-only; installing it never downloads Vault packages. Each external package is explicitly installed later through its own service.
 - `bundle <alias>` must refuse to create an incomplete dependency-bearing archive.
 - Offline installations record `sourceType: "offline-archive"` in the registry.
 
@@ -107,6 +107,7 @@ SlothVault multifunction package rules:
 - Discover Tools, Prompts, and Resource Templates from the live MCP server; do not hardcode the SlothVault business catalog.
 - Only `annotations.readOnlyHint === true` is read-only. Missing or false annotations require the CLI confirmation boundary, and non-interactive calls require `--yes`. A user-authorized task covers its necessary writes; the Skill must not demand another confirmation for each step.
 - Keep remote business operations read-only in the TUI. Local Profile add/update/default/remove operations are allowed, while Tool calls, Prompt retrieval, and Resource reads belong to the CLI.
+- Skill install and update resolve the official Release directly, retain one stable active directory, verify links and remove temporary payloads, with rollback on failure. Preserve referenced historical/custom sources.
 - Keep Skill content in the Vault Skill Package. SlothTool manages detected Codex or Claude Code links locally and must not duplicate Skill content or import Vault business modules.
 - Detect Codex through its config directory or `codex` executable and target `$CODEX_HOME/skills` (default `~/.codex/skills`); detect Claude Code through its config directory or `claude` executable and target `$CLAUDE_CONFIG_DIR/skills` (default `~/.claude/skills`). Do not create new links under `~/.agents/skills`.
 - Skill conflict replacement requires explicit confirmation and may delete only fixed detected-agent Skill targets. Skill update preserves custom targets; install replacement still requires explicit authorization. Skill uninstall may remove only current or verified legacy managed links.
@@ -114,6 +115,10 @@ SlothVault multifunction package rules:
 - Never print or persist complete credentials, request arguments, results, or Resource payloads outside their explicit output file.
 - Register `slothvault-mcp` only beside the verified, PATH-resolved running `slothtool` command. Direct source execution must report that registration is unavailable; Unix/macOS launchers are managed links, Windows launchers are marked `.cmd` shims, and non-managed targets are never replaced or deleted without the explicit registration flow.
 - Do not forward MCP operations from `slothtool slothvault`; reject them with the standalone-command guidance. Before launching SlothVault, reject any installed package that is not the current dual-executable `@holic512/plugin-slothvault` runtime so it cannot recreate the legacy configuration path.
+
+- Uninstall defaults to retaining configuration/history in single CLI and all TUI flows; explicit purge removes only fixed plugin-owned paths. Legacy `--uninstall-all` without a data flag keeps its complete-purge meaning. Noninteractive purge or bulk uninstall requires `--yes` and a preview.
+- SlothVault uninstall cleans links before their sources even if Python/packages are missing, and always preserves deployed applications, containers, databases, Nginx and certificates. Old-data cleanup protects active/reference paths, clears current and legacy MCP configuration/history, and never runs Python.
+- Canonical standalone helpers live in `lib/services/{release-client,network-helper,slothvault-paths,slothvault-storage}.js`; run `npm run sync:slothvault-helpers` after edits and `npm run check:slothvault-helpers` before packaging. Plugin copies must work without the root installation.
 
 ## 5. Fast Change Map
 
@@ -178,7 +183,8 @@ node plugins/slothvault/bin/slothvault-mcp.js --help
 node --check plugins/slothvault/lib/runtime-adapter.js
 node --check plugins/slothvault/lib/deploy-runner.js
 SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault.js
-node --test test/slothvault-plugin.test.js
+node --test test/slothvault-plugin.test.js test/slothvault-components.test.js test/slothvault-skill-manager.test.js test/slothvault-storage.test.js test/slothvault-manager-tui.test.js
+npm run check:slothvault-helpers
 ```
 
 Packaging:

@@ -156,8 +156,8 @@ test('uninstall items distinguish plugin confirmation from full-data danger', ()
 
     assert.equal(items[0].listLabel, 'loc');
     assert.equal(items[0].badge, '需确认');
-    assert.equal(items[0].fields[3].value, '插件文件、配置与注册表记录');
-    assert.equal(items[1].listLabel, '全部本地数据');
+    assert.match(items[0].fields[3].value, /配置与历史默认保留/u);
+    assert.equal(items[1].listLabel, '全部插件');
     assert.equal(items[1].badge, '高风险');
     assert.equal(items[1].badgeColor, 'redBright');
     assert.equal(items[1].listMetaColor, 'redBright');

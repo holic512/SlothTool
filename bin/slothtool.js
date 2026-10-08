@@ -24,14 +24,14 @@ function printHelp() {
     console.log(`  slothtool tui                   ${t('commands.interactive')}`);
     console.log(`  slothtool install <alias>       ${t('commands.install')}`);
     console.log(`  slothtool bundle <alias>        ${t('commands.bundle')}`);
-    console.log(`  slothtool uninstall <alias>     ${t('commands.uninstall')}`);
+    console.log(`  slothtool uninstall <alias> [--keep-data|--purge-data] [--yes] ${t('commands.uninstall')}`);
     console.log(`  slothtool update <alias> [--module mcp-client|skill|deployment] [--check] [--json] ${t('commands.update')}`);
     console.log(`  slothtool --update-all          ${t('commands.updateAll')}`);
     console.log(`  slothtool list                  ${t('commands.list')}`);
     console.log(`  slothtool run <plugin> [args]   ${t('commands.run')}`);
     console.log(`  slothtool <plugin> [args]       ${t('commands.runShorthand')}`);
     console.log(`  slothtool config <...>          ${t('commands.config')}`);
-    console.log(`  slothtool --uninstall-all       ${t('commands.uninstallAll')}`);
+    console.log(`  slothtool --uninstall-all [--keep-data|--purge-data] [--yes] ${t('commands.uninstallAll')}`);
     console.log(`  slothtool self-update           ${t('commands.selfUpdate')}`);
     console.log('');
     console.log(t('examples'));
@@ -112,7 +112,7 @@ async function main() {
     }
 
     if (command === '--uninstall-all') {
-        await commands.uninstallAll();
+        await commands.uninstallAll(args.slice(1));
         return;
     }
 

@@ -50,6 +50,15 @@ test('root and every official plugin pack their own interaction runtime', () => 
         if (folder === 'plugins/slothvault') {
             assert.equal(names.has('skills/slothvault-mcp/SKILL.md'), false);
             assert.equal(names.has('deploy/install.py'), false);
+            for (const name of ['release-client', 'network-helper', 'slothvault-paths', 'slothvault-storage']) {
+                assert.ok(names.has(`lib/${name}.js`));
+                assert.equal(fs.readFileSync(path.join(packagedRoot, `lib/${name}.js`), 'utf8'), fs.readFileSync(path.join(root, `lib/services/${name}.js`), 'utf8'));
+            }
+            const independent = spawnSync(process.execPath, [entry, 'deploy', 'package', 'status', '--json'], {
+                cwd: packagedRoot, encoding: 'utf8', env: {...process.env, HOME: isolated, CODEX_HOME: '', CLAUDE_CONFIG_DIR: '', SLOTHTOOL_SLOTHVAULT_DEPLOYMENT_ROOT: ''}
+            });
+            assert.equal(independent.status, 0, independent.stderr);
+            assert.equal(JSON.parse(independent.stdout).state, 'missing');
         }
     }
     } finally {

@@ -266,12 +266,14 @@ export function getSkillStatus(options = {}) {
     try {
         const paths = getSkillPaths(options);
         const fileSystem = options.fileSystem || fs;
-        assertSkillSource(paths.sourcePath, fileSystem);
-        const version = readSkillVersion(paths.sourcePath, fileSystem);
-        const moduleMetadata = JSON.parse(fileSystem.readFileSync(path.join(paths.sourcePath, '..', 'module.json'), 'utf8'));
-        if (!version || moduleMetadata.module !== 'skill' || moduleMetadata.version !== version) {
-            throw new SlothVaultSkillError('SlothVault Skill metadata does not match its package.', {code: 'SKILL_SOURCE_INVALID'});
-        }
+        let version = null;
+        let sourceState = 'missing';
+        try {
+            assertSkillSource(paths.sourcePath, fileSystem);
+            version = readSkillVersion(paths.sourcePath, fileSystem);
+            const moduleMetadata = JSON.parse(fileSystem.readFileSync(path.join(paths.sourcePath, '..', 'module.json'), 'utf8'));
+            sourceState = version && moduleMetadata.module === 'skill' && moduleMetadata.version === version ? 'installed' : 'invalid';
+        } catch { sourceState = fileSystem.existsSync(paths.sourcePath) ? 'invalid' : 'missing'; }
         const agents = paths.agents.map(agent => {
             assertFixedTarget(agent, paths, options);
             return {
@@ -287,6 +289,7 @@ export function getSkillStatus(options = {}) {
         return {
             name: SKILL_NAME,
             version,
+            sourceState,
             pluginVersion: null,
             state: aggregateState(agents),
             sourcePath: paths.sourcePath,
@@ -336,7 +339,9 @@ export function installSkill(options = {}) {
     try {
         const fileSystem = options.fileSystem || fs;
         const paths = getSkillPaths(options);
+        assertSkillSource(paths.sourcePath, fileSystem);
         const initial = getSkillStatus(options);
+        if (initial.sourceState !== 'installed') throw new SlothVaultSkillError('Skill package metadata is invalid.', {code: 'SKILL_SOURCE_INVALID'});
         const detected = initial.agents.filter(agent => agent.detected);
         if (detected.length === 0) {
             throw new SlothVaultSkillError('No supported local agent was detected.', {

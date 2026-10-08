@@ -14,7 +14,8 @@ import path from 'node:path';
 import process from 'node:process';
 import {spawn} from 'node:child_process';
 import readline from 'node:readline';
-import {getComponentRoot} from './runtime-adapter.js';
+import {getComponentRoot, getComponentStatus} from './slothvault-paths.js';
+import {runCommand} from './release-client.js';
 
 export class SlothVaultDeployError extends Error {
     constructor(message, options = {}) {
@@ -26,12 +27,24 @@ export class SlothVaultDeployError extends Error {
 }
 
 export function getDeploymentPaths(options = {}) {
-    const root = path.resolve(options.pluginRoot || getComponentRoot('deployment'));
+    const root = path.resolve(options.pluginRoot || getComponentRoot('deployment', options));
     return {
         pluginRoot: root,
         entryPath: path.resolve(options.entryPath || path.join(root, 'install.py')),
         packagePath: path.resolve(options.packagePath || path.join(root, 'module.json'))
     };
+}
+
+export async function getDeploymentAvailability(options = {}) {
+    const component = getComponentStatus('deployment', options);
+    if (component.state !== 'installed') return {available: false, reason: component.state, component};
+    try {
+        const value = await (options.commandRunner || runCommand)(options.pythonCommand || process.env.SLOTHTOOL_SLOTHVAULT_PYTHON || 'python3',
+            ['-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")']);
+        const [major, minor] = value.trim().split('.').map(Number);
+        if (!Number.isFinite(major) || !Number.isFinite(minor) || major < 3 || major === 3 && minor < 10) return {available: false, reason: 'Python 3.10+', component};
+        return {available: true, component};
+    } catch {return {available: false, reason: 'Python 3.10+', component};}
 }
 
 function readPluginVersion(paths) {
@@ -43,7 +56,7 @@ function readPluginVersion(paths) {
 }
 
 /** Run the bundled deployment program without changing its argument or terminal contract. */
-export function runDeployment(deploymentArguments = [], options = {}) {
+export async function runDeployment(deploymentArguments = [], options = {}) {
     const paths = getDeploymentPaths(options);
     const python = options.pythonCommand || process.env.SLOTHTOOL_SLOTHVAULT_PYTHON || 'python3';
     if (!fs.existsSync(paths.entryPath)) {
@@ -51,6 +64,8 @@ export function runDeployment(deploymentArguments = [], options = {}) {
             code: 'DEPLOY_ENTRY_MISSING'
         }));
     }
+    const availability = await getDeploymentAvailability({...options, runtimeRoot: paths.pluginRoot});
+    if (!availability.available) throw new SlothVaultDeployError(`Deployment package unavailable: ${availability.reason}`, {code: 'DEPLOY_PACKAGE_UNAVAILABLE'});
 
     return new Promise((resolve, reject) => {
         const child = spawn(python, [paths.entryPath, ...deploymentArguments], {
@@ -83,6 +98,7 @@ export function runDeployment(deploymentArguments = [], options = {}) {
 export function createDeploymentSession(deploymentArguments = [], options = {}) {
     const paths = getDeploymentPaths(options);
     if (!fs.existsSync(paths.entryPath)) throw new SlothVaultDeployError(`Bundled SlothVault deployment entrypoint is missing: ${paths.entryPath}`, {code: 'DEPLOY_ENTRY_MISSING'});
+    if (getComponentStatus('deployment', {...options, runtimeRoot: paths.pluginRoot}).state !== 'installed') throw new SlothVaultDeployError('The deployment package is damaged. Reinstall its package first.', {code: 'DEPLOY_PACKAGE_UNAVAILABLE'});
     const python = options.pythonCommand || process.env.SLOTHTOOL_SLOTHVAULT_PYTHON || 'python3';
     const child = spawn(python, [paths.entryPath, '--bridge', ...deploymentArguments], {
         cwd: options.cwd || process.cwd(), stdio: ['pipe', 'pipe', 'pipe'],

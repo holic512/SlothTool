@@ -438,6 +438,27 @@ test('uninstall confirmation cancels on n and Esc and full cleanup requires type
     }
 });
 
+test('uninstall confirmation previews paths and executes the selected keep or purge policy', async () => {
+    writeInstalledPlugin();
+    const policies = [];
+    const ui = createHarness({tab: 'uninstall', services: {
+        describePluginUninstall: (alias, {dataPolicy}) => ({paths: [...Array.from({length: 20}, (_, index) => `/preview/${dataPolicy}/item-${index}`), '/long/' + 'directory/'.repeat(30) + 'confirm-preview-end']}),
+        uninstallPlugin: (alias, options) => {policies.push(options.dataPolicy); return {status: 'uninstalled'};}
+    }});
+    try {
+        await ui.settle(); await ui.press('\r');
+        assert.match(ui.frame(), /保留配置和历史/u); assert.match(ui.frame(), /\/preview\/keep\/item-0/u);
+        for (let i = 0; i < 40; i++) await ui.press('\u001b[B');
+        assert.match(ui.frame(), /confirm-preview-end/u);
+        await ui.press('y'); await waitFor(() => policies.length === 1);
+        assert.deepEqual(policies, ['keep']);
+        await ui.press('\r'); await ui.press('\u001b[C');
+        assert.match(ui.frame(), /清理配置和历史/u); assert.match(ui.frame(), /\/preview\/purge\/item-0/u);
+        await ui.press('y'); await waitFor(() => policies.length === 2);
+        assert.deepEqual(policies, ['keep', 'purge']);
+    } finally {await ui.close();}
+});
+
 test('running keys match available input and batch failures persist with target reasons', async () => {
     writeInstalledPlugin();
     let releaseCheck;

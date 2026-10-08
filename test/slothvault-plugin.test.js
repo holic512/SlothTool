@@ -58,6 +58,18 @@ test('UI and deployment runner keep their existing local interaction contract', 
     assert.equal(getDeploymentPaths({pluginRoot: '/tmp/slothvault-runtime'}).entryPath, '/tmp/slothvault-runtime/install.py');
 });
 
+test('standalone MCP help is available without a Client and missing-runtime JSON uses a stable config exit code', t => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'slothvault-missing-client-'));
+    t.after(() => fs.rmSync(home, {recursive: true, force: true}));
+    const env = {...process.env, HOME: home, SLOTHTOOL_SLOTHVAULT_MCP_CLIENT_ROOT: path.join(home, 'missing')};
+    const command = path.join(root, 'plugins/slothvault/bin/slothvault-mcp.js');
+    const help = spawnSync(process.execPath, [command, '--help'], {env, encoding: 'utf8'});
+    assert.equal(help.status, 0, help.stderr); assert.match(help.stdout, /mcp package install/u);
+    const error = spawnSync(process.execPath, [command, 'doctor', '--json'], {env, encoding: 'utf8'});
+    assert.equal(error.status, 2); assert.equal(JSON.parse(error.stdout).error.code, 'SLOTHVAULT_RUNTIME_MISSING');
+    assert.equal(error.stderr, '');
+});
+
 test('legacy MCP executable forwards to Vault runtime without loading business modules', t => {
     const dir = fixture(t);
     const result = spawnSync(process.execPath, [path.join(root, 'plugins/slothvault/bin/slothvault-mcp.js'), 'profile', 'add', 'work', '--json'], {

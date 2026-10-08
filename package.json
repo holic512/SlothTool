@@ -1,6 +1,6 @@
 {
   "name": "@holic512/slothtool",
-  "version": "2.7.1",
+  "version": "2.8.0",
   "description": "A plugin manager and dispatcher for CLI tools",
   "main": "lib/index.js",
   "type": "module",
@@ -16,7 +16,9 @@
     "dev:slothvault": "node plugins/slothvault/bin/slothvault.js",
     "test": "node --test",
     "sync:tui-interaction": "node scripts/sync-tui-interaction.js",
-    "check:tui-interaction": "node scripts/sync-tui-interaction.js --check"
+    "check:tui-interaction": "node scripts/sync-tui-interaction.js --check",
+    "sync:slothvault-helpers": "node scripts/sync-slothvault-helpers.js",
+    "check:slothvault-helpers": "node scripts/sync-slothvault-helpers.js --check"
   },
   "keywords": [
     "cli",

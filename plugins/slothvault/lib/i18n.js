@@ -36,7 +36,7 @@ export const messages = {
     zh: {
         skillVersion: {
             current: '当前 Skill：{version}', checked: '官方最新 Skill：{version}',
-            unavailable: '未能检查官方版本。', local: '已同步当前插件内置 Skill（离线）。',
+            unavailable: '未能检查官方版本。', local: '已修复当前 Skill 生效内容的本地链接（离线）。',
             hint: 'c 检查 · n 更新 · i 安装 · u 卸载', checking: '正在检查或更新 Skill…',
             failed: 'Skill 更新未完成：{message}', updated: 'Skill 已同步，当前版本 {version}',
         },
@@ -430,7 +430,7 @@ export const messages = {
     en: {
         skillVersion: {
             current: 'Current Skill: {version}', checked: 'Latest official Skill: {version}',
-            unavailable: 'Unable to check the official version.', local: 'Synchronized the bundled Skill offline.',
+            unavailable: 'Unable to check the official version.', local: 'Repaired links to the current active Skill offline.',
             hint: 'c Check · n Update · i Install · u Uninstall', checking: 'Checking or updating the Skill…',
             failed: 'Skill update did not finish: {message}', updated: 'Skill synchronized, current version {version}',
         },
@@ -822,6 +822,62 @@ export const messages = {
         }
     }
 };
+
+// Component workspaces share these labels across their service states and pages.
+messages.zh.workspace = {
+    mcpInstallGuidance: 'MCP Client 未安装或损坏。请运行：slothtool slothvault mcp package install；安装后可用 slothvault-mcp --help 查看命令。',
+    actionsTitle: '操作', profileState: 'Profile 配置', connectionState: '连接状态',
+    cleanupConfirmation: '清理配置与历史需要确认；非交互调用使用 --yes。',
+    ready: '就绪。各页面独立管理自己的包。', completed: '✓ 操作完成。', failed: '! 操作未完成，右侧可查看原因。',
+    footer: '↑↓ 选择 | Enter 执行 | v 详情 | r 刷新 | Tab 切页 | q 退出',
+    footerDetails: '↑↓/PgUp/PgDn 滚动 | v/Esc 返回操作 | q 退出', footerBusy: '正在执行 | v 查看进度 | Ctrl+C 强制退出',
+    footerInput: '输入/粘贴 | ←→ 移光标 | Enter 提交 | Esc 取消', footerConfirm: 'y 确认 | n/Esc 取消',
+    instanceUnchecked: '尚未读取实例状态；选择“查看状态”检查。',
+    deployBlocked: '部署操作不可用：{reason}。请安装或修复部署脚本包。', pythonUnavailable: '需要 Python 3.10 或更高版本。',
+    mcpBlocked: '请先安装或修复 MCP Client 包。', mcpHint: '连接配置、能力发现和历史在“连接和配置”中管理。',
+    cleanupWarning: '清理旧包和残留，并清空 MCP 配置与调用历史；之后需要重新配置连接。当前包和已部署应用保留。',
+    cleanupHint: '按 Enter 生成清理预览，确认后才执行。', cleanupPreview: '待清理 {count} 项，可释放 {bytes}',
+    cleanupResult: '已清理 {count} 项；失败 {failed} 项。', migration: '迁移链接：{path} → {source}', kept: '保留：{path}', skipped: '跳过：{path}（{reason}）',
+    confirm: '执行“{action}”？y 确认，n/Esc 取消。', command: '独立命令', checkedAt: '检查时间', releaseNotes: 'Release 变更说明',
+    task: '操作状态：{state}', elapsed: '耗时：{seconds} 秒', phase: '当前阶段：{phase}', steps: '步骤：{current}/{total}', items: '项', preview: '操作预览',
+    modules: {'mcp-client': 'MCP Client 包', skill: 'Skill 包', deployment: '部署脚本包'},
+    input: {root: '部署目录', container: 'Nginx 容器'},
+    taskStates: {running: '执行中', completed: '完成', failed: '失败', cancelled: '已取消'},
+    states: {unread: '待查看', configured: '已配置', 'not-configured': '未配置', connected: '已连接', installed: '已安装', missing: '未安装', invalid: '损坏或不兼容', unchecked: '未检查', latest: '已是最新', outdated: '可安装或更新', updated: '已更新', error: '失败', conflict: '自定义内容冲突', unavailable: '不可用', 'not-installed': '未安装', 'not-detected': '未检测到', registered: '已注册', 'not-registered': '未注册'},
+    actions: {summary: '组件总览', status: '查看实例状态', root: '修改部署目录', cleanup: '清理旧数据', 'package-status': '查看包状态', 'package-install': '安装或修复包', 'package-check': '检查包更新', 'package-update': '更新包', 'skill-uninstall': '卸载 Skill 与链接', client: '连接和配置', 'command-status': '查看命令状态', register: '注册 MCP 命令', unregister: '注销 MCP 命令'},
+    phases: {release: '查询正式 Release', download: '下载', validation: '校验摘要和文件', extract: '解压', environment: '准备 Python 环境', dependencies: '安装 Python 依赖', 'runtime-validation': '验证客户端', activate: '激活包', links: '检查受管链接', cleanup: '清理文件', done: '完成', failed: '失败'}
+};
+messages.en.workspace = {
+    mcpInstallGuidance: 'MCP Client is missing or damaged. Run: slothtool slothvault mcp package install; then use slothvault-mcp --help for its commands.',
+    actionsTitle: 'Actions', profileState: 'Profile configuration', connectionState: 'Connection state',
+    cleanupConfirmation: 'Clearing profiles and history requires confirmation; use --yes outside an interactive terminal.',
+    ready: 'Ready. Each page manages its own package.', completed: '✓ Operation completed.', failed: '! Operation did not complete; see the details.',
+    footer: '↑↓ select | Enter run | v details | r refresh | Tab page | q quit',
+    footerDetails: '↑↓/PgUp/PgDn scroll | v/Esc actions | q quit', footerBusy: 'Running | v progress | Ctrl+C force exit',
+    footerInput: 'Type/paste | ←→ cursor | Enter submit | Esc cancel', footerConfirm: 'y confirm | n/Esc cancel',
+    instanceUnchecked: 'Instance state is unchecked; choose View status to inspect.',
+    deployBlocked: 'Deployment unavailable: {reason}. Install or repair the deployment package.', pythonUnavailable: 'Python 3.10 or newer is required.',
+    mcpBlocked: 'Install or repair the MCP Client package first.', mcpHint: 'Manage profiles, discovery and history in Connection and profiles.',
+    cleanupWarning: 'Remove old packages and residue, and clear MCP profiles and history. Reconfigure the connection afterwards. Active packages and deployed applications stay.',
+    cleanupHint: 'Press Enter to preview; execution requires confirmation.', cleanupPreview: '{count} items to remove, {bytes} reclaimable',
+    cleanupResult: 'Removed {count} items; {failed} failed.', migration: 'Migrate link: {path} → {source}', kept: 'Kept: {path}', skipped: 'Skipped: {path} ({reason})',
+    confirm: 'Run “{action}”? y confirms, n/Esc cancels.', command: 'Standalone command', checkedAt: 'Checked at', releaseNotes: 'Release notes',
+    task: 'Operation: {state}', elapsed: 'Elapsed: {seconds} seconds', phase: 'Current phase: {phase}', steps: 'Step: {current}/{total}', items: 'items', preview: 'Operation preview',
+    modules: {'mcp-client': 'MCP Client package', skill: 'Skill package', deployment: 'Deployment package'},
+    input: {root: 'Deployment root', container: 'Nginx container'},
+    taskStates: {running: 'Running', completed: 'Completed', failed: 'Failed', cancelled: 'Cancelled'},
+    states: {unread: 'Unchecked content', configured: 'Configured', 'not-configured': 'Not configured', connected: 'Connected', installed: 'Installed', missing: 'Not installed', invalid: 'Invalid or incompatible', unchecked: 'Unchecked', latest: 'Latest', outdated: 'Install/update available', updated: 'Updated', error: 'Failed', conflict: 'Custom content conflict', unavailable: 'Unavailable', 'not-installed': 'Not installed', 'not-detected': 'Not detected', registered: 'Registered', 'not-registered': 'Not registered'},
+    actions: {summary: 'Component overview', status: 'View instance status', root: 'Change deployment root', cleanup: 'Clean old data', 'package-status': 'Package status', 'package-install': 'Install or repair package', 'package-check': 'Check package updates', 'package-update': 'Update package', 'skill-uninstall': 'Uninstall Skill and links', client: 'Connection and profiles', 'command-status': 'Command status', register: 'Register MCP command', unregister: 'Unregister MCP command'},
+    phases: {release: 'Resolve official Release', download: 'Download', validation: 'Validate hashes and files', extract: 'Extract', environment: 'Prepare Python environment', dependencies: 'Install Python dependencies', 'runtime-validation': 'Validate client', activate: 'Activate package', links: 'Check managed links', cleanup: 'Remove files', done: 'Completed', failed: 'Failed'}
+};
+messages.zh.manager.actions['check-update'] = '检查应用更新';
+messages.zh.manager.actions.update = '更新应用';
+messages.en.manager.actions['check-update'] = 'Check app updates';
+messages.en.manager.actions.update = 'Update application';
+messages.zh.manager.previewFields.currentVersion = '当前应用版本';
+messages.zh.manager.previewFields.targetVersion = '目标应用版本';
+messages.en.manager.previewFields.currentVersion = 'Current application version';
+messages.en.manager.previewFields.targetVersion = 'Target application version';
 
 /** Resolve a dot-separated translation key and interpolate its named values. */
 export function t(key, params = {}) {

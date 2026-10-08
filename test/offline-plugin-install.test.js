@@ -175,14 +175,14 @@ test('offline bundle contains a package root and can be reinstalled', async () =
     });
 });
 
-test('slothvault offline bundle contains only the UI and installs the Vault components separately', async () => {
+test('slothvault offline UI installation does not download any Vault component', async () => {
     await withHome(async home => {
         const initialArchive = createSlothVaultArchive();
         let runtimeInstallCount = 0;
         const installResult = await installPluginFromArchive('slothvault-mcp', initialArchive, {
             componentInstaller: async () => { runtimeInstallCount += 1; }
         });
-        assert.equal(runtimeInstallCount, 1);
+        assert.equal(runtimeInstallCount, 0);
         assert.equal(installResult.alias, 'slothvault');
         assert.equal(installResult.plugin.packageName, '@holic512/plugin-slothvault');
         assert.equal(installResult.plugin.sourceType, 'offline-archive');
@@ -203,13 +203,14 @@ test('slothvault offline bundle contains only the UI and installs the Vault comp
     });
 });
 
-test('failed component download rolls back a new offline SlothVault UI install', async () => {
+test('unavailable Vault Releases do not prevent offline UI installation', async () => {
     await withHome(async home => {
-        await assert.rejects(installPluginFromArchive('slothvault', createSlothVaultArchive(), {
+        const result = await installPluginFromArchive('slothvault', createSlothVaultArchive(), {
             componentInstaller: async () => { throw new Error('component unavailable'); }
-        }), /component unavailable/u);
-        assert.equal(registry.getPlugin('slothvault'), null);
-        assert.equal(fs.existsSync(path.join(home, '.pipker', 'slothtool', 'plugins', 'slothvault')), false);
+        });
+        assert.equal(result.status, 'installed');
+        assert.equal(registry.getPlugin('slothvault').packageName, '@holic512/plugin-slothvault');
+        assert.equal(fs.existsSync(path.join(home, '.pipker', 'slothtool', 'plugins', 'slothvault')), true);
     });
 });
 

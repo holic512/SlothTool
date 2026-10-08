@@ -130,6 +130,8 @@ my-plugin/
 
 `slothvault` 是“主 CLI 管理部署、Skill 与独立 MCP 命令注册，MCP executable 封装外部协议与动态能力发现，MCP TUI 只读检查远端能力并复用配置服务管理本地 Profile”的参考实现。它也演示了 MCP Streamable HTTP 生命周期、基于 Tool annotations 的风险判断、敏感字段脱敏、多配置档案、不会回显 Key 的 TUI 表单、Resource 安全落盘和受管命令注册。注册器只接受根调度传入、且其 bin 目录已位于 `PATH` 的 SlothTool 命令路径；源码直启不猜测写入位置，Unix/macOS 使用可验证符号链接、Windows 使用带固定 Node 路径和受管标记的 `.cmd` shim。
 
+SlothVault 的根生命周期只管理界面；Deployment、Skill 与 MCP Client 各有不依赖 Ink 的独立服务，CLI 和 TUI 共用。包传输、路径和本地清理由独立公共工具提供，部署与 Skill 不通过 MCP 适配器访问。根目录的公共工具通过 `npm run sync:slothvault-helpers` 同步到插件，`npm run check:slothvault-helpers` 验证独立归档中的副本。Skill 更新只保留一份生效目录；根卸载服务统一定义真实及旧配置、数据、缓存路径，按保留或清理策略删除，避免删除共享数据目录。
+
 ## TUI Shell Standard
 
 插件默认全屏 TUI 应与根管理器保持一致的外壳结构：
