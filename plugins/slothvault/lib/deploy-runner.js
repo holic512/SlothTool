@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module SlothVault Multifunction Plugin / Deployment Runner
  * @description Bridges the SlothTool UI to Vault's independently released Python deployment program.
- * @logic Resolve the active deployment component, launch its Python entry, and exchange JSON-line events.
+ * @logic Resolve the active package, exchange backward-compatible events and reconcile final metadata with the real process exit code.
  * @dependencies Node child_process/fs/path/readline, Vault deployment module.json and install.py
  * @index_tags slothvault,deploy,python,docker,runner,security
  * @author holic512
@@ -106,6 +106,8 @@ export function createDeploymentSession(deploymentArguments = [], options = {}) 
     });
     let settled = false;
     let protocolError = null;
+    let done = null;
+    let snapshot = null;
     const result = new Promise((resolve, reject) => {
         child.on('error', error => {
             if (settled) return;
@@ -119,7 +121,8 @@ export function createDeploymentSession(deploymentArguments = [], options = {}) 
             if (settled) return;
             settled = true;
             if (protocolError) reject(protocolError);
-            else resolve({code: code ?? 1, signal: signal || null});
+            else if (done && done.code !== (code ?? 1)) reject(new SlothVaultDeployError('Deployment exit code disagrees with its final event.', {code: 'DEPLOY_PROTOCOL_ERROR'}));
+            else resolve({...done, code: code ?? 1, signal: signal || null, snapshot});
         });
     });
     const lines = readline.createInterface({input: child.stdout});
@@ -131,7 +134,14 @@ export function createDeploymentSession(deploymentArguments = [], options = {}) 
         }
         try {
             const event = JSON.parse(line);
-            if (event && typeof event.type === 'string') options.onEvent?.(event);
+            if (event && typeof event.type === 'string') {
+                if (event.type === 'done') {
+                    if (!Number.isInteger(event.code) || done) throw new Error('Invalid final event');
+                    done = event;
+                }
+                if (event.type === 'snapshot') snapshot = event.data;
+                options.onEvent?.(event);
+            }
             else throw new Error('Missing event type');
         } catch {
             protocolError = new SlothVaultDeployError('Invalid deployment response from Python.', {code: 'DEPLOY_PROTOCOL_ERROR'});

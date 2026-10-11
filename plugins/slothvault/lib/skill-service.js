@@ -18,8 +18,20 @@ export async function checkSkillUpdate(options = {}) {
 }
 export async function installSkill(options = {}) {
     const result = await installComponent('skill', {...options, replaceSkill: options.replace === true});
-    return {...getSkillStatus(options), latestVersion: result.latestVersion, checkedAt: result.checkedAt, releaseNotes: result.releaseNotes, releaseUrl: result.releaseUrl,
-        status: result.status, updateStatus: result.status, checkState: 'checked', action: result.status, warnings: result.warnings};
+    options.onEvent?.({type: 'progress', phase: 'verify', status: 'running'});
+    const actual = getSkillStatus(options);
+    const warnings = [...(result.warnings || [])];
+    if (actual.sourceState !== 'installed' || actual.version !== result.latestVersion) {
+        warnings.push({path: actual.sourcePath, code: 'SKILL_SOURCE_INVALID'});
+    }
+    for (const agent of actual.agents || []) {
+        if (agent.detected && (agent.state !== 'installed' || agent.version !== result.latestVersion)) {
+            warnings.push({path: agent.targetPath, code: agent.state === 'conflict' ? 'SKILL_CUSTOM_TARGET_PRESERVED' : 'SKILL_LINK_INVALID'});
+        }
+    }
+    options.onEvent?.({type: 'progress', phase: 'verify', status: warnings.length ? 'failed' : 'completed'});
+    return {...actual, latestVersion: result.latestVersion, checkedAt: result.checkedAt, releaseNotes: result.releaseNotes, releaseUrl: result.releaseUrl,
+        status: warnings.length ? 'partial' : result.status, updateStatus: result.status, checkState: 'checked', action: result.status, warnings};
 }
 export async function updateSkill({local = false, ...options} = {}) {
     if (local) return withSlothVaultStorageLock(options, () => {

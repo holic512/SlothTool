@@ -248,9 +248,13 @@ tool_timeout_sec = 120
 
 连接和审批由智能体宿主管理。配置生成弹窗、一次性密钥展示及 Skill 改为调用原生 MCP 的另一仓库实施要求，见 [原生 MCP 对接提示词](./SLOTHVAULT_NATIVE_MCP_HANDOFF.md)。当前 Vault 已发布的 Skill 仍可能包含旧 CLI 指引，需要在 Vault 仓库更新并发布；SlothTool 只同步该仓库的正式 Skill 内容。
 
-`slothtool slothvault` 始终进入总览，三个 Tab 为总览、部署和 Skill。左侧保留操作菜单，右侧展示可滚动的状态、Release 说明、确认、输入、进度、结果和错误。按 `v` 聚焦详情，↑↓／PageUp／PageDown 滚动，Esc 返回菜单；窄终端采用上下布局。正文、路径和边框使用终端前景色，选中项使用反色加粗。
+`slothtool slothvault` 始终进入总览，三个 Tab 为总览、部署和 Skill。部署主页突出“实际运行应用版本”，脚本包的查看、安装／修复、检查和更新收进“管理部署脚本包”子页。管理界面、部署脚本包、Skill 包和应用各自拥有独立版本；`slothtool update slothvault` 只更新管理界面。
 
-部署页区分脚本包版本与已部署应用版本。脚本缺失、损坏或 Python 低于 3.10 时，应用操作显示不可用原因。按 `e` 修改部署目录，按 `m` 选择 Nginx 模式，Docker 模式按 `c` 输入容器名。包下载显示实际字节数、总量、百分比和速度；没有可靠总量时只显示阶段与耗时。部署桥进度增强要求见 [Deployment 对接提示词](./SLOTHVAULT_DEPLOYMENT_HANDOFF.md)。
+“更新应用”自动检查运行容器与正式 Release，展示当前版本、固定目标、镜像、目录和重启说明，然后只确认一次。Deployment 1.1.0 的确认按 `y` 继续、`n`／Esc 取消；旧 Deployment 仍需输入 `y` 后按 Enter。无更新、查询失败、版本无法确认和取消都有明确结果。跨版本更新说明默认折叠，按 `d` 展开。
+
+右侧状态区固定显示操作状态、实际版本 → 目标、阶段和计时；等待输入暂停执行计时并单独计时。标签使用亮青色，等待黄色、完成绿色、失败红色，并显示状态文字。实时日志默认跟随最新输出；`v` 聚焦后用 ↑↓／PageUp／PageDown 滚动并暂停跟随，`f`／End 恢复跟随，Esc 返回操作。窄终端采用上下布局。连续 30 秒没有业务进度时显示停留阶段和静默时长；后台心跳只表示进程存活。
+
+部署程序先用临时配置拉取已确认目标镜像，成功后激活正式配置并重建应用。镜像层下载／解压只显示实际计量；层百分比不代表整体更新百分比。旧 Compose 回退到普通进度或阶段提示。完成核验读取实际容器、运行镜像、发布标识及健康状态，不再次依赖 GitHub 查询；未达目标或无法读取实际状态时不会显示更新成功。重建前失败保留原配置，重建后失败读取实际状态，不自动回退可能已迁移的数据。按 `r` 刷新实际实例，按 `e` 修改部署目录；Nginx 使用 `m` 选择模式、Docker 模式用 `c` 输入容器名。桥兼容约定见 [Deployment 对接说明](./SLOTHVAULT_DEPLOYMENT_HANDOFF.md)。
 
 Skill 安装和更新先查询正式 `skill-v*` Release，校验后替换唯一的 `components/skill/current/` 生效目录，修复智能体链接并清理暂存；失败恢复旧内容。Codex 使用 `$CODEX_HOME/skills/slothvault-mcp`，Claude Code 使用 `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp`，未设置时使用各自默认目录。`slothvault-mcp` 仍是 Skill 目录名，不再是插件的 CLI 命令。自动更新保留自定义目标；显式替换需要确认。`--local` 只修复现有链接，界面安装和更新均同步 Release。
 

@@ -85,7 +85,10 @@ test('Skill installation and updates sync Releases, repair links without downloa
     assert.equal(checks, 2);
     fs.unlinkSync(target); fs.mkdirSync(target); fs.writeFileSync(path.join(target, 'custom.txt'), 'keep');
     payload = fixture(root, 'skill', '1.0.1');
-    assert.equal((await updateSkill(options)).agents[0].state, 'conflict');
+    const preserved = await updateSkill(options);
+    assert.equal(preserved.agents[0].state, 'conflict');
+    assert.equal(preserved.status, 'partial');
+    assert.ok(preserved.warnings.some(item => item.code === 'SKILL_CUSTOM_TARGET_PRESERVED'));
     assert.equal(fs.readFileSync(path.join(target, 'custom.txt'), 'utf8'), 'keep');
     assert.equal((await installSkill({...options, replace: true})).agents[0].state, 'installed');
     assert.equal(fs.existsSync(paths.releases), false);

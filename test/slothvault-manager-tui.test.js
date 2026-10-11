@@ -92,7 +92,6 @@ test('missing deployment package blocks every application operation without star
         createDeploymentSession: () => {sessionCalls++; assert.fail('must not start Python');}})});
     try {
         await ui.settle(); await ui.press('\t');
-        for (let i = 0; i < 4; i++) await ui.press('\u001b[B');
         for (let i = 0; i < 9; i++) {await ui.press('\r'); assert.match(ui.frame(), /部署操作不可用/u); await ui.press('\u001b[B');}
         assert.equal(availabilityCalls, 0); assert.equal(sessionCalls, 0);
     } finally {await ui.close();}
@@ -106,7 +105,7 @@ test('package checks keep full Release notes reachable after completion and pres
     try {
         await ui.settle(); await ui.press('\t'); await ui.press('p');
         await waitFor(() => /操作状态：完成/u.test(ui.frame()), ui);
-        assert.match(ui.frame(), /查看包状态/u); await ui.press('v');
+        assert.match(ui.frame(), /查看包状态/u); await ui.press('d'); await ui.press('v');
         for (let i = 0; i < 20; i++) await ui.press('\u001b[6~');
         assert.match(ui.frame(), /Release note 69/u);
     } finally {await ui.close();}
@@ -153,4 +152,77 @@ test('deployment availability avoids Python for invalid packages; the bridge for
     assert.equal((await session.result).code, 1); assert.equal(events[0].phase, 'pull');
     assert.equal(events[1].current, 10); assert.equal(events[1].total, 20); assert.equal(events[1].status, 'running');
     assert.doesNotMatch(JSON.stringify(events), /raw sensitive stderr/u);
+});
+
+test('application update checks automatically, confirms once and uses its final runtime snapshot', async () => {
+    let emit, finish, responses = [], sessions = 0, reads = 0;
+    const actual = {appVersion: 'v2.3.1', runtimeImage: 'holic512/slothvault:v2.3.1', containers: [{service: 'slothvault', state: 'running'}]};
+    const ui = harness({services: services({getComponentStatus: module => ({module, state: 'installed', currentVersion: '1.1.0'}),
+        getDeploymentAvailability: async () => ({available: true}), inspectDeployment: async () => {reads++; return actual;},
+        createDeploymentSession: (args, {onEvent}) => {
+            sessions++; assert.equal(args[1], 'update'); emit = onEvent;
+            return {result: new Promise(resolve => {finish = resolve;}), respond: value => responses.push(value), cancel() {}, stop() {}};
+        }})});
+    try {
+        await ui.settle(); await ui.press('\t'); await waitFor(() => reads === 1, ui);
+        await ui.press('\u001b[B'); await ui.press('\r');
+        await waitFor(() => Boolean(emit), ui);
+        emit({type: 'preview', data: {currentVersion: 'v2.3.1', targetVersion: 'v2.5.20', image: 'holic512/slothvault:v2.5.20', root: '/data/slothvault', impact: 'restart-application'}});
+        emit({type: 'progress', phase: 'release', status: 'completed'});
+        emit({type: 'prompt', label: 'Confirm v2.5.20', kind: 'confirm', default: false});
+        await waitFor(() => /等待确认或输入/u.test(ui.frame()), ui);
+        assert.match(ui.frame(), /y 确认更新/u); assert.doesNotMatch(ui.frame(), /操作完成/u);
+        await ui.press('y'); assert.deepEqual(responses, ['y']);
+        for (let n = 0; n < 300; n++) emit({type: 'log', message: `layer output ${n}`});
+        emit({type: 'progress', phase: 'pull', subject: 'abc123', current: 1, total: 2, unit: 'bytes'});
+        await ui.settle(); await ui.press('v'); await ui.press('\u001b[5~');
+        assert.match(ui.frame(), /操作状态：执行中/u);
+        emit({type: 'snapshot', data: {...actual, appVersion: 'v2.5.20', runtimeImage: 'holic512/slothvault:v2.5.20'}});
+        finish({code: 0, outcome: 'updated', verified: true, health: 'not-configured'});
+        await waitFor(() => /操作状态：完成/u.test(ui.frame()), ui);
+        assert.match(ui.frame(), /v2.5.20/u); assert.equal(sessions, 1); assert.equal(reads, 1);
+        emit({type: 'snapshot', data: {...actual, appVersion: 'v0.0.0'}});
+        await ui.settle(); assert.doesNotMatch(ui.frame(), /v0.0.0/u);
+    } finally {await ui.close();}
+});
+
+test('legacy Deployment input requires Enter, refreshes after cancellation, and keeps confirmation visible in small windows', async () => {
+    for (const [columns, rows] of [[90, 24], [60, 18], [30, 18]]) {
+        let emit, finish, responses = [], cancelled = 0;
+        const ui = harness({services: services({getComponentStatus: module => ({module, state: 'installed', currentVersion: '1.0.0'}),
+            getDeploymentAvailability: async () => ({available: true}), inspectDeployment: async () => ({appVersion: 'v2.3.1', containers: []}),
+            createDeploymentSession: (args, {onEvent}) => {
+                emit = onEvent;
+                return {result: new Promise(resolve => {finish = resolve;}), respond: value => responses.push(value), cancel: () => cancelled++, stop() {}};
+            }})}, columns, rows);
+        try {
+            await ui.settle(); await ui.press('\t'); await ui.press('\u001b[B'); await ui.press('\r');
+            await waitFor(() => Boolean(emit), ui);
+            emit({type: 'prompt', label: 'Confirm v2.5.20 [y/N]', secret: false});
+            await waitFor(() => /Confirm v2.5/u.test(ui.frame()), ui);
+            const frame = ui.frame().replace(/\n$/u, '').split('\n');
+            assert.ok(frame.length <= rows); assert.ok(frame.every(line => getDisplayWidth(line) <= columns));
+            await ui.press('y'); assert.deepEqual(responses, []);
+            await ui.press('\r'); assert.deepEqual(responses, ['y']);
+            emit({type: 'prompt', label: 'Another legacy input', secret: false});
+            await waitFor(() => /Another legacy/u.test(ui.frame()), ui);
+            await ui.press('\u001b'); assert.equal(cancelled, 1);
+            finish({code: 130});
+            await waitFor(() => /已取消/u.test(ui.frame()), ui);
+        } finally {await ui.close();}
+    }
+});
+
+test('bridge result rejects conflicting or duplicate done metadata and accepts old missing done', async t => {
+    const root = fs.mkdtempSync(path.join(home, 'bridge-result-'));
+    t.after(() => fs.rmSync(root, {recursive: true, force: true}));
+    fs.writeFileSync(path.join(root, 'module.json'), JSON.stringify({schema: 1, module: 'deployment', version: '1.0.0', bridgeApiMajor: 1}));
+    for (const source of ["console.log(JSON.stringify({type:'done',code:0})); process.exitCode=1;",
+        "console.log(JSON.stringify({type:'done',code:0})); console.log(JSON.stringify({type:'done',code:0}));"]) {
+        fs.writeFileSync(path.join(root, 'install.py'), source);
+        await assert.rejects(createDeploymentSession([], {pluginRoot: root, pythonCommand: process.execPath}).result, {code: 'DEPLOY_PROTOCOL_ERROR'});
+    }
+    fs.writeFileSync(path.join(root, 'install.py'), "console.log(JSON.stringify({type:'snapshot',data:{appVersion:'v2.3.1'}}));");
+    const legacy = await createDeploymentSession([], {pluginRoot: root, pythonCommand: process.execPath}).result;
+    assert.equal(legacy.code, 0); assert.equal(legacy.snapshot.appVersion, 'v2.3.1');
 });

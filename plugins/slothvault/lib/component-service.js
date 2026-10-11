@@ -57,12 +57,15 @@ export async function fetchComponentRelease(module, options = {}) {
 export async function checkComponentUpdate(module, options = {}) {
     const installed = installedComponent(module, options);
     try {
+        emit(options, 'release');
         const release = await fetchComponentRelease(module, options);
+        emit(options, 'done', {status: 'completed'});
         return {module, currentVersion: installed?.version || null, latestVersion: release.version,
             status: installed?.version === release.version && getComponentStatus(module, options).state === 'installed' ? 'latest' : 'outdated',
             checkedAt: new Date().toISOString(), releaseNotes: release.release?.body || '', releaseUrl: release.release?.html_url || '',
             bridgeApiMajor: release.manifest.bridgeApiMajor};
     } catch (error) {
+        emit(options, 'release', {status: 'failed'});
         return {module, currentVersion: installed?.version || null, latestVersion: null,
             status: 'error', reason: error.message};
     }

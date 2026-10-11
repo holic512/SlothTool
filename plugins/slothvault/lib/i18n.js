@@ -49,7 +49,7 @@ export const messages = {
         manager: {
             title: 'SlothVault 部署与 Skill',
             tabs: { overview: '概览', deploy: '部署', skill: '技能' },
-            deployedAppVersion: '已部署应用版本',
+            deployedAppVersion: '实际运行应用版本',
             latestPackageVersion: '最新包版本',
             refreshed: '本地状态已刷新。',
             fields: {
@@ -61,7 +61,8 @@ export const messages = {
                 provider: '数据库',
                 port: 'HTTP 端口',
                 image: '应用镜像',
-                version: '运行版本',
+                root: '部署目录',
+                version: '包版本',
                 certificate: '证书文件',
                 dataDir: '应用数据',
                 databaseDir: '数据库数据',
@@ -78,6 +79,7 @@ export const messages = {
                 databaseDir: '数据库数据',
                 port: '端口',
                 image: '应用镜像',
+                root: '部署目录',
                 nginx: 'Nginx 站点',
                 site: '站点',
                 upstream: '代理目标',
@@ -121,7 +123,7 @@ export const messages = {
             failed: '! 操作未完成，右侧可查看原因。',
             footer: '↑↓ 选择 | Enter 执行 | v 详情 | r 刷新 | Tab 切页 | q 退出',
             footerDetails: '↑↓/PgUp/PgDn 滚动 | v/Esc 返回操作 | q 退出',
-            footerBusy: '正在执行 | v 查看进度 | Ctrl+C 强制退出',
+            footerBusy: '正在执行 | v 查看进度 | d 说明 | Ctrl+C 强制退出',
             footerInput: '输入/粘贴 | ←→ 移光标 | Enter 提交 | Esc 取消',
             footerConfirm: 'y 确认 | n/Esc 取消',
             instanceUnchecked: '尚未读取实例状态；选择“查看状态”检查。',
@@ -183,7 +185,36 @@ export const messages = {
                 failed: '失败'
             }
         },
+        workflow: {
+            interfaceVersion: '界面 {version}', packageManager: '管理部署脚本包', back: '返回应用操作',
+            previewTitle: '确认本次更新目标', status: '当前操作', logs: '实时进度与日志', details: '版本与部署信息', notes: '完整更新说明',
+            notesSummary: '更新目标 {version}，跨越 {count} 个版本；d 展开说明',
+            footer: '↑↓ 选择 | Enter 执行 | v 日志 | d 说明 | r 刷新 | Tab 切页 | q 退出',
+            footerDetails: '↑↓/PgUp/PgDn 滚动 | f/End 跟随最新 | d 说明 | v/Esc 返回',
+            legacyConfirm: '输入 y 后 Enter 确认；Esc 取消', confirm: 'y 确认更新 | n/Esc 取消',
+            execution: '执行耗时：{seconds} 秒', waiting: '等待输入：{seconds} 秒',
+            versions: '实际版本：{current} → 目标：{target}', before: '更新前版本：{version}',
+            runtimeImage: '实际运行镜像', configuredImage: '配置中的镜像', latest: '官方最新应用版本',
+            inactive: '{seconds} 秒没有新业务进度；{activity}', alive: '后台进程仍在运行', unknownActivity: '等待后端活动信息',
+            layer: '镜像层 {subject}', noHealth: '未配置应用健康检查',
+            states: {checking: '检查中', waiting: '等待确认或输入', running: '执行中', verifying: '核验运行版本',
+                completed: '完成', unchanged: '已是最新／无变更', cancelled: '已取消', failed: '失败', partial: '部分完成／待核验'},
+            result: {completed: '✓ 操作完成。', unchanged: '✓ 已是最新／没有变更。', cancelled: '已取消操作。',
+                failed: '! 操作失败，详情中可查看原因。', partial: '! 操作未完全核验，请查看实际状态。'},
+            unverified: '实际运行版本未通过核验；请刷新应用状态并检查容器。',
+            restart: '将重建并重启受管应用，持久化数据保留。',
+            updateStates: {APPLICATION_UPDATE_AVAILABLE: '可更新', UP_TO_DATE: '已是最新', CHECK_FAILED: '查询失败',
+                CUSTOM_IMAGE: '自定义镜像', UNVERIFIABLE: '版本无法确认', LOCAL_NEWER: '本地版本较新'},
+            phases: {pull: '拉取目标应用镜像', recreate: '重建应用容器', verify: '核验实际版本与健康状态',
+                'docker compose check': '检查 Docker Compose', 'docker compose config': '校验 Compose 配置',
+                'docker compose pull': '拉取镜像', 'docker compose up': '启动应用', 'docker compose ps': '读取容器状态'}
+        },
         errors: {
+            RELEASE_SOURCE_NOT_FOUND: '未找到官方正式 Release，请稍后重试或检查发行来源。',
+            RELEASE_RATE_LIMITED: '官方版本查询受限，请稍后重试；实际运行版本未改变。',
+            RELEASE_REQUEST_TIMEOUT: '官方版本查询超时，请检查网络后重试；实际运行版本未改变。',
+            RELEASE_CHECK_FAILED: '无法查询官方版本，请重试并检查网络。',
+            SKILL_CUSTOM_TARGET_PRESERVED: '保留了自定义 Skill 内容；该目标尚未使用新版本。',
             SKILL_SOURCE_INVALID: 'SlothVault Skill 生效内容缺失或无效。',
             SKILL_AGENT_NOT_DETECTED: '未检测到本机 Codex 或 Claude Code，未执行 Skill 安装。',
             SKILL_TARGET_INVALID: 'SlothVault Skill 安装目标无效。',
@@ -211,7 +242,7 @@ export const messages = {
         manager: {
             title: 'SlothVault Deployment and Skill',
             tabs: { overview: 'Overview', deploy: 'Deploy', skill: 'Skill' },
-            deployedAppVersion: 'Deployed app',
+            deployedAppVersion: 'Running application version',
             latestPackageVersion: 'Latest package',
             refreshed: 'Local state refreshed.',
             fields: {
@@ -223,7 +254,7 @@ export const messages = {
                 provider: 'Database',
                 port: 'HTTP port',
                 image: 'App image',
-                version: 'Running version',
+                version: 'Package version',
                 certificate: 'Certificate file',
                 dataDir: 'App data',
                 databaseDir: 'Database data',
@@ -289,7 +320,7 @@ export const messages = {
             failed: '! Operation did not complete; see the details.',
             footer: '↑↓ select | Enter run | v details | r refresh | Tab page | q quit',
             footerDetails: '↑↓/PgUp/PgDn scroll | v/Esc actions | q quit',
-            footerBusy: 'Running | v progress | Ctrl+C force exit',
+            footerBusy: 'Running | v progress | d Notes | Ctrl+C force exit',
             footerInput: 'Type/paste | ←→ cursor | Enter submit | Esc cancel',
             footerConfirm: 'y confirm | n/Esc cancel',
             instanceUnchecked: 'Instance state is unchecked; choose View status to inspect.',
@@ -351,6 +382,30 @@ export const messages = {
                 failed: 'Failed'
             }
         },
+        workflow: {
+            interfaceVersion: 'UI {version}', packageManager: 'Manage deployment package', back: 'Back to application',
+            previewTitle: 'Review this update target', status: 'Current operation', logs: 'Live progress and logs', details: 'Versions and deployment', notes: 'Full release notes',
+            notesSummary: 'Target {version}, across {count} releases; d to expand notes',
+            footer: '↑↓ Select | Enter Run | v Logs | d Notes | r Refresh | Tab Pages | q Quit',
+            footerDetails: '↑↓/PgUp/PgDn Scroll | f/End Follow latest | d Notes | v/Esc Back',
+            legacyConfirm: 'Type y then Enter to confirm; Esc cancels', confirm: 'y Confirm update | n/Esc Cancel',
+            execution: 'Execution: {seconds}s', waiting: 'Waiting for input: {seconds}s',
+            versions: 'Running: {current} → Target: {target}', before: 'Before update: {version}',
+            runtimeImage: 'Running image', configuredImage: 'Configured image', latest: 'Latest official application',
+            inactive: 'No new progress for {seconds}s; {activity}', alive: 'background process is still running', unknownActivity: 'waiting for backend activity',
+            layer: 'Image layer {subject}', noHealth: 'Application health check is not configured',
+            states: {checking: 'Checking', waiting: 'Waiting for confirmation or input', running: 'Running', verifying: 'Verifying runtime version',
+                completed: 'Completed', unchanged: 'Latest / unchanged', cancelled: 'Cancelled', failed: 'Failed', partial: 'Partial / unverified'},
+            result: {completed: '✓ Operation completed.', unchanged: '✓ Latest / unchanged.', cancelled: 'Operation cancelled.',
+                failed: '! Operation failed; see details.', partial: '! Operation was not fully verified; check actual state.'},
+            unverified: 'Running version could not be verified; refresh application state and inspect the container.',
+            restart: 'The managed application will be recreated and restarted; persistent data is retained.',
+            updateStates: {APPLICATION_UPDATE_AVAILABLE: 'Update available', UP_TO_DATE: 'Latest', CHECK_FAILED: 'Check failed',
+                CUSTOM_IMAGE: 'Custom image', UNVERIFIABLE: 'Version unverifiable', LOCAL_NEWER: 'Local version is newer'},
+            phases: {pull: 'Pull target application image', recreate: 'Recreate application container', verify: 'Verify runtime version and health',
+                'docker compose check': 'Check Docker Compose', 'docker compose config': 'Validate Compose configuration',
+                'docker compose pull': 'Pull images', 'docker compose up': 'Start application', 'docker compose ps': 'Inspect containers'}
+        },
         errors: {
             SKILL_SOURCE_INVALID: 'The active SlothVault Skill is missing or invalid.',
             SKILL_AGENT_NOT_DETECTED: 'No local Codex or Claude Code installation was detected; the Skill was not installed.',
@@ -382,5 +437,7 @@ export function formatSlothVaultError(error) {
     const message = translated && translated !== key ? translated : error?.message || String(error);
     return String(message)
         .replace(/svmcp_[A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{43}/gu, '[redacted]')
-        .replace(/Bearer\s+[^\s"']+/giu, 'Bearer [redacted]');
+        .replace(/Bearer\s+[^\s"']+/giu, 'Bearer [redacted]')
+        .replace(/((?:password|token|secret|api[_-]?key|encryption_key)\s*[:=]\s*)[^\s,;]+/giu, '$1[redacted]')
+        .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/giu, '$1[redacted]@');
 }
