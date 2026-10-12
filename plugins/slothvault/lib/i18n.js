@@ -217,6 +217,8 @@ export const messages = {
                 'docker compose pull': '拉取镜像', 'docker compose up': '启动应用', 'docker compose ps': '读取容器状态'}
         },
         errors: {
+            DEPLOY_PACKAGE_INCOMPATIBLE: '已安装的部署脚本包不支持此命令或参数；请先运行 slothtool slothvault deploy package update 更新脚本包。',
+            DEPLOY_CAPABILITIES_UNAVAILABLE: '无法确认部署脚本包支持的命令与参数，请检查或修复脚本包后重试。',
             RELEASE_SOURCE_NOT_FOUND: '未找到官方正式 Release，请稍后重试或检查发行来源。',
             RELEASE_RATE_LIMITED: '官方版本查询受限，请稍后重试；实际运行版本未改变。',
             RELEASE_REQUEST_TIMEOUT: '官方版本查询超时，请检查网络后重试；实际运行版本未改变。',
@@ -421,6 +423,8 @@ export const messages = {
                 'docker compose pull': 'Pull images', 'docker compose up': 'Start application', 'docker compose ps': 'Inspect containers'}
         },
         errors: {
+            DEPLOY_PACKAGE_INCOMPATIBLE: 'The installed deployment package does not support this command or option. Run slothtool slothvault deploy package update first.',
+            DEPLOY_CAPABILITIES_UNAVAILABLE: 'Unable to verify the deployment package commands and options. Inspect or repair its package before retrying.',
             SKILL_SOURCE_INVALID: 'The active SlothVault Skill is missing or invalid.',
             SKILL_AGENT_NOT_DETECTED: 'No local Codex or Claude Code installation was detected; the Skill was not installed.',
             SKILL_TARGET_INVALID: 'The SlothVault Skill install target is invalid.',

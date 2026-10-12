@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module SlothVault Multifunction Plugin / Deployment Runner
  * @description Bridges the SlothTool UI to Vault's independently released Python deployment program.
- * @logic Resolve the active package, exchange backward-compatible events and reconcile final metadata with the real process exit code.
+ * @logic Check requested actions and flags against the installed CLI before execution, then reconcile bridge metadata with the real process exit code.
  * @dependencies Node child_process/fs/path/readline, Vault deployment module.json and install.py
  * @index_tags slothvault,deploy,python,docker,runner,security
  * @author holic512
@@ -16,6 +16,7 @@ import {spawn} from 'node:child_process';
 import readline from 'node:readline';
 import {getComponentRoot, getComponentStatus} from './slothvault-paths.js';
 import {runCommand} from './release-client.js';
+import {t} from './i18n.js';
 
 export class SlothVaultDeployError extends Error {
     constructor(message, options = {}) {
@@ -43,6 +44,24 @@ export async function getDeploymentAvailability(options = {}) {
             ['-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")']);
         const [major, minor] = value.trim().split('.').map(Number);
         if (!Number.isFinite(major) || !Number.isFinite(minor) || major < 3 || major === 3 && minor < 10) return {available: false, reason: 'Python 3.10+', component};
+        if (options.deploymentArguments?.length) {
+            let help;
+            try {
+                help = await (options.commandRunner || runCommand)(options.pythonCommand || process.env.SLOTHTOOL_SLOTHVAULT_PYTHON || 'python3',
+                    [getDeploymentPaths({...options, pluginRoot: component.path}).entryPath, '--help'], {env: options.env});
+            } catch {
+                return {available: false, component, code: 'DEPLOY_CAPABILITIES_UNAVAILABLE', reason: t('errors.DEPLOY_CAPABILITIES_UNAVAILABLE')};
+            }
+            const choices = help.replace(/\s+/gu, ' ').match(/--action\s+\{([^}]+)\}/u)?.[1];
+            if (!choices) return {available: false, component, code: 'DEPLOY_CAPABILITIES_UNAVAILABLE', reason: t('errors.DEPLOY_CAPABILITIES_UNAVAILABLE')};
+            const actions = new Set(choices.split(',').map(value => value.trim()));
+            const flags = new Set([...help.matchAll(/(?:^|\s)(--[a-z][a-z0-9-]*)/gu)].map(match => match[1]));
+            const args = options.deploymentArguments;
+            const actionIndex = args.indexOf('--action');
+            const action = actionIndex >= 0 ? args[actionIndex + 1] : args.find(value => value.startsWith('--action='))?.slice(9);
+            const unsupported = args.some(value => value.startsWith('--') && !flags.has(value.split('=')[0])) || action && !actions.has(action);
+            if (unsupported) return {available: false, component, code: 'DEPLOY_PACKAGE_INCOMPATIBLE', reason: t('errors.DEPLOY_PACKAGE_INCOMPATIBLE')};
+        }
         return {available: true, component};
     } catch {return {available: false, reason: 'Python 3.10+', component};}
 }
@@ -64,8 +83,8 @@ export async function runDeployment(deploymentArguments = [], options = {}) {
             code: 'DEPLOY_ENTRY_MISSING'
         }));
     }
-    const availability = await getDeploymentAvailability({...options, runtimeRoot: paths.pluginRoot});
-    if (!availability.available) throw new SlothVaultDeployError(`Deployment package unavailable: ${availability.reason}`, {code: 'DEPLOY_PACKAGE_UNAVAILABLE'});
+    const availability = await getDeploymentAvailability({...options, runtimeRoot: paths.pluginRoot, deploymentArguments});
+    if (!availability.available) throw new SlothVaultDeployError(availability.reason, {code: availability.code || 'DEPLOY_PACKAGE_UNAVAILABLE'});
 
     return new Promise((resolve, reject) => {
         const child = spawn(python, [paths.entryPath, ...deploymentArguments], {
@@ -96,6 +115,26 @@ export async function runDeployment(deploymentArguments = [], options = {}) {
 
 /** Open the private JSON-line channel used by the TUI; CLI stdio remains unchanged. */
 export function createDeploymentSession(deploymentArguments = [], options = {}) {
+    if (!deploymentArguments.length) return startDeploymentSession(deploymentArguments, options);
+    const paths = getDeploymentPaths(options);
+    let active, stopped = false;
+    const answers = [];
+    const result = (async () => {
+        const available = await getDeploymentAvailability({...options, runtimeRoot: paths.pluginRoot, deploymentArguments});
+        if (stopped) return {code: 130, outcome: 'cancelled', signal: null, snapshot: null};
+        if (!available.available) throw new SlothVaultDeployError(available.reason, {code: available.code || 'DEPLOY_PACKAGE_UNAVAILABLE'});
+        active = startDeploymentSession(deploymentArguments, options);
+        for (const answer of answers) active.respond(answer);
+        return active.result;
+    })();
+    return {result,
+        respond(value) {if (active) active.respond(value); else answers.push(value);},
+        cancel() {if (active) active.cancel(); else stopped = true;},
+        stop() {if (active) active.stop(); else stopped = true;}
+    };
+}
+
+function startDeploymentSession(deploymentArguments, options) {
     const paths = getDeploymentPaths(options);
     if (!fs.existsSync(paths.entryPath)) throw new SlothVaultDeployError(`Bundled SlothVault deployment entrypoint is missing: ${paths.entryPath}`, {code: 'DEPLOY_ENTRY_MISSING'});
     if (getComponentStatus('deployment', {...options, runtimeRoot: paths.pluginRoot}).state !== 'installed') throw new SlothVaultDeployError('The deployment package is damaged. Reinstall its package first.', {code: 'DEPLOY_PACKAGE_UNAVAILABLE'});

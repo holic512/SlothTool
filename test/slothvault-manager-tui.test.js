@@ -227,6 +227,40 @@ test('bridge result rejects conflicting or duplicate done metadata and accepts o
     assert.equal(legacy.code, 0); assert.equal(legacy.snapshot.appVersion, 'v2.3.1');
 });
 
+test('deployment preflight uses installed CLI actions and flags for both old and future packages', async t => {
+    const root = fs.mkdtempSync(path.join(home, 'bridge-capabilities-'));
+    t.after(() => fs.rmSync(root, {recursive: true, force: true}));
+    fs.writeFileSync(path.join(root, 'module.json'), JSON.stringify({schema: 1, module: 'deployment', version: '1.1.0', bridgeApiMajor: 1}));
+    const marker = path.join(root, 'executed');
+    fs.writeFileSync(path.join(root, 'install.py'), `require('fs').writeFileSync(${JSON.stringify(marker)}, 'called'); console.log(JSON.stringify({type:'done',code:0}));`);
+    let help = 'usage: install.py --action {install,status,nginx}\n --root ROOT\n --help\n --nginx-mode MODE';
+    const options = {pluginRoot: root, pythonCommand: process.execPath, commandRunner: async (_command, args) => args.includes('--help') ? help : '3.10'};
+    for (const args of [['--action', 'nginx-discover'], ['--action=nginx-status'], ['--action', 'nginx', '--nginx-site', '/site.conf'], ['--future-option=value']]) {
+        await assert.rejects(createDeploymentSession(args, options).result, {code: 'DEPLOY_PACKAGE_INCOMPATIBLE'});
+        assert.equal(fs.existsSync(marker), false);
+    }
+    help = 'usage: install.py --action {install,status,\n future-action}\n --root ROOT\n --help\n --future-option VALUE';
+    const accepted = await createDeploymentSession(['--action', 'future-action', '--future-option=value'], options).result;
+    assert.equal(accepted.code, 0);
+    assert.equal(fs.readFileSync(marker, 'utf8'), 'called');
+    fs.rmSync(marker);
+    help = 'unreadable CLI capabilities';
+    await assert.rejects(createDeploymentSession(['--action', 'status'], options).result, {code: 'DEPLOY_CAPABILITIES_UNAVAILABLE'});
+    assert.equal(fs.existsSync(marker), false);
+});
+
+test('a deployment cancelled during preflight does not start the operation', async t => {
+    const root = fs.mkdtempSync(path.join(home, 'bridge-preflight-cancel-'));
+    t.after(() => fs.rmSync(root, {recursive: true, force: true}));
+    fs.writeFileSync(path.join(root, 'module.json'), JSON.stringify({schema: 1, module: 'deployment', version: '1.1.0', bridgeApiMajor: 1}));
+    const marker = path.join(root, 'executed');
+    fs.writeFileSync(path.join(root, 'install.py'), `require('fs').writeFileSync(${JSON.stringify(marker)}, 'called');`);
+    const session = createDeploymentSession(['--action', 'status'], {pluginRoot: root, commandRunner: async (_command, args) => args.includes('--help') ? '--action {status} --help' : '3.10'});
+    session.cancel();
+    assert.equal((await session.result).code, 130);
+    assert.equal(fs.existsSync(marker), false);
+});
+
 
 test('Nginx submenu discovers and selects a site, then delegates one confirmation to the bridge', async () => {
     const calls = [], status = {state: 'configured', instances: [{id: 'docker:proxy', mode: 'docker', container: 'proxy', mainConfig: '/custom/main.conf', running: true, syntax: 'passed'}], sites: [{instanceId: 'docker:proxy', mode: 'docker', container: 'proxy', siteConfig: '/custom/vault.conf', serverName: 'vault.example.com', serverNames: ['vault.example.com'], upstreams: ['app:3000'], loaded: true, https: true}]};

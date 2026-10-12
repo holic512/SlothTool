@@ -36,7 +36,9 @@ Vault owns the Skill's instructions. Its existing released Skill may still direc
 
 ## TUI and measured progress
 
-The three Tabs are Overview, Deploy and Skill. Overview reads local state without connecting to MCP. Deploy highlights the actual running application version; script-package status/install/check/update live in the “Manage deployment package” subpage. UI **3.1.0**, Deployment **1.1.0**, Skill and application versions remain independent.
+The three Tabs are Overview, Deploy and Skill. Overview reads local state without connecting to MCP. Deploy highlights the actual running application version; script-package status/install/check/update live in the “Manage deployment package” subpage. UI, Deployment, Skill and application versions remain independent.
+
+Before CLI or TUI deployment execution, the adapter reads the installed script's `--help` to verify the requested action and options. Unsupported actions or options show a package update message before starting the operation. This also covers future commands without a duplicated version-to-feature table; unreadable capabilities stop execution with a package repair message.
 
 “Update application” checks the running container and official Release, then shows one fixed target, image, directory and restart impact before one backend confirmation. Enhanced prompts use `y` to continue and `n`/Esc to cancel; legacy Deployment prompts require typing `y` and pressing Enter. Release history is collapsed by default; `d` expands it.
 
@@ -60,6 +62,8 @@ Cleanup previews and removes verified legacy Client payloads, commands, Profiles
 ## 中文说明
 
 插件只管理部署与 Skill，默认进入总览。独立 MCP Client、Profile 表单、第二个命令与连接检查页面已移除；Codex 等智能体通过自己的原生 MCP 配置直连 SlothVault。旧 Client 运行包和受管命令仅保留清理兼容，不再安装或执行。
+
+CLI 与 TUI 执行部署前会读取已安装脚本的 `--help`，检查目标命令和参数。旧脚本不支持新功能时先提示更新部署包；无法读取能力时停止并提示修复。以后新增命令也采用这项检查，不维护重复的版本与功能对应表。
 
 Skill 仍从 Vault 仓库正式 Release 同步；当前发布内容如果包含旧 CLI 指引，需要另一仓库更新。总览、部署与 Skill 三页保留右侧固定状态、滚动进度、结果与错误。部署脚本包管理位于子页；更新应用自动检查目标并只确认一次，等待输入单独计时。`d` 展开说明，`v` 滚动日志，`f`／End 恢复跟随；实际版本核验失败时不会报告成功。旧数据清理和卸载不会改动智能体原生 MCP 配置或已部署应用。
 
