@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "alias": "todo",
+  "packageName": "@holic512/plugin-todo",
+  "retired": true,
+  "resources": [
+    {
+      "id": "old-config",
+      "root": "legacy-slothtool",
+      "path": "data/plugin-configs/todo.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired"
+    },
+    {
+      "id": "tasks",
+      "root": "legacy-slothtool",
+      "path": "data/todo",
+      "kind": "user-data",
+      "state": "user-data",
+      "cleanup": "never"
+    }
+  ]
+}

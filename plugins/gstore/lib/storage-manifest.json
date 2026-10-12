@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "alias": "gstore",
+  "packageName": "@holic512/plugin-gstore",
+  "resources": [
+    {
+      "id": "config",
+      "root": "slothtool",
+      "path": "plugin-configs/gstore.json",
+      "kind": "config",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "repository",
+      "root": "slothtool",
+      "path": "cache/gstore/repository",
+      "kind": "repository",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "old-data-git",
+      "root": "slothtool",
+      "path": "data/.git",
+      "kind": "repository",
+      "state": "user-data",
+      "cleanup": "never"
+    },
+    {
+      "id": "old-home-config",
+      "root": "legacy-slothtool",
+      "path": "plugin-configs/gstore.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "duplicate",
+      "replacement": "config"
+    },
+    {
+      "id": "old-home-repository",
+      "root": "legacy-slothtool",
+      "path": "cache/gstore/repository",
+      "kind": "repository",
+      "state": "legacy",
+      "cleanup": "never"
+    },
+    {
+      "id": "old-home-data-git",
+      "root": "legacy-slothtool",
+      "path": "data/.git",
+      "kind": "repository",
+      "state": "legacy",
+      "cleanup": "never"
+    }
+  ]
+}

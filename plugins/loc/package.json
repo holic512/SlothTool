@@ -1,6 +1,6 @@
 {
   "name": "@holic512/plugin-loc",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Count lines of code in a directory",
   "main": "lib/counter.js",
   "type": "module",
@@ -19,7 +19,8 @@
         "-i",
         "--interactive"
       ]
-    }
+    },
+    "storageManifest": "lib/storage-manifest.json"
   },
   "scripts": {
     "test": "node --test"

@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {componentPaths, slothToolHome, VAULT_COMPONENTS, getComponentStatus} from './slothvault-paths.js';
 
 function stats(file) {try {return fs.lstatSync(file);} catch (error) {if (error.code === 'ENOENT') return null; throw error;}}
@@ -22,10 +23,25 @@ function referenced(file, targets) {
 }
 function safePath(file, root) {
     if (!inside(file, root) || file === root) return false;
+    if (stats(root)?.isSymbolicLink() || stats(path.dirname(root))?.isSymbolicLink()) return false;
     for (let parent = path.dirname(file); parent !== root; parent = path.dirname(parent)) {
         if (!inside(parent, root) || stats(parent)?.isSymbolicLink()) return false;
     }
     return true;
+}
+
+/** Fingerprint directory entries without following links or reading configuration contents. */
+export function storageFingerprint(file) {
+    const hash = createHash('sha256');
+    const visit = target => {
+        const info = stats(target);
+        if (!info) {hash.update('missing'); return;}
+        hash.update(JSON.stringify([path.relative(file, target), info.dev, info.ino, info.mode, info.size, info.mtimeMs, info.ctimeMs]));
+        if (info.isSymbolicLink()) hash.update(fs.readlinkSync(target));
+        else if (info.isDirectory()) for (const name of fs.readdirSync(target).sort()) visit(path.join(target, name));
+    };
+    visit(file);
+    return hash.digest('hex');
 }
 function size(file) {
     const info = stats(file);
@@ -256,13 +272,20 @@ export function cleanupSlothVault(options = {}) {
 
 function executeCleanup(options) {
     assertSlothVaultIdle({...options, ignoreCleanupLock: true});
-    const migrationErrors = !options.uninstall && !options.dryRun ? migrateLegacyLinks(options) : [];
-    const preview = planSlothVaultCleanup({...options, projectMigrations: options.dryRun});
+    const bounded = options.approvedItems !== undefined;
+    if (bounded && (!Array.isArray(options.approvedItems) || options.uninstall)) throw new Error('Invalid approved cleanup items.');
+    const migrationErrors = !options.uninstall && !options.dryRun && !bounded && options.projectMigrations !== false ? migrateLegacyLinks(options) : [];
+    const preview = planSlothVaultCleanup({...options, projectMigrations: bounded ? false : options.dryRun});
     if (options.dryRun) return {...preview, status: 'preview'};
     const removed = [], errors = [...migrationErrors], skipped = [...preview.skipped];
     if (options.uninstall) errors.push(...preview.skipped.map(item => ({...item, code: 'CLEANUP_PATH_UNSAFE'})));
-    for (const item of preview.items) {
+    const approved = bounded ? options.approvedItems : preview.items;
+    for (const requested of approved) {
         try {
+            const item = bounded ? planSlothVaultCleanup({...options, projectMigrations: false}).items.find(candidate => candidate.path === requested.path && candidate.kind === requested.kind) : requested;
+            if (!item || bounded && (!requested.fingerprint || storageFingerprint(item.path) !== requested.fingerprint)) {
+                skipped.push({path: requested.path, reason: 'ownership-changed'}); continue;
+            }
             if (item.external) {
                 const valid = [...managedSkillLinks(options), ...managedCommandLinks(options)].some(candidate => candidate.path === item.path && candidate.source === item.source && candidate.content === item.content);
                 if (!valid) {skipped.push({path: item.path, reason: 'ownership-changed'}); continue;}
@@ -276,7 +299,7 @@ function executeCleanup(options) {
             }
             removed.push(item);
             try {options.onEvent?.({type: 'progress', phase: 'cleanup', current: removed.length, total: preview.count, unit: 'items'});} catch { /* Presentation cannot change cleanup ownership or outcome. */ }
-        } catch (error) {errors.push({path: item.path, code: error.code || 'CLEANUP_FAILED'});}
+        } catch (error) {errors.push({path: requested.path, code: error.code || 'CLEANUP_FAILED'});}
     }
     return {...preview, status: errors.length ? 'partial' : 'completed', removed, errors, skipped};
 }

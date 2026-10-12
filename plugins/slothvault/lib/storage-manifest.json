@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "alias": "slothvault",
+  "packageName": "@holic512/plugin-slothvault",
+  "resources": [
+    {
+      "id": "runtime",
+      "root": "slothtool",
+      "path": "runtimes/slothvault",
+      "kind": "runtime",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "old-home-runtime",
+      "root": "legacy-slothtool",
+      "path": "runtimes/slothvault",
+      "kind": "runtime",
+      "state": "legacy",
+      "cleanup": "never"
+    },
+    {
+      "id": "slothtool-slothvault-config",
+      "root": "slothtool",
+      "path": "plugin-configs/slothvault.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "slothtool-slothvault-nested-config",
+      "root": "slothtool",
+      "path": "data/plugin-configs/slothvault.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "slothtool-slothvault-history",
+      "root": "slothtool",
+      "path": "data/slothvault/history.json",
+      "kind": "history",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "slothtool-slothvault-mcp-config",
+      "root": "slothtool",
+      "path": "plugin-configs/slothvault-mcp.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "slothtool-slothvault-mcp-nested-config",
+      "root": "slothtool",
+      "path": "data/plugin-configs/slothvault-mcp.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "slothtool-slothvault-mcp-history",
+      "root": "slothtool",
+      "path": "data/slothvault-mcp/history.json",
+      "kind": "history",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "legacy-slothtool-slothvault-config",
+      "root": "legacy-slothtool",
+      "path": "plugin-configs/slothvault.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "legacy-slothtool-slothvault-nested-config",
+      "root": "legacy-slothtool",
+      "path": "data/plugin-configs/slothvault.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "legacy-slothtool-slothvault-history",
+      "root": "legacy-slothtool",
+      "path": "data/slothvault/history.json",
+      "kind": "history",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "legacy-slothtool-slothvault-mcp-config",
+      "root": "legacy-slothtool",
+      "path": "plugin-configs/slothvault-mcp.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "legacy-slothtool-slothvault-mcp-nested-config",
+      "root": "legacy-slothtool",
+      "path": "data/plugin-configs/slothvault-mcp.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    },
+    {
+      "id": "legacy-slothtool-slothvault-mcp-history",
+      "root": "legacy-slothtool",
+      "path": "data/slothvault-mcp/history.json",
+      "kind": "history",
+      "state": "legacy",
+      "cleanup": "retired",
+      "inactiveSince": "3.0.0"
+    }
+  ],
+  "externalStorage": [
+    "verified-agent-skill-links",
+    "verified-retired-command-links"
+  ]
+}

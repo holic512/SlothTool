@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "alias": "loc",
+  "packageName": "@holic512/plugin-loc",
+  "resources": [
+    {
+      "id": "config",
+      "root": "slothtool",
+      "path": "data/plugin-configs/loc.json",
+      "kind": "config",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "old-config",
+      "root": "slothtool",
+      "path": "plugin-configs/loc.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "duplicate",
+      "replacement": "config"
+    },
+    {
+      "id": "old-home-config",
+      "root": "legacy-slothtool",
+      "path": "data/plugin-configs/loc.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "duplicate",
+      "replacement": "config"
+    },
+    {
+      "id": "old-home-original-config",
+      "root": "legacy-slothtool",
+      "path": "plugin-configs/loc.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "duplicate",
+      "replacement": "config"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "alias": "slothtool",
+  "packageName": "@holic512/slothtool",
+  "resources": [
+    {
+      "id": "settings",
+      "root": "slothtool",
+      "path": "settings.json",
+      "kind": "config",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "registry",
+      "root": "slothtool",
+      "path": "registry.json",
+      "kind": "registry",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "data",
+      "root": "slothtool",
+      "path": "data",
+      "kind": "user-data",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "plugins",
+      "root": "slothtool",
+      "path": "plugins",
+      "kind": "installation",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "old-settings",
+      "root": "legacy-slothtool",
+      "path": "settings.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "duplicate",
+      "replacement": "settings"
+    },
+    {
+      "id": "old-registry",
+      "root": "legacy-slothtool",
+      "path": "registry.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "duplicate",
+      "replacement": "registry"
+    },
+    {
+      "id": "old-user-data",
+      "root": "legacy-slothtool",
+      "path": "data",
+      "kind": "user-data",
+      "state": "legacy",
+      "cleanup": "never"
+    },
+    {
+      "id": "old-plugins",
+      "root": "legacy-slothtool",
+      "path": "plugins",
+      "kind": "installation",
+      "state": "legacy",
+      "cleanup": "never"
+    }
+  ]
+}

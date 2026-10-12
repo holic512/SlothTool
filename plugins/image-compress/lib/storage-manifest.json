@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "alias": "image-compress",
+  "packageName": "@holic512/plugin-image-compress",
+  "resources": [],
+  "externalStorage": [
+    "user-selected-image-inputs-and-outputs",
+    "system-temporary-go-cache"
+  ]
+}

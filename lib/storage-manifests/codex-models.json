@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "alias": "codex-models",
+  "packageName": "@holic512/plugin-codex-models",
+  "retired": true,
+  "resources": [
+    {
+      "id": "slothtool-repair-script",
+      "root": "slothtool",
+      "path": "data/codex-models/repair-codex-desktop-model-filter.mjs",
+      "kind": "generated-script",
+      "state": "legacy",
+      "cleanup": "retired"
+    },
+    {
+      "id": "legacy-slothtool-repair-script",
+      "root": "legacy-slothtool",
+      "path": "data/codex-models/repair-codex-desktop-model-filter.mjs",
+      "kind": "generated-script",
+      "state": "legacy",
+      "cleanup": "retired"
+    }
+  ],
+  "externalStorage": [
+    "native-codex-configuration",
+    "native-model-catalog",
+    "native-desktop-cache-and-backups"
+  ]
+}

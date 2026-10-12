@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "alias": "pzip",
+  "packageName": "@holic512/plugin-pzip",
+  "resources": [
+    {
+      "id": "config",
+      "root": "slothtool",
+      "path": "plugin-configs/pzip.json",
+      "kind": "config",
+      "state": "active",
+      "cleanup": "never"
+    },
+    {
+      "id": "old-home-config",
+      "root": "legacy-slothtool",
+      "path": "plugin-configs/pzip.json",
+      "kind": "config",
+      "state": "legacy",
+      "cleanup": "duplicate",
+      "replacement": "config"
+    }
+  ]
+}
