@@ -3,7 +3,7 @@
  * @project SlothTool
  * @module SlothVault workspace UI
  * @description Independent component pages with persistent right-side state, results and measured progress.
- * @logic Keep local Overview independent, review application updates once, pin live task state, and refresh actual versions from final snapshots.
+ * @logic Keep local Overview independent, select discovered Nginx sites in the deployment submenu, review writes once, and refresh actual state from final snapshots.
  * @dependencies React/Ink, package/Skill services, deployment bridge, owned local cleanup
  * @index_tags slothvault,tui,overview,packages,progress,cleanup
  * @author holic512
@@ -22,14 +22,15 @@ import {planSlothVaultCleanup, cleanupSlothVault} from './slothvault-storage.js'
 import {t, formatSlothVaultError} from './i18n.js';
 
 const TABS = ['overview', 'deploy', 'skill'];
-export const DEPLOY_ACTIONS = ['install', 'status', 'check-update', 'update', 'start', 'stop', 'nginx', 'https', 'renew'];
+export const DEPLOY_ACTIONS = ['install', 'status', 'check-update', 'update', 'start', 'stop', 'nginx', 'https', 'renew', 'nginx-discover', 'nginx-status', 'nginx-update'];
 const NGINX_MODES = ['auto', 'system', 'docker'];
-const NGINX_ACTIONS = new Set(['install', 'nginx', 'https', 'renew']);
+const NGINX_ACTIONS = new Set(['install', 'nginx', 'https', 'renew', 'nginx-discover', 'nginx-status', 'nginx-update']);
 const ACTIONS = {
     overview: ['summary', 'status', 'root', 'cleanup'],
-    deploy: ['status', 'update', 'check-update', 'install', 'start', 'stop', 'nginx', 'https', 'renew', 'packages'],
+    deploy: ['status', 'update', 'check-update', 'install', 'start', 'stop', 'nginx-menu', 'packages'],
     skill: ['package-status', 'package-install', 'package-check', 'package-update', 'skill-uninstall']
 };
+export const NGINX_MENU_ACTIONS = ['nginx-discover', 'nginx-select', 'nginx-status', 'nginx', 'nginx-update', 'https', 'renew', 'back'];
 const PACKAGE_ACTIONS = ['package-status', 'package-install', 'package-check', 'package-update', 'back'];
 const defaults = {getComponentStatus, operatePackage, getSkillStatus, checkSkillUpdate, installSkill, updateSkill, uninstallSkill,
     planSlothVaultCleanup, cleanupSlothVault,
@@ -40,15 +41,17 @@ export function resolveSlothVaultManagerLayout(columns = 80, rows = 24) {
     return {width, height, compact: width < 78, short: height < 22, tooSmall: width < 30 || height < 18,
         sidebarWidth: Math.max(25, Math.min(31, Math.floor((width - 5) * 0.35)))};
 }
-export function buildDeploymentArguments(action, {root = '/data/slothvault', nginxMode = 'auto', nginxContainer = ''} = {}) {
+export function buildDeploymentArguments(action, {root = '/data/slothvault', nginxMode = 'auto', nginxContainer = '', nginxConfig = '', nginxSite = '', nginxServerName = ''} = {}) {
     if (!DEPLOY_ACTIONS.includes(action)) throw new Error(`Unsupported deployment action: ${action}`);
     if (!NGINX_MODES.includes(nginxMode)) throw new Error(`Unsupported Nginx mode: ${nginxMode}`);
     const args = ['--action', action, '--root', root.trim() || '/data/slothvault'];
     if (NGINX_ACTIONS.has(action) && nginxMode !== 'auto') args.push('--nginx-mode', nginxMode);
     if (NGINX_ACTIONS.has(action) && nginxMode === 'docker' && nginxContainer.trim()) args.push('--nginx-container', nginxContainer.trim());
+    if (NGINX_ACTIONS.has(action)) for (const [flag, value] of [['--nginx-config', nginxConfig], ['--nginx-site', nginxSite], ['--nginx-server-name', nginxServerName]]) if (value) args.push(flag, value);
     return args;
 }
 function label(action, tab) {
+    if (action === 'nginx-menu' || action === 'nginx-select') return t('manager.actions.' + action);
     if (action === 'packages') return t('workflow.packageManager');
     if (action === 'back') return t('workflow.back');
     if (tab === 'deploy' && DEPLOY_ACTIONS.includes(action)) return t('manager.actions.' + action);
@@ -59,6 +62,21 @@ function localState(value) {
     return text === key ? value || '-' : text;
 }
 function field(key, value) {return `${t(key)}: ${value ?? '-'}`;}
+export function nginxStatusLines(status) {
+    if (!status) return [];
+    const lines = [field('manager.nginxFields.state', status.state)];
+    for (const item of status.instances || []) {
+        lines.push(`${item.mode}: ${item.container || item.mainConfig}`, field('manager.nginxFields.running', t(item.running ? 'yes' : 'no')), field('manager.nginxFields.syntax', item.syntax), item.version || '');
+        if (item.container && item.mainConfig) lines.push(item.mainConfig);
+        for (const mount of item.mounts || []) lines.push(`${mount.source} → ${mount.destination}`);
+        if (item.error) lines.push('! ' + item.error);
+    }
+    for (const [index, site] of (status.sites || []).entries()) {
+        lines.push(`${index + 1}) ${(site.serverNames || []).join(', ')} | ${(site.upstreams || []).join(', ')}`, site.hostConfig || site.siteConfig || '', `HTTPS: ${t(site.https ? 'yes' : 'no')} | ${field('manager.nginxFields.loaded', t(site.loaded ? 'yes' : 'no'))}`);
+        for (const policy of site.transfer || []) for (const route of policy.routes || []) lines.push(`${policy.name}: ${route.clientMaxBodySize || '-'} | ${route.requestBuffering || '-'} / ${route.responseBuffering || '-'} | ${route.state}`);
+    }
+    return lines.filter(Boolean);
+}
 function instanceLines(instance, root) {
     if (!instance) return [field('manager.fields.root', root), t('workspace.instanceUnchecked')];
     const lines = [field('manager.fields.status', t('manager.instanceStates.' + instance.state)), field('manager.fields.root', instance.root || root)];
@@ -88,6 +106,10 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
     const base = resolveSlothVaultManagerLayout(columns, rows);
     const [tab, setTab] = useState('overview');
     const [packagePage, setPackagePage] = useState(false);
+    const [nginxPage, setNginxPage] = useState(false);
+    const [nginxSelection, setNginxSelection] = useState(0);
+    const [nginxTarget, setNginxTarget] = useState({});
+    const [nginxStatus, setNginxStatus] = useState(null);
     const [packageSelection, setPackageSelection] = useState(0);
     const [expanded, setExpanded] = useState(false);
     const [follow, setFollow] = useState(true);
@@ -115,8 +137,8 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
     const busyRef = useRef(false), sessionRef = useRef(null), abortRef = useRef(null), pendingRef = useRef(null), mounted = useRef(true);
     const taskId = useRef(0), activeTask = useRef(null), refreshId = useRef(0);
     const promptRef = useRef(null);
-    const currentActions = tab === 'deploy' && packagePage ? PACKAGE_ACTIONS : ACTIONS[tab];
-    const selected = tab === 'deploy' && packagePage ? packageSelection : selections[tab];
+    const currentActions = tab === 'deploy' && nginxPage ? NGINX_MENU_ACTIONS : tab === 'deploy' && packagePage ? PACKAGE_ACTIONS : ACTIONS[tab];
+    const selected = tab === 'deploy' && nginxPage ? nginxSelection : tab === 'deploy' && packagePage ? packageSelection : selections[tab];
     const action = currentActions[selected];
     const module = tab === 'deploy' ? 'deployment' : 'skill';
     const task = tasks[tab];
@@ -127,7 +149,7 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
     const rightHeight = base.compact ? shell.contentHeight - leftHeight - 1 : shell.contentHeight;
     const leftWidth = base.compact ? shell.contentWidth : base.sidebarWidth;
     const rightWidth = base.compact ? shell.contentWidth : shell.contentWidth - leftWidth - 1;
-    const blocked = tab === 'deploy' && DEPLOY_ACTIONS.includes(action) && (packages.deployment.state !== 'installed' || availability?.available === false);
+    const blocked = tab === 'deploy' && (DEPLOY_ACTIONS.includes(action) || action === 'nginx-menu' || action === 'nginx-select') && (packages.deployment.state !== 'installed' || availability?.available === false);
     const summary = VAULT_COMPONENTS.flatMap(item => [field('workspace.modules.' + item, localState(packages[item].state)), field('manager.fields.version', packages[item].currentVersion || '-')]);
     const component = packages[module];
     let lines = [];
@@ -145,6 +167,7 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
         if (tab === 'deploy') {
             lines.push(field('manager.deployedAppVersion', instance?.appVersion || '-'), field('manager.fields.root', root));
             if (NGINX_ACTIONS.has(action)) lines.push(field('manager.fields.nginxMode', t('manager.nginxModes.' + nginxMode)), field('manager.fields.container', nginxContainer || '-'));
+            if (nginxPage) lines.push('', ...nginxStatusLines(nginxStatus || instance?.nginx), nginxTarget.nginxSite || '');
             if (blocked) lines.unshift(t('workspace.deployBlocked', {reason: availability?.reason || localState(packages.deployment.state)}));
             if (action === 'status') lines.push('', ...instanceLines(instance, root));
             if (action === 'check-update' || action === 'update') lines.push('', ...releaseLines(update, expanded));
@@ -153,6 +176,8 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
                 for (const [name, value] of Object.entries(preview)) {
                     if (['provider', 'composePath', 'dataDir', 'databaseDir', 'port', 'image', 'root', 'nginx', 'site', 'upstream', 'loopback', 'domains', 'dns', 'currentVersion', 'targetVersion'].includes(name)) lines.push(`${t('manager.previewFields.' + name)}: ${Array.isArray(value) ? value.join(', ') : value}`);
                 }
+                for (const change of preview.changes || []) lines.push(`${change.policy}: ${change.directive} ${change.value};`);
+                for (const key of ['mainConfig', 'siteConfig', 'hostConfig']) if (preview[key]) lines.push(preview[key]);
                 if (preview.impact === 'restart-application') lines.push(t('workflow.restart'));
             }
         }
@@ -242,9 +267,9 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
                 const input = {...event, value: '', cursor: 0};
                 promptRef.current = input; setScroll(0); setPrompt(input);
             }
-            else if (event.type === 'snapshot') setInstance(event.data);
+            else if (event.type === 'snapshot') {setInstance(event.data); if (event.data.nginx) setNginxStatus(event.data.nginx);}
             else if (event.type === 'update') setUpdate({...event.data, checkedAt: new Date().toISOString()});
-            else if (event.type === 'preview') setPreview(event.data);
+            else if (event.type === 'preview') {setPreview(event.data); if (event.data.nginxStatus) setNginxStatus(event.data.nginxStatus);}
         };
         try {
             const result = await work(onEvent, controller.signal);
@@ -266,8 +291,11 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
         const value = {action: next, ...extra}; pendingRef.current = value; setPending(value); setScroll(0);
     }
     async function run(next, {replace = false} = {}) {
-        if (next === 'packages') {setPackagePage(true); setScroll(0); setExpanded(false); return;}
-        if (next === 'back') {setPackagePage(false); setScroll(0); return;}
+        if (tab === 'deploy' && next.startsWith('nginx') && (packages.deployment.state !== 'installed' || availability?.available === false)) {setMessage(t('workspace.deployBlocked', {reason: availability?.reason || localState(packages.deployment.state)})); return;}
+        if (next === 'nginx-menu') {setNginxPage(true); setPackagePage(false); setScroll(0); return;}
+        if (next === 'nginx-select') {setEditor({kind: 'site', value: '', cursor: 0}); return;}
+        if (next === 'packages') {setNginxPage(false); setPackagePage(true); setScroll(0); setExpanded(false); return;}
+        if (next === 'back') {setNginxPage(false); setPackagePage(false); setScroll(0); return;}
         if (next === 'summary' || next === 'package-status') {refreshLocal(); setTasks(current => ({...current, [tab]: null})); setMessage(t('manager.refreshed')); return;}
         if (next === 'root') {setEditor({kind: 'root', value: root, cursor: graphemes(root).length}); return;}
         if (next === 'cleanup') {
@@ -277,7 +305,7 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
         if (next === 'skill-uninstall') {requestConfirmation(next); return;}
         if (tab === 'deploy' && DEPLOY_ACTIONS.includes(next)) {
             if (packages.deployment.state !== 'installed' || availability?.available === false) {setMessage(t('workspace.deployBlocked', {reason: availability?.reason || localState(packages.deployment.state)})); return;}
-            if (!['status', 'check-update', 'update'].includes(next)) {requestConfirmation(next); return;}
+            if (!['status', 'check-update', 'update', 'nginx-discover', 'nginx-status', 'nginx-update', 'nginx', 'https', 'renew'].includes(next)) {requestConfirmation(next); return;}
         }
         if (tab === 'skill' && next === 'package-install' && skill.agents?.some(agent => agent.detected && agent.state === 'conflict') && !replace) {requestConfirmation(next, {replace: true}); return;}
         return perform(next, {replace});
@@ -303,7 +331,7 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
             if (next === 'status') {const snapshot = await services.inspectDeployment(root, {onEvent}); setInstance(snapshot); return snapshot;}
             setPreview(null);
             let gotSnapshot = false;
-            const session = services.createDeploymentSession(buildDeploymentArguments(next, {root, nginxMode, nginxContainer}), {onEvent(event) {
+            const session = services.createDeploymentSession(buildDeploymentArguments(next, {root, nginxMode, nginxContainer, ...(next === 'nginx-discover' ? {} : nginxTarget)}), {onEvent(event) {
                 if (event.type === 'snapshot') gotSnapshot = true;
                 onEvent(event);
             }});
@@ -347,8 +375,15 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
         if (editor) {
             if (key.escape) setEditor(null);
             else if (key.return) {
-                if (editor.kind === 'root') {++refreshId.current; setRoot(editor.value.trim() || '/data/slothvault'); setInstance(null); setUpdate(null); setPreview(null); setTasks(current => ({...current, deploy: null}));}
-                else setNginxContainer(editor.value.trim());
+                if (editor.kind === 'root') {++refreshId.current; setRoot(editor.value.trim() || '/data/slothvault'); setNginxTarget({}); setNginxStatus(null); setInstance(null); setUpdate(null); setPreview(null); setTasks(current => ({...current, deploy: null}));}
+                else if (editor.kind === 'site') {
+                    const sites = (nginxStatus || instance?.nginx)?.sites || [];
+                    const site = /^\d+$/u.test(editor.value.trim()) ? sites[Number(editor.value.trim()) - 1] : null;
+                    if (!site?.upstreams?.length) {setMessage(t('manager.nginxSelectHint')); return;}
+                    const instanceId = (nginxStatus || instance?.nginx)?.instances?.find(item => item.id === site.instanceId);
+                    setNginxMode(site.mode); setNginxContainer(site.container || '');
+                    setNginxTarget({nginxConfig: instanceId?.mainConfig || '', nginxSite: site.siteConfig, nginxServerName: site.serverName || ''});
+                } else {setNginxTarget({}); setNginxContainer(editor.value.trim());}
                 setEditor(null);
             } else setEditor(current => change(current, input, key));
             return;
@@ -371,21 +406,22 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
         if (busy) return;
         if (input === 'q') {exit(); return;}
         if (key.tab || key.rightArrow || key.leftArrow) {setTab(current => TABS[key.leftArrow ? (TABS.indexOf(current) + TABS.length - 1) % TABS.length : nextTabIndex(TABS.indexOf(current), TABS.length, key)]); setScroll(0); setExpanded(false); return;}
-        if (key.escape) {if (tab === 'deploy' && packagePage) setPackagePage(false); else setTab('overview'); setScroll(0); return;}
+        if (key.escape) {if (tab === 'deploy' && nginxPage) setNginxPage(false); else if (tab === 'deploy' && packagePage) setPackagePage(false); else setTab('overview'); setScroll(0); return;}
         if (key.upArrow || key.downArrow) {
             const delta = key.upArrow ? -1 : 1;
-            if (tab === 'deploy' && packagePage) setPackageSelection(current => (current + delta + PACKAGE_ACTIONS.length) % PACKAGE_ACTIONS.length);
+            if (tab === 'deploy' && nginxPage) setNginxSelection(current => (current + delta + NGINX_MENU_ACTIONS.length) % NGINX_MENU_ACTIONS.length);
+            else if (tab === 'deploy' && packagePage) setPackageSelection(current => (current + delta + PACKAGE_ACTIONS.length) % PACKAGE_ACTIONS.length);
             else setSelections(current => ({...current, [tab]: (current[tab] + delta + ACTIONS[tab].length) % ACTIONS[tab].length}));
             setScroll(0); setFollow(false); return;
         }
         if (input === 'r') {refreshLocal(); if (tab === 'deploy' && !packagePage && packages.deployment.state === 'installed') void perform('status'); else setMessage(t('manager.refreshed')); return;}
         if (input === 'e' && (tab === 'overview' || tab === 'deploy')) {void run('root'); return;}
-        if (tab === 'deploy' && input === 'm') {setNginxMode(mode => NGINX_MODES[(NGINX_MODES.indexOf(mode) + 1) % NGINX_MODES.length]); return;}
+        if (tab === 'deploy' && input === 'm') {setNginxTarget({}); setNginxMode(mode => NGINX_MODES[(NGINX_MODES.indexOf(mode) + 1) % NGINX_MODES.length]); return;}
         if (tab === 'deploy' && input === 'c' && nginxMode === 'docker') {setEditor({kind: 'container', value: nginxContainer, cursor: graphemes(nginxContainer).length}); return;}
         const shortcut = tab === 'skill' ? {c: 'package-check', n: 'package-update', i: 'package-install', u: 'skill-uninstall'}
                 : tab === 'deploy' ? {p: 'package-check', k: 'package-update'} : {};
         if (shortcut[input]) {
-            if (tab === 'deploy') {setPackagePage(true); setPackageSelection(PACKAGE_ACTIONS.indexOf(shortcut[input]));}
+            if (tab === 'deploy') {setNginxPage(false); setPackagePage(true); setPackageSelection(PACKAGE_ACTIONS.indexOf(shortcut[input]));}
             else setSelections(current => ({...current, [tab]: ACTIONS[tab].indexOf(shortcut[input])}));
             void run(shortcut[input]); return;
         }
@@ -400,7 +436,7 @@ function ManagerShell({services: overrides = {}, inspect, createSession} = {}) {
     const capacity = Math.max(1, leftHeight - 3);
     const offset = Math.max(0, Math.min(selected - Math.floor(capacity / 2), currentActions.length - capacity));
     const left = h(Box, {width: leftWidth, height: leftHeight, borderStyle: 'round', borderColor: COLORS.border, paddingX: 1, flexShrink: 0, flexDirection: 'column'},
-        h(Text, {bold: true, color: COLORS.accent, wrap: 'truncate-end'}, truncateFromRight(packagePage && tab === 'deploy' ? t('workflow.packageManager') : t('workspace.actionsTitle'), leftWidth - 4)),
+        h(Text, {bold: true, color: COLORS.accent, wrap: 'truncate-end'}, truncateFromRight(nginxPage && tab === 'deploy' ? t('manager.actions.nginx-menu') : packagePage && tab === 'deploy' ? t('workflow.packageManager') : t('workspace.actionsTitle'), leftWidth - 4)),
         ...currentActions.slice(offset, offset + capacity).map((item, index) => h(Text, {key: item, inverse: selected === offset + index && !focused, bold: selected === offset + index, wrap: 'truncate-end'},
             truncateFromRight((selected === offset + index ? '› ' : '  ') + label(item, tab), leftWidth - 4))));
     const right = h(TuiDetails, {title: label(task && busy ? task.action : action, tab), lines, pinned, scroll, width: rightWidth, height: rightHeight, focused, follow: liveFollow, state: task?.state});

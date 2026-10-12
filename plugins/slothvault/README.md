@@ -62,3 +62,16 @@ Cleanup previews and removes verified legacy Client payloads, commands, Profiles
 插件只管理部署与 Skill，默认进入总览。独立 MCP Client、Profile 表单、第二个命令与连接检查页面已移除；Codex 等智能体通过自己的原生 MCP 配置直连 SlothVault。旧 Client 运行包和受管命令仅保留清理兼容，不再安装或执行。
 
 Skill 仍从 Vault 仓库正式 Release 同步；当前发布内容如果包含旧 CLI 指引，需要另一仓库更新。总览、部署与 Skill 三页保留右侧固定状态、滚动进度、结果与错误。部署脚本包管理位于子页；更新应用自动检查目标并只确认一次，等待输入单独计时。`d` 展开说明，`v` 滚动日志，`f`／End 恢复跟随；实际版本核验失败时不会报告成功。旧数据清理和卸载不会改动智能体原生 MCP 配置或已部署应用。
+
+## Nginx 管理 / Nginx management
+
+部署页的 Nginx 子菜单提供本机和 Docker 发现、站点选择、状态、基础反向代理、传输配置更新、HTTPS 和证书续期。先发现，再选择代理站点；配置更新只修改目标站点并保留原 HTTPS 和自定义设置。
+
+The Deployment tab includes Nginx discovery, site selection, status, basic proxy configuration, transfer policy updates, HTTPS and renewal. Updates preserve the selected site’s existing HTTPS and custom settings.
+
+```bash
+slothtool slothvault deploy --action nginx-discover
+slothtool slothvault deploy --action nginx-update --nginx-mode docker --nginx-container nginx --nginx-site /etc/nginx/conf.d/vault.conf --nginx-server-name vault.example.com
+```
+
+Requires the independently updated Vault Deployment package (1.1.1 or newer); updating this UI does not install that package automatically.

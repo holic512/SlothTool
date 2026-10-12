@@ -44,6 +44,7 @@ function printHelp() {
     console.log('SlothVault multifunction plugin\n');
     console.log('  slothtool slothvault');
     console.log('  slothtool slothvault deploy [deployment installer arguments]');
+    console.log('  slothtool slothvault deploy --action nginx-discover|nginx-status|nginx-update [--nginx-mode system|docker] [--nginx-container NAME]');
     console.log('  slothtool slothvault deploy package status|install|check|update [--json]');
     console.log('  slothtool slothvault cleanup [--dry-run] [--yes] [--json]');
     console.log('  slothtool slothvault skill status|install|update|uninstall [--check] [--local] [--yes] [--json]');

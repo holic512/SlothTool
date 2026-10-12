@@ -92,7 +92,7 @@ test('missing deployment package blocks every application operation without star
         createDeploymentSession: () => {sessionCalls++; assert.fail('must not start Python');}})});
     try {
         await ui.settle(); await ui.press('\t');
-        for (let i = 0; i < 9; i++) {await ui.press('\r'); assert.match(ui.frame(), /部署操作不可用/u); await ui.press('\u001b[B');}
+        for (let i = 0; i < 7; i++) {await ui.press('\r'); assert.match(ui.frame(), /部署操作不可用/u); await ui.press('\u001b[B');}
         assert.equal(availabilityCalls, 0); assert.equal(sessionCalls, 0);
     } finally {await ui.close();}
 });
@@ -225,4 +225,32 @@ test('bridge result rejects conflicting or duplicate done metadata and accepts o
     fs.writeFileSync(path.join(root, 'install.py'), "console.log(JSON.stringify({type:'snapshot',data:{appVersion:'v2.3.1'}}));");
     const legacy = await createDeploymentSession([], {pluginRoot: root, pythonCommand: process.execPath}).result;
     assert.equal(legacy.code, 0); assert.equal(legacy.snapshot.appVersion, 'v2.3.1');
+});
+
+
+test('Nginx submenu discovers and selects a site, then delegates one confirmation to the bridge', async () => {
+    const calls = [], status = {state: 'configured', instances: [{id: 'docker:proxy', mode: 'docker', container: 'proxy', mainConfig: '/custom/main.conf', running: true, syntax: 'passed'}], sites: [{instanceId: 'docker:proxy', mode: 'docker', container: 'proxy', siteConfig: '/custom/vault.conf', serverName: 'vault.example.com', serverNames: ['vault.example.com'], upstreams: ['app:3000'], loaded: true, https: true}]};
+    let emit, finish;
+    const ui = harness({services: services({getComponentStatus: module => ({module, state: 'installed', currentVersion: '1.1.1'}), getDeploymentAvailability: async () => ({available: true}), inspectDeployment: async () => ({state: 'managed', nginx: status}), createDeploymentSession(args, {onEvent}) {
+        calls.push(args); emit = onEvent;
+        return {result: new Promise(resolve => {finish = resolve;}), respond() {}, cancel() {}, stop() {}};
+    }})});
+    try {
+        await ui.settle(); await ui.press('\t');
+        for (let i = 0; i < 6; i++) await ui.press('\u001b[B');
+        await ui.press('\r'); assert.match(ui.frame(), /Nginx 管理/u);
+        await ui.press('\r'); await waitFor(() => calls.length === 1, ui);
+        emit({type: 'preview', data: {kind: 'nginx-discover', nginxStatus: status}});
+        emit({type: 'snapshot', data: {state: 'managed', nginx: status}}); finish({code: 0});
+        await waitFor(() => /操作状态：完成/u.test(ui.frame()), ui);
+        await ui.press('\u001b[B'); await ui.press('\r'); await ui.press('1'); await ui.press('\r');
+        for (let i = 0; i < 3; i++) await ui.press('\u001b[B');
+        await ui.press('\r'); await waitFor(() => calls.length === 2, ui);
+        assert.ok(calls[1].includes('nginx-update'));
+        assert.ok(calls[1].includes('/custom/vault.conf'));
+        assert.ok(calls[1].includes('vault.example.com'));
+        emit({type: 'prompt', kind: 'confirm', label: '确认站点差异', secret: false});
+        await waitFor(() => /确认站点差异/u.test(ui.frame()), ui);
+        emit({type: 'snapshot', data: {state: 'managed', nginx: status}}); finish({code: 0});
+    } finally {await ui.close();}
 });
