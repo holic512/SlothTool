@@ -1,9 +1,9 @@
 # @file release-core.yml
 # @project SlothTool
 # @module GitHub Actions / Core Release
-# @description 当根目录下的 SlothTool 核心包发生变更时，自动校验、通过 npm trusted publishing 发布并创建 GitHub Release。
+# @description 当根目录下的 SlothTool 核心包或内置 Skill 发生变更时，自动校验、通过 npm trusted publishing 发布并创建 GitHub Release。
 # @logic 1. 监听 main 分支的根包关键路径；2. 基于根 package.json 版本判断是否发布；3. 使用 OIDC 发布 npm 包并推送 tag、创建 release。
-# @dependencies GitHub Actions, npm trusted publishing, package.json, bin/**, lib/**
+# @dependencies GitHub Actions, npm trusted publishing, package.json, bin/**, lib/**, skills/**
 # @index_tags workflow, core-release, root-package, trusted-publishing
 # @author holic512
 
@@ -16,6 +16,9 @@ on:
     paths:
       - 'bin/**'
       - 'lib/**'
+      - 'skills/**'
+      - 'scripts/check-bundled-skill.js'
+      - 'test/*skill*.test.js'
       - 'package.json'
       - 'package-lock.json'
       - 'README.md'
@@ -65,6 +68,8 @@ jobs:
         run: |
           node --check bin/slothtool.js
           node --check lib/plugin-manager.js
+          npm run check:skill
+          node --test test/skill-service.test.js test/skill-cli.test.js test/bundled-skill.test.js test/skill-packaging.test.js test/skill-workflows.test.js test/root-skill-tui.test.js
           npm pack --dry-run
 
       - name: Publish package to npm
@@ -99,7 +104,8 @@ jobs:
 
             ### Notes
             - Released automatically from the repository root package
-            - The official plugin catalog currently contains only `loc`
+            - Bundles the version-matched `slothtool` AI Skill; install links explicitly with `slothtool skill install`
+            - Official plugins: `loc`, `image-compress`, `gstore`, `pzip`, and `slothvault`
 
       - name: Skip publish for existing version
         if: steps.tag-check.outputs.publish != 'true'

@@ -4,7 +4,7 @@
  * @file SlothToolCliEntry
  * @project SlothTool
  * @module Core CLI / Entry
- * @description SlothTool 命令行入口，默认进入全屏 TUI，并为在线/离线安装、离线归档及其他显式 CLI 子命令提供稳定分发。
+ * @description SlothTool 命令行入口，默认进入全屏 TUI，并为在线/离线安装、离线归档、内置 Skill 管理及其他显式 CLI 子命令提供稳定分发。
  * @logic 1. 无参数时优先进入 TUI；2. 分发 install --file、bundle 等显式 CLI 子命令；3. 保留插件简写；4. 统一处理命令异常和退出码。
  * @dependencies Commands: ../lib/commands/index.js, I18N: ../lib/i18n.js, Utils: ../lib/utils.js
  * @index_tags CLI入口, 默认TUI, 命令分发, 离线安装, bundle, 插件简写
@@ -32,6 +32,7 @@ function printHelp() {
     console.log(`  slothtool <plugin> [args]       ${t('commands.runShorthand')}`);
     console.log(`  slothtool config <...>          ${t('commands.config')}`);
     console.log(`  slothtool --uninstall-all [--keep-data|--purge-data] [--yes] ${t('commands.uninstallAll')}`);
+    console.log(`  slothtool skill <action>        ${t('skill.description')}`);
     console.log(`  slothtool self-update           ${t('commands.selfUpdate')}`);
     console.log('');
     console.log(t('examples'));
@@ -72,6 +73,11 @@ async function main() {
 
     if (command === 'install') {
         await commands.install(args.slice(1));
+        return;
+    }
+
+    if (command === 'skill') {
+        await commands.skill(args.slice(1));
         return;
     }
 

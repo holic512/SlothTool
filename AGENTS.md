@@ -6,6 +6,7 @@ Concise repo rules for Codex working on SlothTool.
 
 - SlothTool is a TUI-first plugin manager.
 - Root package: `@holic512/slothtool`
+- Root bundles `skills/slothtool/` in npm; its Skill version must match the root version. `slothtool skill status|install|update|uninstall` and Settings manage explicit Codex/Claude Code links, without npm lifecycle installation or a separate Skill release.
 - The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, `@holic512/plugin-pzip`, and `@holic512/plugin-slothvault`.
 - `plugins/image-compress` ships as an official plugin workspace with a dedicated multi-platform release workflow and target-aware asset installation.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing SlothTool settings, plugin configs, and data through an isolated Git repository cache and a GitHub private repository via local `git` and `gh`.
@@ -59,6 +60,14 @@ Concise repo rules for Codex working on SlothTool.
 - Persistence stays centralized in `lib/registry.js`, `lib/settings.js`, or plugin config modules.
 - User-facing copy changes must update both `zh` and `en`.
 - Do not add CommonJS unless explicitly requested.
+
+### Built-in SlothTool Skill
+
+- `lib/services/skill-service.js` owns detection and transactional links; CLI and TUI consume it without importing SlothVault plugin code.
+- Target only detected Codex `$CODEX_HOME/skills/slothtool` and Claude Code `$CLAUDE_CONFIG_DIR/skills/slothtool`, using the default config directories when unset. Do not create `.agents` links or alter native credentials.
+- Track owned target/source pairs through `lib/settings.js`; recheck actual links before replacement or unlinking. Never replace ordinary files/directories or unregistered links. `update` repairs registered targets only; uninstall preserves bundled content and unrelated Skills.
+- Skill instructions route natural language to explicit CLI commands. Auto-install only the required official plugin when environment permissions allow; preserve filters and distinguish ZIP archives from builds. External/destructive actions still require scope-specific authorization.
+- Run `npm run check:skill` and Skill lifecycle/CLI/TUI/packaging tests. Skill content changes ship with a root version bump and the existing core npm release, not a plugin bump.
 
 ## 4. Plugin Contract
 
@@ -119,6 +128,7 @@ SlothVault multifunction package rules:
 
 - Root command dispatch/help: `bin/slothtool.js`, `lib/commands/*`, `test/root-cli.test.js`
 - Root services/persistence: `lib/services/plugin-service.js`, `lib/registry.js`, `lib/settings.js`
+- Root Skill: `skills/slothtool/**`, `lib/services/skill-service.js`, `lib/commands/skill.js`, `test/skill-*.test.js`, `test/root-skill-tui.test.js`
 - Root TUI/i18n: `lib/tui/root-tui.js`, `lib/i18n.js`
 - Official plugin catalog: `lib/official-plugins.json`
 - `loc` plugin: `plugins/loc/bin/loc.js`, `plugins/loc/lib/*`, `test/loc-cli.test.js`
@@ -192,6 +202,13 @@ cd plugins/slothvault && npm pack --dry-run
 cd plugins/image-compress/backend && GOCACHE=$(mktemp -d) go test ./...
 node --test test/image-compress-plugin.test.js
 node --test test/official-plugin-selection.test.js
+```
+
+Bundled Skill:
+
+```bash
+npm run check:skill
+node --test test/skill-service.test.js test/skill-cli.test.js test/bundled-skill.test.js test/skill-packaging.test.js test/root-skill-tui.test.js
 ```
 
 Full regression:

@@ -17,6 +17,7 @@ SlothTool 把“插件管理器”作为默认交互入口：根命令负责安�
 
 | 能力 | 说明 |
 | --- | --- |
+| 内置 AI Skill | `slothtool skill install` 为已检测到的 Codex / Claude Code 安装内置 Skill 链接，以自然语言调用官方工具；随主包更新。 |
 | 默认 TUI | `slothtool` 无参数启动根管理器全屏 TUI。 |
 | CLI 兼容 | `install`、`list`、`update`、`config`、`run`、`self-update` 等命令可直接脚本化调用。 |
 | 官方插件分发 | 内置官方插件清单，支持 GitHub Release 在线安装与经过包名校验的离线 `.tgz` 安装。 |
@@ -102,7 +103,7 @@ slothtool sv skill status --check --json
 | Install | 浏览内置官方插件的说明和能力，安装成功后可按 Enter 立即启动该插件。 |
 | Update | 先检查可更新项，再对照状态、当前版本和最新版本执行单项或批量更新。 |
 | Uninstall | 对照插件信息与移除范围卸载插件，并单独标记全量数据清理风险。 |
-| Settings | 对照当前值与待应用值，切换语言、代理及 GitHub 源；代理主机、任意有效端口和自定义下载源通过草稿编辑。 |
+| Settings | 对照当前值与待应用值，切换语言、代理及 GitHub 源；管理 Codex / Claude Code 的内置 Skill 链接；代理主机、任意有效端口和自定义下载源通过草稿编辑。 |
 
 Home 恢复居中的青紫 Logo 和单次入场动画，下方保留当前目录、最近插件与安装快捷入口；低高度或窄窗口收起大型 Logo，并始终显示选中的入口。其余管理页面在宽终端使用“左侧选择、右侧详情”的双栏布局，在窄终端自动合并为单面板。列表、状态徽标和详情字段保留高对比配色，列表会按实际终端高度翻页并保持选中项可见；终端小于 44 列或 11 行时会提示扩大窗口。按 `v` 可翻阅选中项的完整说明、路径、来源与错误，使用方向键或 Page Up / Page Down 翻页，按 Esc 返回。
 
@@ -138,8 +139,41 @@ Home 的最近插件入口也按此顺序排列。从 Home、Run 或安装成功
 | `slothtool run <plugin> [args]` | 运行指定插件。 |
 | `slothtool <plugin> [args]` | 插件简写运行方式。 |
 | `slothtool config <...>` | 管理语言、代理和 GitHub 源。 |
+| `slothtool skill status\|install\|update\|uninstall [--agent codex\|claude-code\|all] [--json]` | 查看、安装、修复或卸载主包内置 Skill 的受管链接。 |
 | `slothtool self-update` | 更新根管理器包。 |
 | `slothtool --uninstall-all [--keep-data \| --purge-data] [--yes]` | 批量卸载；保留数据模式保留设置和用户数据。旧命令无策略参数时仍表示完全清理。非交互调用必须使用 `--yes`。 |
+
+## Built-in AI Skill
+
+从 `2.11.0` 起，npm 主包自带 `slothtool` Skill；**安装 npm 包不会自动修改 AI 工具目录**。安装过 Codex 或 Claude Code 后，显式运行：
+
+```bash
+slothtool skill status --json
+slothtool skill install                       # 全部已检测到的支持工具
+slothtool skill install --agent codex         # 或仅选择 Codex
+slothtool skill install --agent claude-code
+slothtool skill update                        # 校验并修复已登记的链接，不下载内容
+slothtool skill uninstall --agent codex       # 仅移除受管链接
+```
+
+也可以进入根 TUI 的 **Settings**，查看各工具状态、主包 / Skill 版本、来源与目标路径，并安装、更新或卸载链接。卸载须确认；执行结果保留在反馈区域。
+
+| 自然语言请求 | Skill 选择的能力 |
+| --- | --- |
+| “把这个项目打成 ZIP，过滤无关文件” | `pzip` 先预览后归档，使用当前过滤配置与嵌套 `.gitignore`；不是编译构建。 |
+| “这个项目有多少行代码” | `loc` 按当前文件类型和目录过滤统计文本行数；包含注释和空行，不等同于有效代码行数。 |
+| “批量压缩这些图片” | `image-compress`，默认独立输出目录，避免覆盖原图。 |
+| “同步 SlothTool 配置” | `gstore`，检查状态并在授权范围内执行同步。 |
+| “管理 SlothVault 部署或 Skill” | SlothVault CLI 的对应包或部署操作，不接管原生 MCP 配置。 |
+| “安装、更新或导出官方插件” | 根程序官方插件管理命令。 |
+
+AI 使用显式 CLI，不进入交互 TUI。任务需要的官方插件未安装时，Skill 指导 AI 在环境权限允许的前提下自动补装该插件，不批量预装或自动升级已有插件；安装失败就停止该路径。主程序缺失时只提示安装前置条件。插件安装不代表获得同步上传、部署、覆盖、删除或其他外部操作的授权。默认 ZIP 过滤不等于敏感信息审计。
+
+**链接与升级：** Codex 目标为 `$CODEX_HOME/skills/slothtool`（默认 `~/.codex/skills/slothtool`），Claude Code 目标为 `$CLAUDE_CONFIG_DIR/skills/slothtool`（默认 `~/.claude/skills/slothtool`）。通过配置目录或可执行文件检测工具，不新增 `~/.agents/skills` 链接。链接直接指向当前 npm 主包中的 `skills/slothtool`，Windows 使用目录 junction。主包在原路径升级时自动获得同版本 Skill；npm 安装位置改变时执行 `slothtool skill update` 修复已登记链接。`update` 不安装新的未登记目标，也不升级主包；需要升级 SlothTool 时使用 `slothtool self-update` 或原有 npm 安装方式。
+
+**冲突保护：** 同名普通目录、文件或非受管链接不会被覆盖；先自行移走冲突内容再重试。安装及更新失败时回滚链接；卸载前核验链接归属，保留其他 Skill、源内容和智能体配置。受管目标和来源登记在全局 settings 的 `skill.installations` 中，记录不包含凭据。手动迁移或同步设置不会自动创建链接；状态检查仍会核对当前机器的固定目标和实际链接。
+
+此 Skill 与 SlothVault 独立发布的 `slothvault-mcp` Skill 是两个不同内容，不互相安装或替换。AI 工具的实际加载与自然语言触发由其发现机制决定；安装结果不代表已验证当前会话加载，如未出现请在对应工具中刷新或重新开启会话后确认。
 
 ## Official Plugins
 
@@ -359,6 +393,7 @@ flowchart TD
 │       └── repository/
 │           ├── .git/
 │           └── system/
+├── skills/slothtool/        Bundled, version-matched AI Skill and references
 ├── plugins/
 │   ├── image-compress/
 │   ├── gstore/

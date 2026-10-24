@@ -92,6 +92,15 @@ SLOTHTOOL_GSTORE_TUI_TEST_ACTION=exit node plugins/gstore/bin/gstore.js
 SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 ```
 
+内置 Skill 使用隔离 HOME 测试，不向本机 AI 工具安装链接：
+
+```bash
+npm run check:skill
+node --test test/skill-service.test.js test/skill-cli.test.js test/skill-workflows.test.js test/bundled-skill.test.js test/skill-packaging.test.js test/root-skill-tui.test.js
+```
+
+`skill-packaging` 会在临时目录执行实际 `npm pack`、解包并验证链接来源，完成后清理临时产物。根包版本与 `skills/slothtool/SKILL.md` 的 `metadata.version` 必须一致，Skill 内容与主包一起发布。
+
 ## Package Validation
 
 ```bash
