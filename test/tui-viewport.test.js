@@ -81,7 +81,7 @@ const surfaces = [
     ['image', ImageCompressTuiApp, {}, 3, [30, 14]],
     ['gstore', GStoreTuiApp, {}, 4, [30, 14]],
     ['pzip', PzipTuiApp, {initialSourceDirectory: home}, 2, [30, 8]],
-    ['manager', ManagerApp, {initialSetup: false, inspect: async root => ({state: 'absent', root, containers: []})}, 3, [30, 18]]
+    ['manager', ManagerApp, {}, 1, [30, 18]]
 ];
 
 for (const language of ['zh', 'en']) {
@@ -128,7 +128,7 @@ test('narrow image action rows never overlap and every selected action remains v
 
 test('details reflow after resize and can reach the end of long original lines', async () => {
     const longPath = '/packages/' + '中👩🏽‍💻'.repeat(80) + '/FINAL_DESCRIPTION';
-    const ui = harness(ManagerApp, {services: {getComponentStatus: module => ({module, state: 'missing', path: longPath, currentVersion: null})}}, 90, 24);
+    const ui = harness(ManagerApp, {services: {getSkillStatus: () => ({sourceState: 'missing', sourcePath: longPath, agents: []})}}, 90, 24);
     try {
         await ui.settle();
         await ui.press('\t');

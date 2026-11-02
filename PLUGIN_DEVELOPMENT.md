@@ -128,7 +128,7 @@ my-plugin/
 
 `pzip` 是“递归扫描和路径过滤完全位于 service 层，CLI/TUI 只复用归档结果”的参考实现。它也演示了任意深度默认目录过滤、分层 `.gitignore`、持久化模式配置与不覆盖已有输出的安全写入策略。
 
-`slothvault` 演示独立部署与 Skill 包服务、正式 Release 校验与回退、右侧持续进度展示，以及受管数据清理。根生命周期只管理界面；Deployment 与 Skill 在各自 Tab 或 CLI 中独立管理。智能体通过自己的原生 MCP 配置直接连接 SlothVault 服务端，插件不安装 Client、注册第二个命令或存储访问密钥。
+`slothvault` 演示 Skill 包服务、正式 Release 校验与回退、右侧持续进度展示，以及受管数据清理。根生命周期只管理界面；单页 TUI 与显式 CLI 管理 Skill，部署在 Vault 独立脚本中运行。智能体通过自己的原生 MCP 配置直接连接 SlothVault 服务端，插件不安装 Client、注册第二个命令或存储访问密钥。
 
 包传输、路径和本地清理由不依赖 Ink 的公共工具提供。根目录的公共工具通过 `npm run sync:slothvault-helpers` 同步到插件，`npm run check:slothvault-helpers` 验证独立归档中的副本。Skill 更新只保留一份生效目录；旧 Client 脚本、命令和 Profile 路径仅用于安全清理，不能重新安装或执行。原生智能体 MCP 配置不属于 SlothTool 清理范围。
 
@@ -181,7 +181,7 @@ node --test test/pzip-plugin.test.js
 
 ```bash
 node plugins/slothvault/bin/slothvault.js --help
-node plugins/slothvault/bin/slothvault.js deploy package status --json
+node plugins/slothvault/bin/slothvault.js skill status --json
 node plugins/slothvault/bin/slothvault.js skill status --json
 SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault.js
 node --test test/slothvault-plugin.test.js

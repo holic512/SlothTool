@@ -1,8 +1,8 @@
 {
   "name": "@holic512/plugin-slothvault",
-  "version": "3.2.2",
-  "description": "SlothTool deployment and Skill manager for SlothVault",
-  "main": "lib/package-service.js",
+  "version": "3.3.0",
+  "description": "SlothTool Skill manager for SlothVault",
+  "main": "lib/skill-service.js",
   "type": "module",
   "bin": {
     "slothvault": "bin/slothvault.js"
@@ -29,7 +29,6 @@
     "slothtool",
     "plugin",
     "slothvault",
-    "deployment",
     "skill"
   ],
   "author": "MengJiaXu",

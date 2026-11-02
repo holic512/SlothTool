@@ -37,7 +37,7 @@ test('status is read-only and installation errors are structured on stdout', t =
     const status = f.run(['skill', 'status', '--json']);
     assert.equal(status.status, 0, status.stderr);
     const value = JSON.parse(status.stdout);
-    assert.equal(value.packageVersion, '2.11.0');
+    assert.equal(value.packageVersion, '2.12.0');
     assert.equal(value.skillVersion, value.packageVersion);
     assert.equal(value.agents.every(agent => agent.state === 'not-detected'), true);
     assert.equal(fs.existsSync(path.join(f.home, '.pipker')), false);

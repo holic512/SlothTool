@@ -147,4 +147,4 @@ node --test test/slothvault-components.test.js test/slothvault-storage.test.js t
 npm pack --dry-run --workspace @holic512/plugin-slothvault
 ```
 
-SlothVault 界面可直接进入总览，无需 Python 或外部组件；只有部署执行需要 Deployment 包及 Python 3.10+；Skill 不需要 Python，MCP 连接使用智能体原生配置。测试使用隔离 HOME 与本地 Release／桥协议夹具，不安装或清理真实用户数据。
+SlothVault 界面默认进入单页 Skill 管理，无需 Python。测试使用隔离 HOME、本地 Skill Release 和 Ink 流夹具，不安装或清理真实用户数据；独立部署工具在 Vault 仓库通过 Python unittest 和归档测试验证。

@@ -1,6 +1,6 @@
 interface:
   display_name: "SlothTool"
-  short_description: "管理官方插件，统计文本行、压缩图片、打包目录、同步数据及管理部署包"
+  short_description: "管理官方插件，统计文本行、压缩图片、打包目录、同步数据及管理 Skill"
   default_prompt: "使用 $slothtool 通过显式 CLI 完成我的工具任务，保留现有过滤规则并在外部写入或破坏性操作前确认授权。"
 policy:
   allow_implicit_invocation: true

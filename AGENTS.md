@@ -10,9 +10,9 @@ Concise repo rules for Codex working on SlothTool.
 - The current built-in official plugin catalog exposed by the root manager contains `@holic512/plugin-loc`, `@holic512/plugin-image-compress`, `@holic512/plugin-gstore`, `@holic512/plugin-pzip`, and `@holic512/plugin-slothvault`.
 - `plugins/image-compress` ships as an official plugin workspace with a dedicated multi-platform release workflow and target-aware asset installation.
 - `plugins/gstore` ships as an official CLI + TUI plugin workspace for syncing SlothTool settings, plugin configs, and data through an isolated Git repository cache and a GitHub private repository via local `git` and `gh`.
-- Root and official plugin TUIs share the scaffold/loc shell: high-contrast tabs, divider, responsive rounded panels, and a bottom status/keymap bar.
+- Root and official plugin TUIs share the scaffold/loc shell: high-contrast headers, divider, responsive rounded panels, and a bottom status/keymap bar.
 - `plugins/pzip` ships as an official CLI + TUI plugin workspace for recursive ZIP packaging with configurable macOS/build/Git metadata filtering and nested `.gitignore` support.
-- `plugins/slothvault` ships a Deployment and Skill manager with one executable. SlothVault independently releases Skill and Deployment packages; `slothtool install/update slothvault` manages only the UI. Independent package services manage each Vault package explicitly through its Tab or CLI, without MCP Client packages, Profiles, command registration or agent credential storage. Agents connect directly through native MCP configuration.
+- `plugins/slothvault` ships a Skill-only manager with one executable. Vault independently releases Skill and standalone Deployment packages; SlothTool manages only Skill content and detected agent links, without Python or deployment execution.
 - Root alias migration moves only the SlothVault plugin identity, registry entry, and installed directory; legacy Profile/history paths are cleanup-only and must never be read or migrated back into active configuration.
 - Official plugins are installed from GitHub Release `.tgz` assets or package-name-validated offline archives, never arbitrary npm names.
 - `slothtool bundle <alias>` creates an offline archive only from an installed official plugin with complete runtime dependencies.
@@ -27,12 +27,12 @@ Concise repo rules for Codex working on SlothTool.
 - `~/.pipker/slothtool/data/`
 - `~/.pipker/slothtool/plugins/`
 - `~/.pipker/slothtool/plugin-configs/`
-- `~/.codex/skills/slothvault-mcp` and `~/.claude/skills/slothvault-mcp` (optional links installed only for detected agents by the SlothVault multifunction plugin; configurable through `CODEX_HOME` and `CLAUDE_CONFIG_DIR`)
+- `~/.codex/skills/slothvault-mcp` and `~/.claude/skills/slothvault-mcp` (optional links installed only for detected agents by the SlothVault Skill plugin; configurable through `CODEX_HOME` and `CLAUDE_CONFIG_DIR`)
 
 ## 2. Product Invariants
 
 - TUI is the default product entry.
-- The SlothVault manager always enters local Overview without reading MCP configuration or connecting. It preserves the action menu and scrollable right-side progress/results. It shows each component version and structured state for the selected managed deployment; its CLI and TUI use the Vault Deployment Package through the JSON-line event bridge.
+- The SlothVault manager enters its single local Skill page with persistent actions and scrollable progress/results. Deployment runs only through Vault standalone Python scripts and menu.py; old deployment commands return migration guidance.
 - CLI remains the capability layer for scripting and automation.
 - `slothtool` with no args launches the root full-screen TUI.
 - `slothtool <plugin>` with no extra args launches that plugin's default TUI.
@@ -99,7 +99,7 @@ Offline official plugin rules:
 
 - `install <alias> --file <archive.tgz>` remains restricted to built-in official aliases and must validate the archive package name.
 - Offline archives should use the npm-pack-compatible `package/` root layout.
-- A self-contained archive must include production `node_modules`; otherwise installation may only use `npm install --omit=dev --offline` and must never silently fetch from the network. The SlothVault UI bundle is intentionally UI-only; installing it never downloads Vault packages. Each external package is explicitly installed later through its own service.
+- A self-contained archive must include production `node_modules`; otherwise installation may only use `npm install --omit=dev --offline` and must never silently fetch from the network. The SlothVault UI bundle is intentionally UI-only; installing it never downloads Vault packages. The Skill package is explicitly installed later through its service. Deployment packages are not managed by SlothTool.
 - `bundle <alias>` must refuse to create an incomplete dependency-bearing archive.
 - Offline installations record `sourceType: "offline-archive"` in the registry.
 
@@ -111,7 +111,7 @@ Cross-platform official plugin rules:
 - Release archives must contain a runnable plugin root either directly at archive root or under the standard `package/` directory produced by `npm pack`.
 - If the plugin ships a prebuilt backend, place it under `backend/dist/`, and keep the Node wrapper able to prefer that binary at runtime.
 
-SlothVault multifunction package rules:
+SlothVault Skill package rules:
 
 - Skill install and update resolve the official Release directly, retain one stable active directory, verify links and remove temporary payloads, with rollback on failure. Preserve referenced historical/custom sources.
 - Keep Skill content in the Vault Skill Package. SlothTool manages detected Codex or Claude Code links locally and must not duplicate Skill content or import Vault business modules.
@@ -121,6 +121,7 @@ SlothVault multifunction package rules:
 - Retired MCP CLI commands return native connection guidance without reading credentials or starting old scripts. Legacy aliases route to the main manager; package validation requires only the named `slothvault` executable while rejecting former MCP-only package names.
 
 - Uninstall defaults to retaining configuration/history in single CLI and all TUI flows; explicit purge removes only fixed plugin-owned paths. Legacy `--uninstall-all` without a data flag keeps its complete-purge meaning. Noninteractive purge or bulk uninstall requires `--yes` and a preview.
+- Retired Deployment packages are cleanup-only fixed paths and are never active components. Ordinary updates preserve them; explicit cleanup removes only verified, unreferenced owned payloads.
 - SlothVault uninstall cleans links before their sources even if Python/packages are missing, and always preserves deployed applications, containers, databases, Nginx and certificates. Old-data cleanup protects active/reference paths, clears only legacy SlothTool MCP configuration/history and verified retired Client payloads/commands, never touches native agent MCP configuration, and never runs Python.
 - Canonical standalone helpers live in `lib/services/{release-client,network-helper,slothvault-paths,slothvault-storage}.js`; run `npm run sync:slothvault-helpers` after edits and `npm run check:slothvault-helpers` before packaging. Plugin copies must work without the root installation.
 
@@ -180,12 +181,11 @@ SLOTHTOOL_PZIP_TUI_TEST_ACTION=exit node plugins/pzip/bin/pzip.js
 node --test test/pzip-plugin.test.js
 ```
 
-`slothvault` multifunction plugin:
+`slothvault` Skill plugin:
 
 ```bash
 node plugins/slothvault/bin/slothvault.js --help
 node --check plugins/slothvault/lib/component-service.js
-node --check plugins/slothvault/lib/deploy-runner.js
 SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION=exit node plugins/slothvault/bin/slothvault.js
 node --test test/slothvault-plugin.test.js test/slothvault-components.test.js test/slothvault-skill-manager.test.js test/slothvault-storage.test.js test/slothvault-manager-tui.test.js
 npm run check:slothvault-helpers

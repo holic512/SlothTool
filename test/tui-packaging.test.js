@@ -58,11 +58,12 @@ test('root and every official plugin pack their own interaction runtime', () => 
                 assert.ok(names.has(`lib/${name}.js`));
                 assert.equal(fs.readFileSync(path.join(packagedRoot, `lib/${name}.js`), 'utf8'), fs.readFileSync(path.join(root, `lib/services/${name}.js`), 'utf8'));
             }
-            const independent = spawnSync(process.execPath, [entry, 'deploy', 'package', 'status', '--json'], {
+            const independent = spawnSync(process.execPath, [entry, 'skill', 'status', '--json'], {
                 cwd: packagedRoot, encoding: 'utf8', env: {...process.env, HOME: isolated, CODEX_HOME: '', CLAUDE_CONFIG_DIR: '', SLOTHTOOL_SLOTHVAULT_DEPLOYMENT_ROOT: ''}
             });
             assert.equal(independent.status, 0, independent.stderr);
-            assert.equal(JSON.parse(independent.stdout).state, 'missing');
+            assert.equal(JSON.parse(independent.stdout).sourceState, 'missing');
+            for (const filename of ['lib/deploy-runner.js', 'lib/package-service.js']) assert.equal(names.has(filename), false, filename);
         }
     }
     } finally {

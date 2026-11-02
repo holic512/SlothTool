@@ -1,8 +1,8 @@
 ---
 name: slothtool
-description: 用 SlothTool 管理官方插件与内置 Skill；处理“打包项目”（pzip ZIP 归档，非编译构建）、“代码有多少行/统计代码量”（loc）、“批量压缩图片”（image-compress）、用 gstore 同步配置数据，以及 SlothVault 部署包与 Skill 管理。
+description: 用 SlothTool 管理官方插件与内置 Skill；处理“打包项目”（pzip ZIP 归档，非编译构建）、“代码有多少行/统计代码量”（loc）、“批量压缩图片”（image-compress）、用 gstore 同步配置数据，以及 SlothVault Skill 管理。
 metadata:
-  version: "2.11.0"
+  version: "2.12.0"
 ---
 
 # SlothTool
@@ -24,8 +24,8 @@ metadata:
 - 图片压缩、尺寸限制与独立输出：[image-compress](references/image-compress.md)。
 - 目录归档与过滤预览：[pzip](references/pzip.md)。ZIP 归档不等于编译构建，也不等于官方插件离线 bundle。
 - 设置、插件配置和数据的 Git 同步：[gstore](references/gstore.md)。
-- SlothVault UI、独立 Deployment/Skill 包管理与旧数据清理：[SlothVault](references/slothvault.md)。本 Skill 不处理 Vault 文章等业务，不读取或写入凭据，不实现 MCP Client/runtime。
+- SlothVault UI、Skill 包管理与旧数据清理：[SlothVault](references/slothvault.md)。本 Skill 不处理 Vault 文章等业务，不读取或写入凭据，不实现 MCP Client/runtime。
 
 ## 结果
 
-报告执行的目标、实际输出路径、统计/压缩/同步结果及警告。预览不能声称已生成产物，包已安装不能声称应用已部署，命令失败不能声称操作成功。不要把密钥、Token、Cookie 或凭据内容带入日志与总结。
+报告执行的目标、实际输出路径、统计/压缩/同步结果及警告。预览不能声称已生成产物，命令失败不能声称操作成功。不要把密钥、Token、Cookie 或凭据内容带入日志与总结。

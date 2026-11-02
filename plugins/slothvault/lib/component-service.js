@@ -2,8 +2,8 @@
  * @file component-service.js
  * @project SlothTool
  * @module SlothVault component lifecycle
- * @description Manages one Vault-owned component at a time without depending on the root manager or MCP state.
- * @logic Resolve a component Release, stream and validate its payload, activate with rollback, and synchronize only its own local links.
+ * @description Manages the Vault-owned Skill package without depending on the root manager or MCP state.
+ * @logic Resolve a Skill Release, stream and validate its payload, activate with rollback, and synchronize only its own local links.
  * @dependencies Standalone Release transport, component paths, local Skill links
  * @index_tags slothvault,components,release,install,update,rollback
  * @author holic512
@@ -41,7 +41,6 @@ function validateManifest(module, release, manifest) {
         !manifest.files || typeof manifest.files !== 'object' || Array.isArray(manifest.files) || !Object.keys(manifest.files).length) {
         throw new Error(`Invalid or incompatible ${module} release manifest.`);
     }
-    if (module !== 'skill' && manifest.minPython !== '3.10') throw new Error(`Invalid ${module} Python requirement.`);
     return manifest;
 }
 
@@ -108,7 +107,7 @@ function verifyFiles(root, module, manifest) {
     if (actual.length !== Object.keys(manifest.files).length || actual.some(file => !manifest.files[file])) {
         throw new Error(`${module} payload contains unlisted files.`);
     }
-    const required = module === 'skill' ? ['slothvault-mcp/SKILL.md'] : ['install.py'];
+    const required = ['slothvault-mcp/SKILL.md'];
     for (const file of required) if (!manifest.files[file]) throw new Error(`${module} release is missing ${file}.`);
 }
 
@@ -140,29 +139,6 @@ async function stageComponent(module, release, options = {}) {
         fs.rmSync(temporary, {recursive: true, force: true});
         throw error;
     }
-}
-
-function switchPointer(paths, target) {
-    fs.mkdirSync(paths.root, {recursive: true});
-    let exists = false;
-    try {fs.lstatSync(paths.current); exists = true;} catch (error) {if (error.code !== 'ENOENT') throw error;}
-    const temporary = path.join(paths.root, `.current-${process.pid}-${Date.now()}`);
-    const backup = path.join(paths.root, `.previous-${randomUUID()}`);
-    fs.symlinkSync(target, temporary, process.platform === 'win32' ? 'junction' : 'dir');
-    try {
-        if (exists) fs.renameSync(paths.current, backup);
-        fs.renameSync(temporary, paths.current);
-    } catch (error) {
-        fs.rmSync(temporary, {force: true});
-        if (exists && !fs.existsSync(paths.current)) fs.renameSync(backup, paths.current);
-        throw error;
-    }
-    return exists ? backup : null;
-}
-
-function restorePointer(paths, previous) {
-    fs.rmSync(paths.current, {recursive: true, force: true});
-    if (previous) fs.renameSync(previous, paths.current);
 }
 
 function emit(options, phase, data = {}) {try {options.onEvent?.({type: 'progress', phase, ...data});} catch { /* Presentation cannot change the transaction. */ }}
@@ -201,7 +177,7 @@ export async function installComponent(module, options = {}) {
         if (error.code === 'EEXIST') throw Object.assign(new Error('A component operation is already running.'), {code: 'COMPONENT_BUSY'});
         throw error;
     }
-    let staged, backup, releaseBackup, releaseTarget, activated = false, previous;
+    let staged, backup, activated = false;
     const warnings = [];
     const cleanup = file => {if (file) try {fs.rmSync(file, {recursive: true, force: true});} catch (error) {warnings.push({path: file, code: error.code || 'CLEANUP_FAILED'});}};
     try {
@@ -213,12 +189,12 @@ export async function installComponent(module, options = {}) {
         if (current?.version === release.version && getComponentStatus(module, options).state === 'installed') {
             try {
                 verifyFiles(paths.current, module, release.manifest);
-                if (module === 'skill') emit(options, 'links');
-                const skillSync = module === 'skill' ? syncSkill(options) : null;
+                emit(options, 'links');
+                const skillSync = syncSkill(options);
                 // Convert the historical Skill pointer to a single active directory too.
-                if (module !== 'skill' || !fs.lstatSync(paths.current).isSymbolicLink()) {
+                if (!fs.lstatSync(paths.current).isSymbolicLink()) {
                     emit(options, 'done', {status: 'completed'});
-                    if (module === 'skill') removeVerifiedSkillReleases(paths, options);
+                    removeVerifiedSkillReleases(paths, options);
                     return {status: 'latest', ...releaseSummary, components: [{module, version: current.version}], skillSync, warnings};
                 }
             } catch (error) {if (error.code?.startsWith('SKILL_')) throw error;}
@@ -226,49 +202,21 @@ export async function installComponent(module, options = {}) {
         staged = await stageComponent(module, release, {...options, module});
         options.signal?.throwIfAborted();
         emit(options, 'activate');
-        if (module === 'skill') {
-            backup = path.join(paths.root, `.previous-${randomUUID()}`);
-            try {fs.lstatSync(paths.current); fs.renameSync(paths.current, backup);} catch (error) {if (error.code !== 'ENOENT') throw error; backup = null;}
-            fs.renameSync(staged.prepared, paths.current);
-            activated = true;
-        } else {
-            fs.mkdirSync(paths.releases, {recursive: true});
-            const target = path.join(paths.releases, release.version);
-            if (fs.existsSync(target)) {
-                try {
-                    verifyFiles(target, module, release.manifest);
-                }
-                catch {
-                    releaseBackup = path.join(paths.root, `.previous-${randomUUID()}`);
-                    releaseTarget = target;
-                    fs.renameSync(target, releaseBackup);
-                    fs.renameSync(staged.prepared, target);
-                }
-            } else fs.renameSync(staged.prepared, target);
-            previous = switchPointer(paths, target);
-            activated = true;
-        }
+        backup = path.join(paths.root, `.previous-${randomUUID()}`);
+        try {fs.lstatSync(paths.current); fs.renameSync(paths.current, backup);} catch (error) {if (error.code !== 'ENOENT') throw error; backup = null;}
+        fs.renameSync(staged.prepared, paths.current);
+        activated = true;
         emit(options, 'links');
-        const skillSync = module === 'skill' ? syncSkill(options) : null;
+        const skillSync = syncSkill(options);
         fs.writeFileSync(path.join(paths.root, `.verified-${release.version}.json`), JSON.stringify(release.manifest));
-        if (module === 'skill') {
-            cleanup(backup);
-            backup = null;
-            try {removeVerifiedSkillReleases(paths, options);} catch (error) {warnings.push({path: paths.releases, code: error.code || 'CLEANUP_FAILED'});}
-        }
-        cleanup(previous); previous = null;
-        cleanup(releaseBackup); releaseBackup = null;
+        cleanup(backup);
+        backup = null;
+        try {removeVerifiedSkillReleases(paths, options);} catch (error) {warnings.push({path: paths.releases, code: error.code || 'CLEANUP_FAILED'});}
         emit(options, 'done', {status: 'completed'});
         return {status: 'updated', ...releaseSummary, components: [{module, version: release.version}], skillSync, warnings};
     } catch (error) {
-        if (activated) {
-            if (module === 'skill') {fs.rmSync(paths.current, {recursive: true, force: true}); if (backup) fs.renameSync(backup, paths.current);}
-            else restorePointer(paths, previous);
-        } else if (backup) fs.renameSync(backup, paths.current);
-        if (releaseBackup) {
-            fs.rmSync(releaseTarget, {recursive: true, force: true});
-            fs.renameSync(releaseBackup, releaseTarget);
-        }
+        if (activated) fs.rmSync(paths.current, {recursive: true, force: true});
+        if (backup) fs.renameSync(backup, paths.current);
         emit(options, 'failed', {status: 'failed'});
         throw error;
     } finally {

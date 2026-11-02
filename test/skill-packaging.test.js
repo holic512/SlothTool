@@ -21,7 +21,7 @@ test('real npm archive includes Skill references and standalone root service res
     const referenceNames = fs.readdirSync(path.join(root, 'skills/slothtool/references'));
     assert.ok(referenceNames.length >= 6);
     for (const name of referenceNames) assert.ok(files.has(`skills/slothtool/references/${name}`), name);
-    assert.equal(packed.version, '2.11.0');
+    assert.equal(packed.version, '2.12.0');
     execFileSync('tar', ['-xzf', path.join(temporary, packed.filename), '-C', temporary]);
     const unpacked = path.join(temporary, 'package');
     const packageJson = JSON.parse(fs.readFileSync(path.join(unpacked, 'package.json'), 'utf8'));

@@ -14,7 +14,7 @@ function fixture(t) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slothtool-bundled-skill-'));
     t.after(() => fs.rmSync(root, {recursive: true, force: true}));
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
-        name: '@holic512/slothtool', version: '2.11.0', type: 'module'
+        name: '@holic512/slothtool', version: '2.12.0', type: 'module'
     }));
     const skill = path.join(root, 'skills', 'slothtool');
     fs.mkdirSync(path.dirname(skill), {recursive: true});
@@ -44,12 +44,12 @@ function assertInvalid(root, pattern) {
     return result;
 }
 
-test('the real bundled content validates against the planned 2.11.0 package without dependencies', t => {
+test('the real bundled content validates against the planned 2.12.0 package without dependencies', t => {
     const {root, home, run} = fixture(t);
-    assert.deepEqual(checkBundledSkill(root), {ok: true, version: '2.11.0', errors: []});
+    assert.deepEqual(checkBundledSkill(root), {ok: true, version: '2.12.0', errors: []});
     const cli = run();
     assert.equal(cli.status, 0, cli.stderr);
-    assert.match(cli.stdout, /slothtool 2\.11\.0: OK/u);
+    assert.match(cli.stdout, /slothtool 2\.12\.0: OK/u);
     assert.deepEqual(fs.readdirSync(home), [], 'validation must not install Skills or create user data');
     assert.equal(fs.existsSync(path.join(root, 'node_modules')), false);
 });
@@ -61,13 +61,13 @@ test('CLI resolves its default repository from its own location, not cwd', t => 
     fs.copyFileSync(checkerPath, copiedChecker);
     const cli = run([], copiedChecker);
     assert.equal(cli.status, 0, cli.stderr);
-    assert.match(cli.stdout, /2\.11\.0: OK/u);
+    assert.match(cli.stdout, /2\.12\.0: OK/u);
 });
 
 test('version mismatch blocks validation and returns a failing CLI exit code', t => {
     const {root, run} = fixture(t);
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({name: '@holic512/slothtool', version: '2.10.0'}));
-    assertInvalid(root, /Skill version 2\.11\.0 does not match root package version 2\.10\.0/u);
+    assertInvalid(root, /Skill version 2\.12\.0 does not match root package version 2\.10\.0/u);
     const cli = run();
     assert.equal(cli.status, 1);
     assert.equal(cli.stdout, '');
@@ -76,8 +76,8 @@ test('version mismatch blocks validation and returns a failing CLI exit code', t
 
 test('version validation compares metadata, not a hard-coded release', t => {
     const {root, edit} = fixture(t);
-    edit('SKILL.md', text => text.replace('version: "2.11.0"', 'version: "2.12.0"'));
-    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({name: '@holic512/slothtool', version: '2.12.0'}));
+    edit('SKILL.md', text => text.replace('version: "2.12.0"', 'version: "2.13.0"'));
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({name: '@holic512/slothtool', version: '2.13.0'}));
     assert.equal(checkBundledSkill(root).ok, true);
 });
 
@@ -92,7 +92,7 @@ for (const relative of ['SKILL.md', 'agents/openai.yaml', ...['root-management',
 for (const [label, relative, transform, diagnostic] of [
     ['name', 'SKILL.md', text => text.replace('name: slothtool', 'name: other'), /name must be slothtool/u],
     ['description', 'SKILL.md', text => text.replace(/^description:.*$/mu, 'description: ""'), /short Chinese description/u],
-    ['metadata version', 'SKILL.md', text => text.replace('  version: "2.11.0"', '  other: "2.11.0"'), /metadata.version/u],
+    ['metadata version', 'SKILL.md', text => text.replace('  version: "2.12.0"', '  other: "2.12.0"'), /metadata.version/u],
     ['frontmatter', 'SKILL.md', text => text.replace(/^---/u, 'invalid'), /frontmatter/u],
     ['duplicate key', 'SKILL.md', text => text.replace('name: slothtool', 'name: slothtool\nname: another'), /duplicate key/u],
     ['malformed YAML', 'agents/openai.yaml', text => text.replace('  display_name:', '   display_name:'), /unsupported YAML/u],

@@ -4,7 +4,7 @@
  * @module Test / Root CLI
  * @description 验证根命令的帮助输出、默认 TUI 烟雾路径、官方插件简写和 SlothVault 别名迁移路径。
  * @logic 1. 构造临时 HOME 隔离用户数据；2. 通过 Node 子进程执行根入口；3. 校验默认 TUI、插件简写、别名迁移和受验证的 MCP 命令注册行为。
- * @dependencies Node: assert/child_process/fs/os/path/test/url, SlothVault multifunction plugin
+ * @dependencies Node: assert/child_process/fs/os/path/test/url, SlothVault Skill manager
  * @index_tags 根CLI测试, TUI烟雾测试, 插件简写, slothvault, 别名迁移, node:test
  * @author holic512
  */
@@ -240,18 +240,18 @@ test('root shorthand runs the local gstore workspace plugin in CLI mode', () => 
     assert.match(output, /gstore sync/u);
 });
 
-test('root shorthand runs the canonical SlothVault multifunction workspace entry', () => {
+test('root shorthand runs the canonical SlothVault Skill workspace entry', () => {
     const output = runNode(rootBin, ['slothvault', '--help'], {
         HOME: createTempHome(false, false, false, true)
     });
-    assert.match(output, /SlothVault multifunction plugin/u);
-    assert.match(output, /slothvault deploy/u);
+    assert.match(output, /SlothVault Skill manager/u);
+    assert.match(output, /slothvault skill/u);
 });
 
 test('sv opens the same SlothVault plugin without a second registry entry', () => {
     const homeDir = createTempHome(false, false, false, true);
     const output = runNode(rootBin, ['sv', '--help'], {HOME: homeDir});
-    assert.match(output, /SlothVault multifunction plugin/u);
+    assert.match(output, /SlothVault Skill manager/u);
     runNode(rootBin, ['sv'], {HOME: homeDir, SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION: 'exit'});
     const registry = JSON.parse(fs.readFileSync(path.join(homeDir, '.pipker', 'slothtool', 'registry.json'), 'utf8'));
     assert.equal(registry.plugins.sv, undefined);
@@ -262,7 +262,7 @@ test('deprecated alias routes to the manager without a secondary executable', ()
     const output = runNode(rootBin, ['slothvault-mcp', '--help'], {
         HOME: createTempHome(false, false, true)
     });
-    assert.match(output, /slothvault deploy/u);
+    assert.match(output, /slothvault skill/u);
     assert.doesNotMatch(output, /mcp register|mcp package/u);
 });
 
@@ -279,7 +279,7 @@ test('canonical SlothVault launch upgrades a registry-only legacy entry to the m
     const registryPath = path.join(homeDir, '.pipker', 'slothtool', 'registry.json');
     const persistedRegistry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
 
-    assert.match(output, /SlothVault multifunction plugin/u);
+    assert.match(output, /SlothVault Skill manager/u);
     assert.equal(persistedRegistry.plugins['slothvault-mcp'], undefined);
     assert.equal(persistedRegistry.plugins.slothvault.packageName, '@holic512/plugin-slothvault');
     assert.equal(persistedRegistry.plugins.slothvault.binPath, slothVaultBin);

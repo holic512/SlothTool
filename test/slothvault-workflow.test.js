@@ -27,7 +27,7 @@ test('root UI update checks never consult any Vault package Release', async () =
 
 test('retired Client installs are rejected before network requests or Python preparation', async t => {
     const slothToolHome = home(t);
-    assert.deepEqual(VAULT_COMPONENTS, ['skill', 'deployment']);
+    assert.deepEqual(VAULT_COMPONENTS, ['skill']);
     await assert.rejects(installComponent('mcp-client', {slothToolHome,
         releaseFetcher: () => assert.fail('Retired Client cannot query Releases'),
         dependencyInstaller: () => assert.fail('Retired Client cannot prepare Python')}), /Unknown SlothVault component/u);
@@ -36,7 +36,7 @@ test('retired Client installs are rejected before network requests or Python pre
 
 test('explicit component compatibility adapter accepts the single-executable plugin', async t => {
     const pluginDir = path.resolve('plugins/slothvault');
-    const result = await checkComponentUpdate('deployment', {pluginDir, slothToolHome: home(t),
+    const result = await checkComponentUpdate('skill', {pluginDir, slothToolHome: home(t),
         releaseFetcher: () => {throw new Error('offline test');}});
     assert.equal(result.status, 'error');
     assert.match(result.reason, /offline test/u);
@@ -57,13 +57,14 @@ test('root compatibility rejects Client requests even when an older installed in
     `);
     const options = {pluginDir, slothToolHome: path.join(root, 'tool')};
     for (const operation of [
+        () => fetchComponentRelease('deployment', options),
         () => fetchComponentRelease('mcp-client', options),
         () => checkComponentUpdate('mcp-client', options),
         () => installComponents(['skill', 'mcp-client'], options)
-    ]) await assert.rejects(operation(), /Unknown SlothVault component: mcp-client/u);
+    ]) await assert.rejects(operation(), /Unknown SlothVault component/u);
     assert.equal(fs.existsSync(marker), false);
     const result = await checkAllComponentUpdates(options);
     assert.equal(result.status, 'latest');
-    assert.deepEqual(result.components.map(item => item.module), ['skill', 'deployment']);
+    assert.deepEqual(result.components.map(item => item.module), ['skill']);
     assert.equal(fs.existsSync(options.slothToolHome), false);
 });

@@ -22,7 +22,7 @@ function fixture(t, useHome = false) {
 function write(file, data = 'sentinel') {fs.mkdirSync(path.dirname(file), {recursive: true}); fs.writeFileSync(file, data); return file;}
 function link(source, target) {fs.mkdirSync(path.dirname(target), {recursive: true}); fs.symlinkSync(source, target, 'dir'); return target;}
 function component(module, options, version = '1.0.0', active = true) {
-    const paths = module === 'mcp-client' ? {root: path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client'), releases: path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client/releases'), current: path.join(options.slothToolHome, 'runtimes/slothvault/components/mcp-client/current')} : componentPaths(module, options);
+    const paths = module !== 'skill' ? {root: path.join(options.slothToolHome, 'runtimes/slothvault/components', module), releases: path.join(options.slothToolHome, 'runtimes/slothvault/components', module, 'releases'), current: path.join(options.slothToolHome, 'runtimes/slothvault/components', module, 'current')} : componentPaths(module, options);
     const root = active && module === 'skill' ? paths.current : path.join(paths.releases, version);
     write(path.join(root, 'module.json'), JSON.stringify({schema: 1, module, version, bridgeApiMajor: module === 'mcp-client' ? 2 : 1}));
     write(path.join(root, module === 'skill' ? 'slothvault-mcp/SKILL.md' : module === 'deployment' ? 'install.py' : 'slothvault_mcp.py'));
@@ -43,7 +43,7 @@ test('cleanup previews do not mutate; execution preserves active/custom referenc
     const old = component('deployment', options, '0.9.0', false);
     const referenced = component('skill', options, '0.9.0', false);
     const custom = link(path.join(referenced, 'slothvault-mcp'), path.join(options.homeDir, '.codex/skills/slothvault-mcp'));
-    const scratch = write(path.join(componentPaths('deployment', options).root, '.stage-residue/download.tgz'));
+    const scratch = write(path.join(path.join(options.slothToolHome, 'runtimes/slothvault/components/deployment'), '.stage-residue/download.tgz'));
     const profiles = slothVaultDataPaths(options).map(file => file.endsWith('.json') ? write(file, '{}') : write(path.join(file, 'history.json'), '[]'));
     const other = write(path.join(options.slothToolHome, 'data/loc/sentinel'));
     const ownUserFile = write(path.join(options.slothToolHome, 'data/slothvault/user-file.txt'));
@@ -131,7 +131,7 @@ test('retired Client cleanup removes verified scripts and commands while preserv
     }
     for (const [file, content] of nativeFiles) assert.equal(fs.readFileSync(file, 'utf8'), content);
     assert.equal(fs.existsSync(skill), true);
-    assert.equal(fs.existsSync(deployment), true);
+    assert.equal(fs.existsSync(deployment), false);
 });
 
 test('retired Client cleanup preserves custom command targets and referenced or unverified sources', t => {

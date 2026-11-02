@@ -5,8 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {getDeploymentPaths} from '../plugins/slothvault/lib/deploy-runner.js';
-import {buildDeploymentArguments, DEPLOY_ACTIONS, resolveSlothVaultManagerLayout} from '../plugins/slothvault/lib/manager-tui.js';
+import {resolveSlothVaultManagerLayout} from '../plugins/slothvault/lib/manager-tui.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const entry = path.join(root, 'plugins/slothvault/bin/slothvault.js');
@@ -18,17 +17,15 @@ function environment(t, language = 'zh') {
     return {...process.env, HOME: home, USERPROFILE: home, CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude')};
 }
 
-test('manager and deployment keep their local interaction contract without a Client', () => {
+test('Skill manager keeps its responsive interaction contract without a Client', () => {
     assert.equal(resolveSlothVaultManagerLayout(30, 10).tooSmall, true);
     assert.equal(resolveSlothVaultManagerLayout(60, 24).compact, true);
-    assert.ok(DEPLOY_ACTIONS.includes('check-update'));
-    assert.deepEqual(buildDeploymentArguments('status', {root: '/data/slothvault'}), ['--action', 'status', '--root', '/data/slothvault']);
-    assert.equal(getDeploymentPaths({pluginRoot: '/tmp/slothvault-deployment'}).entryPath, '/tmp/slothvault-deployment/install.py');
+
 });
 
 test('help and local package/Skill status work with no Python, Profile or MCP Client', t => {
     const env = {...environment(t), PATH: ''};
-    for (const args of [['--help'], ['deploy', 'package', 'status', '--json'], ['skill', 'status', '--json']]) {
+    for (const args of [['--help'], ['skill', 'status', '--json']]) {
         const result = spawnSync(process.execPath, [entry, ...args], {env, encoding: 'utf8'});
         assert.equal(result.status, 0, result.stderr);
         if (args[0] === '--help') {
@@ -68,4 +65,32 @@ test('native guidance is available in both manager languages', t => {
     const result = spawnSync(process.execPath, [entry, 'mcp', 'status', '--json'], {env, encoding: 'utf8'});
     assert.equal(result.status, 2);
     assert.match(JSON.parse(result.stdout).error.message, /native MCP settings/u);
+});
+
+
+test('removed deployment commands return migration guidance without Python or downloads', t => {
+    const env = {...environment(t), PATH: ''};
+    for (const args of [['deploy'], ['deploy', 'package', 'install'], ['deploy', '--action', 'status']]) {
+        const result = spawnSync(process.execPath, [entry, ...args, '--json'], {env, encoding: 'utf8'});
+        assert.equal(result.status, 2, result.stderr);
+        const value = JSON.parse(result.stdout);
+        assert.equal(value.error.code, 'SLOTHVAULT_DEPLOYMENT_REMOVED');
+        assert.match(value.error.message, /python3 menu.py/u);
+        assert.equal(fs.existsSync(path.join(env.HOME, '.pipker/slothtool/runtimes')), false);
+    }
+    const rootEntry = path.join(root, 'bin/slothtool.js');
+    const result = spawnSync(process.execPath, [rootEntry, 'update', 'slothvault', '--module', 'deployment', '--json'], {env, encoding: 'utf8'});
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(JSON.parse(result.stdout).error.code, 'SLOTHVAULT_DEPLOYMENT_REMOVED');
+});
+
+
+test('root rejects all deployment aliases before looking up or executing an installed plugin', t => {
+    const env = {...environment(t), PATH: ''};
+    for (const args of [['sv', 'deploy'], ['slothvault', 'deploy', 'package', 'update'], ['run', 'sv', 'deploy'], ['slothvault-mcp', 'deploy']]) {
+        const result = spawnSync(process.execPath, [path.join(root, 'bin/slothtool.js'), ...args, '--json'], {env, encoding: 'utf8'});
+        assert.equal(result.status, 1, result.stderr);
+        assert.equal(JSON.parse(result.stdout).error.code, 'SLOTHVAULT_DEPLOYMENT_REMOVED');
+        assert.equal(fs.existsSync(path.join(env.HOME, '.pipker/slothtool/runtimes')), false);
+    }
 });

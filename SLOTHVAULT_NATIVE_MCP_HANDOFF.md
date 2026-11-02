@@ -1,6 +1,6 @@
 # SlothVault 原生 MCP 接入与配置弹窗实施提示词
 
-SlothTool 本轮已移除独立 MCP Client 的安装更新、Python 虚拟环境、命令注册、Profile 管理和连接检查页面。SlothTool 只管理 Deployment 和 Skill；智能体使用宿主的原生 MCP 连接。旧 Client 与 Profile 路径仅保留本地清理兼容。
+SlothTool 本轮已移除独立 MCP Client 的安装更新、Python 虚拟环境、命令注册、Profile 管理和连接检查页面。SlothTool 只管理 Skill；智能体使用宿主的原生 MCP 连接。旧 Client 与 Profile 路径仅保留本地清理兼容。
 
 把下面完整文本交给处理 SlothVault 仓库的代理即可。本文件是另一仓库的实施要求，配置弹窗尚未在本仓库实现。截图参考的是交互布局，示例 Token 不可使用或复制进源码。
 
@@ -15,7 +15,7 @@ SlothTool 本轮已移除独立 MCP Client 的安装更新、Python 虚拟环境
 2. 检查旧 integrations/slothvault-runtime 整包中的 Client、独立 slothvault-mcp 命令、Profile 和 setup/register 代码。按当前实际使用关系拆除，不能留下另一条仍能重新安装或执行 Client 的路径，也不要恢复旧整包分发。
 3. 保留 /mcp 的标准 Streamable HTTP、Bearer MCP Key 鉴权、管理员权限边界、Tool/Prompt/Resource 注册及业务规则。Codex、Claude Code 等使用原生 MCP 客户端直连，服务端不得要求它们安装 SlothTool 或专用 Python 包。
 4. /mcp/compatibility 与 MINIMUM_ADMIN_MCP_CLIENT_VERSION 当前服务于专用 Client，移除这一最低专用客户端版本策略；保留标准 MCP 协议协商和正常服务端版本信息。如果其他消费者实际使用该扩展接口，先明确兼容过渡并写入文档，不要将 Codex 自身版本当成专用 Client 版本比较。
-5. 保留 Deployment 独立脚本、deployment-v* 发布、桥协议和现有应用部署能力。不要把部署与原生 MCP 接入绑定。
+5. Deployment 独立脚本和 deployment-v* 发布由 Vault 维护；部署桥协议与 Nginx／HTTPS 功能已移除，各操作独立运行并由 menu.py 提供菜单。不要把部署与原生 MCP 接入绑定。
 6. 代码改造不应直接清理开发者机器上的 Profile、Key、已部署应用、数据库或智能体配置；遗留本地数据由明确的清理流程处理。
 
 二、Skill 改为使用宿主原生 MCP

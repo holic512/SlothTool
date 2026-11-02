@@ -25,7 +25,7 @@ function printHelp() {
     console.log(`  slothtool install <alias>       ${t('commands.install')}`);
     console.log(`  slothtool bundle <alias>        ${t('commands.bundle')}`);
     console.log(`  slothtool uninstall <alias> [--keep-data|--purge-data] [--yes] ${t('commands.uninstall')}`);
-    console.log(`  slothtool update <alias> [--module skill|deployment] [--check] [--json] ${t('commands.update')}`);
+    console.log(`  slothtool update <alias> [--module skill] [--check] [--json] ${t('commands.update')}`);
     console.log(`  slothtool --update-all          ${t('commands.updateAll')}`);
     console.log(`  slothtool list                  ${t('commands.list')}`);
     console.log(`  slothtool run <plugin> [args]   ${t('commands.run')}`);
@@ -132,7 +132,7 @@ async function main() {
 }
 
 main().catch(error => {
-    if (process.argv[2] === 'update' && process.argv.includes('--json')) console.log(JSON.stringify({ok: false, error: {code: error.code || 'UPDATE_FAILED', message: error.message}}));
+    if ((process.argv[2] === 'update' || error.code === 'SLOTHVAULT_DEPLOYMENT_REMOVED') && process.argv.includes('--json')) console.log(JSON.stringify({ok: false, error: {code: error.code || 'UPDATE_FAILED', message: error.message}}));
     else console.error(error.message);
     process.exit(1);
 });

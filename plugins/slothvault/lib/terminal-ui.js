@@ -2,7 +2,7 @@
  * @file terminal-ui.js
  * @project SlothTool
  * @module SlothVault terminal presentation
- * @description Shared high-contrast frame and measured progress formatting for the Deployment and Skill manager.
+ * @description Shared high-contrast frame and measured progress formatting for the Skill manager.
  * @logic Pin task state above scrollable output, distinguish labels and sections, and format only measured progress.
  * @dependencies React/Ink, shared terminal interaction, i18n
  * @index_tags slothvault,tui,contrast,progress,viewport

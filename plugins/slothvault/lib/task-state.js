@@ -2,8 +2,8 @@
  * @file task-state.js
  * @project SlothTool
  * @module SlothVault task lifecycle
- * @description Pure task transitions, separate input/execution clocks and verified deployment outcomes.
- * @logic Attribute events to one task, preserve layer measurements, pause clocks for prompts and require runtime evidence for application success.
+ * @description Pure task transitions, separate input/execution clocks and Skill package outcomes.
+ * @logic Attribute events to one task, preserve layer measurements, pause clocks for prompts and retain package operation results.
  * @dependencies None
  * @index_tags slothvault,tasks,progress,verification
  * @author holic512
@@ -43,12 +43,10 @@ export function taskEvent(task, event, now = Date.now()) {
     if (event.type === 'log') return {...task, logs: [...task.logs, event.message]};
     if (event.type === 'preview') return {...task, preview: event.data, beforeVersion: event.data?.currentVersion,
         targetVersion: event.data?.targetVersion};
-    if (event.type === 'snapshot') return {...task, snapshot: event.data, currentVersion: event.data?.appVersion};
     if (event.type === 'error') return {...task, error: event.message, errorCode: event.code};
     if (event.type === 'done') return {...task, done: event};
     return task;
 }
-const version = value => typeof value === 'string' ? value.replace(/^v/u, '') : null;
 export function finishTask(task, result = {}, now = Date.now()) {
     let state = result.code === 130 ? 'cancelled'
         : task.error || result.code != null && result.code !== 0 || result.status === 'error' || result.outcome === 'failed' ? 'failed'
@@ -56,16 +54,5 @@ export function finishTask(task, result = {}, now = Date.now()) {
             : result.status === 'partial' || result.warnings?.length ? 'partial'
                 : result.status === 'latest' || result.outcome === 'unchanged' ? 'unchanged' : 'completed';
     let error = task.error || result.reason;
-    if (task.action === 'update' && !['cancelled', 'failed'].includes(state)) {
-        const snapshot = task.snapshot;
-        const application = snapshot?.containers?.find(item => item.service === 'slothvault');
-        const matches = state === 'unchanged' ? Boolean(snapshot?.appVersion) : task.targetVersion && version(snapshot?.appVersion) === version(task.targetVersion);
-        const running = application?.state === 'running';
-        const healthy = !application?.health || application.health === 'healthy';
-        if (!matches || !running || !healthy || result.verified === false || snapshot?.appVersionSource === 'image-tag' || task.preview?.image && snapshot?.runtimeImage !== task.preview.image || snapshot?.errors?.some(item => ['docker', 'snapshot'].includes(item.scope))) {
-            state = 'partial';
-            error = 'VERSION_UNVERIFIED';
-        }
-    }
     return {...pause(task, now), state, finishedAt: now, error, result, currentVersion: task.currentVersion ?? result.currentVersion};
 }

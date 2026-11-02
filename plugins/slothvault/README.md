@@ -1,54 +1,35 @@
 # @holic512/plugin-slothvault
 
-SlothTool's SlothVault plugin manages independent Deployment and Skill packages. Agents such as Codex connect directly to the SlothVault MCP server through their native settings. The plugin has one executable, `slothvault`, and no MCP Client, Profile editor or standalone MCP launcher.
+SlothTool 的 SlothVault 插件只管理官方 Skill 内容及 Codex / Claude Code 的受管链接。默认进入单页 Skill 管理界面；部署工具在 SlothVault 仓库独立维护和发布。
 
-## Install and manage packages
+## 安装与使用
 
 ```bash
 slothtool install slothvault
 slothtool sv
 slothtool update slothvault --check
-slothtool slothvault deploy package status|install|check|update [--json]
-slothtool slothvault skill status [--check] [--json]
-slothtool slothvault skill install [--yes] [--json]
-slothtool slothvault skill update [--json]
+slothtool slothvault skill status --json
+slothtool slothvault skill status --check --json
+slothtool slothvault skill install
+slothtool slothvault skill update
 slothtool slothvault skill update --local
-slothtool slothvault skill uninstall [--json]
+slothtool slothvault skill uninstall
+slothtool update slothvault --module skill --check --json
 ```
 
-Root installation and updates manage only the UI; online and offline UI installation download no external packages. Explicit `slothtool update slothvault --module skill|deployment [--check] [--json]` remains available. Each package resolves its own official `skill-v*` or `deployment-v*` Release. Only deployment execution needs Python 3.10+; no Python virtual environment or pip dependencies are prepared.
+根安装和更新只管理插件界面；Skill 安装与更新显式获取 Vault 的 `skill-v*` 正式 Release，验证归档与逐文件 SHA-256 后激活唯一 `components/skill/current/` 目录。安装失败恢复旧内容，当前内容有效时可直接修复链接。`--local` 只离线修复现有内容的链接。
 
-## Native MCP connections
+Codex 目标为 `$CODEX_HOME/skills/slothvault-mcp`，Claude Code 目标为 `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp`；未设置时使用默认配置目录，只针对检测到的智能体。自动更新保留自定义目标，安装替换冲突需明确确认；非交互调用仅在已授权替换时使用 `skill install --yes`。
 
-Configure the SlothVault server in your agent. For Codex:
+## 界面
 
-```toml
-[mcp_servers.slothvault]
-url = "https://vault.example.com/mcp"
-http_headers = { Authorization = "Bearer <SlothVault MCP Key>" }
-default_tools_approval_mode = "auto"
-tool_timeout_sec = 120
-```
+操作包括状态、安装／修复、检查更新、更新、离线修复链接与卸载。`c` 检查、`n` 更新、`i` 安装、`l` 离线修复、`u` 卸载、`r` 刷新、`q` 退出。`v` 聚焦右侧详情，↑↓／PageUp／PageDown 滚动，`f`／End 跟随最新输出，Esc 返回操作；`d` 展开更新说明。操作过程中菜单保留，完成后的结果与错误可继续查看。窄终端采用上下布局。
 
-Replace the URL and placeholder with your server and its MCP key. The agent owns transport, discovery, calls and approval policy. SlothTool does not store these credentials or edit native agent configuration. Retired `mcp`, `setup`, `profile`, `doctor` and business CLI commands return `SLOTHVAULT_MCP_CLIENT_REMOVED` with native configuration guidance. The deprecated root plugin alias routes to the primary manager.
+## 独立部署与旧入口
 
-Vault owns the Skill's instructions. Its existing released Skill may still direct agents to the retired CLI and needs an independent update to use native MCP tools. The repository handoff document [SLOTHVAULT_NATIVE_MCP_HANDOFF.md](../../SLOTHVAULT_NATIVE_MCP_HANDOFF.md) includes Client removal, Skill migration and a one-time configuration dialog for the Vault website.
+SlothTool 不再安装、更新或执行 Deployment 包。旧 `deploy`、`deploy package ...` 和根 `--module deployment` 返回 `SLOTHVAULT_DEPLOYMENT_REMOVED`。下载 SlothVault 独立 Deployment Release，核验并解压后执行 `python3 menu.py`，或直接执行 `install.py`、`check_update.py`、`update.py`、`start.py`、`stop.py`、`restart.py`、`status.py`。完整迁移说明见 [部署交接说明](../../SLOTHVAULT_DEPLOYMENT_HANDOFF.md)。
 
-## TUI and measured progress
-
-The three Tabs are Overview, Deploy and Skill. Overview reads local state without connecting to MCP. Deploy highlights the actual running application version; script-package status/install/check/update live in the “Manage deployment package” subpage. UI, Deployment, Skill and application versions remain independent.
-
-Before CLI or TUI deployment execution, the adapter reads the installed script's `--help` to verify the requested action and options. Unsupported actions or options show a package update message before starting the operation. This also covers future commands without a duplicated version-to-feature table; unreadable capabilities stop execution with a package repair message.
-
-“Update application” checks the running container and official Release, then shows one fixed target, image, directory and restart impact before one backend confirmation. Enhanced prompts use `y` to continue and `n`/Esc to cancel; legacy Deployment prompts require typing `y` and pressing Enter. Release history is collapsed by default; `d` expands it.
-
-The right panel pins state, actual → target version, phase and execution/input-wait clocks above scrollable logs. Waiting pauses execution timing. Cyan labels, yellow waiting, green success and red failure accompany text and symbols. Logs follow new output until manual scrolling. Press `v` to focus, Up/Down or PageUp/PageDown to scroll, `f`/End to resume following, and Esc to return. Narrow terminals use a vertical layout. After 30 seconds without business progress, the panel reports the current phase and silence duration; a process heartbeat is separate from download progress.
-
-Deployment pulls the confirmed image through a private temporary Compose configuration, activates the real configuration only after pull, recreates the application and verifies its running image, embedded release identity and health locally. It waits up to 120 seconds for health and clearly reports absent health checks. A successful process exit alone cannot report application update success. Failure before recreation restores configuration; failure after recreation reports actual state without automatic rollback of possibly migrated data. JSON Compose layer measurements fall back to plain progress or phase-only events. Percentages describe an individual measured layer, never the overall update. Final snapshots refresh runtime versions even after cancellation/failure; `r` refreshes on demand. See [the bridge contract](../../SLOTHVAULT_DEPLOYMENT_HANDOFF.md).
-
-Skill install/update downloads and verifies the official Release in temporary storage, activates one stable `components/skill/current/` directory and verifies agent links. Valid latest content repairs links without another download; activation failures restore the old content. `--local` repairs links only. Codex targets `$CODEX_HOME/skills/slothvault-mcp` and Claude Code targets `$CLAUDE_CONFIG_DIR/skills/slothvault-mcp`, using their default config directories when unset. The Skill directory name remains unchanged. Automatic updates preserve custom content; explicit replacement requires confirmation.
-
-## Cleanup and uninstall
+## 清理与卸载
 
 ```bash
 slothtool slothvault cleanup --dry-run --json
@@ -57,25 +38,12 @@ slothtool uninstall slothvault --keep-data
 slothtool uninstall slothvault --purge-data --yes
 ```
 
-Cleanup previews and removes verified legacy Client payloads, commands, Profiles/history and obsolete package residue. It retains active Deployment/Skill content and referenced or unverifiable sources. Uninstall removes the interface, runtimes and managed links, keeping plugin data by default; purge removes fixed plugin-owned data paths too. Both operations work without Python. Native agent MCP configuration, custom targets, other plugins and deployed applications/databases/Nginx/certificates are protected.
+普通升级保留历史部署包。清理仅处理经验证的退役部署脚本包、旧 Client／Profile／历史、受管旧命令和暂存残留；保留活动 Skill 及自定义引用来源。插件卸载先移除受管链接再移除包，默认保留配置历史，显式 purge 才清理插件拥有的数据。这些操作不需要 Python，也不会修改已部署应用、数据库、Nginx、证书或智能体原生 MCP 配置。
 
-## 中文说明
+## Native MCP / English
 
-插件只管理部署与 Skill，默认进入总览。独立 MCP Client、Profile 表单、第二个命令与连接检查页面已移除；Codex 等智能体通过自己的原生 MCP 配置直连 SlothVault。旧 Client 运行包和受管命令仅保留清理兼容，不再安装或执行。
+This plugin manages only SlothVault Skills and detected Codex / Claude Code links. Root install/update manages the UI; explicit Skill commands synchronize the official Skill Release. The default TUI is a single Skill page with persistent actions and scrollable progress/results. Custom targets are preserved during automatic updates; explicit installation replacement requires confirmation.
 
-CLI 与 TUI 执行部署前会读取已安装脚本的 `--help`，检查目标命令和参数。旧脚本不支持新功能时先提示更新部署包；无法读取能力时停止并提示修复。以后新增命令也采用这项检查，不维护重复的版本与功能对应表。
+Deployment now runs independently: extract the standalone Vault Deployment Release and run `python3 menu.py` or an individual operation script. SlothTool deployment commands return migration guidance without starting Python or downloading deployment payloads. Cleanup and uninstall preserve deployed applications, databases, proxy/certificate configuration and native agent MCP settings.
 
-Skill 仍从 Vault 仓库正式 Release 同步；当前发布内容如果包含旧 CLI 指引，需要另一仓库更新。总览、部署与 Skill 三页保留右侧固定状态、滚动进度、结果与错误。部署脚本包管理位于子页；更新应用自动检查目标并只确认一次，等待输入单独计时。`d` 展开说明，`v` 滚动日志，`f`／End 恢复跟随；实际版本核验失败时不会报告成功。旧数据清理和卸载不会改动智能体原生 MCP 配置或已部署应用。
-
-## Nginx 管理 / Nginx management
-
-部署页的 Nginx 子菜单提供本机和 Docker 发现、站点选择、状态、基础反向代理、传输配置更新、HTTPS 和证书续期。先发现，再选择代理站点；配置更新只修改目标站点并保留原 HTTPS 和自定义设置。
-
-The Deployment tab includes Nginx discovery, site selection, status, basic proxy configuration, transfer policy updates, HTTPS and renewal. Updates preserve the selected site’s existing HTTPS and custom settings.
-
-```bash
-slothtool slothvault deploy --action nginx-discover
-slothtool slothvault deploy --action nginx-update --nginx-mode docker --nginx-container nginx --nginx-site /etc/nginx/conf.d/vault.conf --nginx-server-name vault.example.com
-```
-
-Requires the independently updated Vault Deployment package (1.1.1 or newer); updating this UI does not install that package automatically.
+Agents connect directly to the SlothVault `/mcp` endpoint through their native MCP configuration. SlothTool does not store keys, create Profiles or implement an MCP Client. Retired `mcp`, `setup`, `profile`, `doctor` and business commands return native connection guidance. See [the native MCP handoff](../../SLOTHVAULT_NATIVE_MCP_HANDOFF.md).

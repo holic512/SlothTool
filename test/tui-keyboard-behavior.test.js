@@ -189,42 +189,21 @@ test('pzip edit, detail, and reverse tab obey the innermost layer', async () => 
     } finally {await ui.close();}
 });
 
-test('SlothVault manager requires y for deployment and cancels before later keys', async () => {
-    const launched = [];
-    const ui = harness(ManagerApp, {initialSetup: false,
-        services: {getComponentStatus: module => ({module, state: module === 'deployment' ? 'installed' : 'missing', currentVersion: null}),
-            getDeploymentAvailability: async () => ({available: true})},
-        inspect: async root => ({state: 'absent', root, containers: []}),
-        createSession(args) {
-            launched.push(args);
-            return {result: Promise.resolve({code: 0}), stop() {}, cancel() {}, respond() {}};
-        }
-    });
+test('SlothVault Skill uninstall requires y and cancellation cannot leak into later keys', async () => {
+    let removed = 0;
+    const ui = harness(ManagerApp, {services: {getSkillStatus: () => ({agents: [], sourceState: 'missing'}),
+        uninstallSkill: () => {removed++; return {agents: [], sourceState: 'missing'};}}});
     try {
-        await ui.press('\t');
-        assert.match(ui.frame(), /\[部署\]/u);
-        for (let i = 0; i < 4; i++) await ui.press('\u001b[B');
-        await ui.press('\r');
+        await ui.press('u');
         assert.match(ui.frame(), /y 确认/u);
         await ui.press('\r');
         assert.match(ui.frame(), /y 确认/u);
-        await ui.press('\u001b');
-        await ui.press('y');
-        assert.equal(launched.length, 0);
-        await ui.press('e');
-        await ui.press('\u0015');
-        await ui.press('q');
-        await ui.press('y');
-        await ui.press('\t');
-        assert.match(ui.frame(), /qy/u);
-        assert.match(ui.frame(), /\[部署\]/u);
-        await ui.press('\u001b');
-        await ui.press('\u001b[Z');
-        assert.match(ui.frame(), /\[概览\]/u);
-        await ui.press('v');
-        assert.match(ui.frame(), /PgUp\/PgDn/u);
-        await ui.press('\u001b');
-        assert.match(ui.frame(), /\[概览\]/u);
+        await ui.press('\u001b'); await ui.press('y');
+        assert.equal(removed, 0);
+        await ui.press('u'); await ui.press('y');
+        assert.equal(removed, 1);
+        await ui.press('v'); assert.match(ui.frame(), /PgUp\/PgDn/u);
+        await ui.press('\u001b'); assert.match(ui.frame(), /SlothVault Skill 管理/u);
     } finally {await ui.close();}
 });
 

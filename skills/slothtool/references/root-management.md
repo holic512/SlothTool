@@ -32,10 +32,9 @@ slothtool update loc --check --json
 slothtool update loc --json
 slothtool update slothvault --check --json
 slothtool update slothvault --module skill --check --json
-slothtool update slothvault --module deployment --check --json
 ```
 
-先检查，再在用户授权范围更新。普通 `update slothvault` 只更新插件 UI；仅显式 `--module skill` 或 `--module deployment`（去掉 `--check`）才修改对应独立包，不能因 UI 更新自动安装它们。`slothtool --update-all` 是批量修改，`slothtool self-update` 修改主程序，均只在用户明确要求时执行。
+先检查，再在用户授权范围更新。普通 `update slothvault` 只更新插件 UI；仅显式 `--module skill`（去掉 `--check`）才修改对应独立包，不能因 UI 更新自动安装它们。`slothtool --update-all` 是批量修改，`slothtool self-update` 修改主程序，均只在用户明确要求时执行。
 
 ## 配置
 

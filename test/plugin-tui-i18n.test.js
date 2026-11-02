@@ -65,11 +65,11 @@ test('gstore exposes the shared tab and footer shell in both languages', () => {
     assert.match(gstoreMessages.zh.tui.footer.sync, /Tab/u);
 });
 
-test('SlothVault exposes only bilingual deployment and Skill pages with native connection guidance', () => {
-    assert.deepEqual(Object.keys(slothVaultMessages.zh.manager.tabs), ['overview', 'deploy', 'skill']);
-    assert.deepEqual(Object.keys(slothVaultMessages.en.manager.tabs), ['overview', 'deploy', 'skill']);
-    assert.match(slothVaultMessages.zh.workspace.footer, /Tab/u);
-    assert.match(slothVaultMessages.en.workspace.footer, /Tab/u);
+test('SlothVault exposes only a bilingual Skill page with native connection guidance', () => {
+    assert.deepEqual(Object.keys(slothVaultMessages.zh.manager.tabs), ['skill']);
+    assert.deepEqual(Object.keys(slothVaultMessages.en.manager.tabs), ['skill']);
+    assert.doesNotMatch(slothVaultMessages.zh.workspace.footer, /Tab/u);
+    assert.doesNotMatch(slothVaultMessages.en.workspace.footer, /Tab/u);
     assert.match(slothVaultMessages.zh.nativeMcpGuidance, /原生 MCP/u);
     assert.match(slothVaultMessages.en.nativeMcpGuidance, /native MCP/u);
     assert.equal(slothVaultMessages.zh.tui, undefined);

@@ -3,19 +3,17 @@
 /**
  * @file SlothVaultPluginEntry
  * @project SlothTool
- * @module SlothVault Multifunction Plugin / Entry
- * @description Manages Vault-owned deployment and Skill packages; agents connect to MCP through their native configuration.
- * @logic Dispatch deployment, Skill and cleanup commands; confirm destructive local replacement; reject retired Client commands with native connection guidance.
- * @dependencies Node: readline/process, Deploy Runner, Package/Skill Services, Manager TUI
- * @index_tags slothvault,cli,deploy,skill,native-mcp,tui
+ * @module SlothVault Skill Plugin / Entry
+ * @description Manages the Vault-owned Skill package; agents connect to MCP through their native configuration.
+ * @logic Dispatch Skill and cleanup commands; reject removed deployment commands; confirm destructive local replacement; reject retired Client commands with native connection guidance.
+ * @dependencies Node: readline/process, Skill Services, Manager TUI
+ * @index_tags slothvault,cli,skill,native-mcp,tui
  * @author holic512
  */
 
 import process from 'node:process';
 import {createInterface} from 'node:readline/promises';
-import {runDeployment} from '../lib/deploy-runner.js';
 import {checkSkillUpdate, updateSkill, getSkillStatus, installSkill, uninstallSkill} from '../lib/skill-service.js';
-import {operatePackage} from '../lib/package-service.js';
 import {planSlothVaultCleanup, cleanupSlothVault} from '../lib/slothvault-storage.js';
 import {startSlothVaultManagerTui} from '../lib/manager-tui.js';
 import {t} from '../lib/i18n.js';
@@ -41,11 +39,8 @@ function print(value, json) {
 }
 
 function printHelp() {
-    console.log('SlothVault multifunction plugin\n');
+    console.log('SlothVault Skill manager\n');
     console.log('  slothtool slothvault');
-    console.log('  slothtool slothvault deploy [deployment installer arguments]');
-    console.log('  slothtool slothvault deploy --action nginx-discover|nginx-status|nginx-update [--nginx-mode system|docker] [--nginx-container NAME]');
-    console.log('  slothtool slothvault deploy package status|install|check|update [--json]');
     console.log('  slothtool slothvault cleanup [--dry-run] [--yes] [--json]');
     console.log('  slothtool slothvault skill status|install|update|uninstall [--check] [--local] [--yes] [--json]');
     console.log('\n' + t('nativeMcpGuidance'));
@@ -109,6 +104,7 @@ async function runSkill(args, json) {
 
 async function main() {
     const args = process.argv.slice(2);
+    if (args[0] === 'deploy') throw Object.assign(new Error(t('deploymentRemoved')), {code: 'SLOTHVAULT_DEPLOYMENT_REMOVED', category: 'usage', exitCode: 2});
     if (hasFlag(args, '--help') || hasFlag(args, '-h')) return printHelp();
     if (!args.length || hasFlag(args, '--tui') || hasFlag(args, '-i') || hasFlag(args, '--interactive')) {
         if (!interactive() && !process.env.SLOTHTOOL_SLOTHVAULT_TUI_TEST_ACTION) throw new Error('The SlothVault TUI requires an interactive terminal.');
@@ -117,12 +113,6 @@ async function main() {
     const [command, ...rest] = args;
     const json = hasFlag(rest, '--json');
     if (MCP_EXECUTION_COMMANDS.has(command)) throw nativeMcpRequiredError();
-    if (command === 'deploy' && rest[0] === 'package') {
-        const result = await operatePackage('deployment', rest[1] || 'status');
-        print(result, json);
-        if (result.status === 'error') process.exitCode = 1;
-        return;
-    }
     if (command === 'cleanup') {
         const preview = planSlothVaultCleanup();
         if (hasFlag(rest, '--dry-run')) return print({...preview, status: 'preview'}, json);
@@ -134,11 +124,6 @@ async function main() {
         const result = cleanupSlothVault();
         print(result, json);
         if (result.errors.length) process.exitCode = 1;
-        return;
-    }
-    if (command === 'deploy') {
-        const result = await runDeployment(rest);
-        process.exitCode = result.code;
         return;
     }
     if (command === 'skill') return runSkill(rest, json);

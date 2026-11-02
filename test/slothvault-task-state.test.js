@@ -35,27 +35,15 @@ test('heartbeats preserve inactivity and layer transitions discard stale measure
     assert.deepEqual(task.layers, {});
 });
 
-const snapshot = {appVersion: 'v2.5.20', runtimeImage: 'holic512/slothvault:v2.5.20',
-    containers: [{service: 'slothvault', state: 'running', health: 'healthy'}], errors: []};
-function updateTask(state = snapshot) {
-    return taskEvent(taskEvent(createTask(1, 'update', 0), {type: 'preview', data: {currentVersion: 'v2.3.1', targetVersion: 'v2.5.20'}}, 10),
-        {type: 'snapshot', data: state}, 20);
-}
-test('application success requires runtime evidence, independent from the process success code', () => {
-    assert.equal(finishTask(updateTask(), {code: 0, verified: true}, 100).state, 'completed');
-    for (const bad of [{...snapshot, appVersion: 'v2.3.1'}, {...snapshot, containers: []},
-        {...snapshot, containers: [{service: 'slothvault', state: 'exited'}]},
-        {...snapshot, containers: [{service: 'slothvault', state: 'running', health: 'unhealthy'}]},
-        {...snapshot, appVersionSource: 'image-tag'}, {...snapshot, errors: [{scope: 'snapshot'}]}, null]) {
-        assert.equal(finishTask(updateTask(bad), {code: 0}, 100).state, 'partial');
-    }
-    assert.equal(finishTask(updateTask(), {code: 1, outcome: 'updated'}, 100).state, 'failed');
-    assert.equal(finishTask({...updateTask(), cancelRequested: true}, {code: 1}, 100).state, 'failed');
-    assert.equal(finishTask(updateTask(), {code: 130}, 100).state, 'cancelled');
-    assert.equal(finishTask(updateTask(), {code: 0, outcome: 'unchanged'}, 100).state, 'unchanged');
-    assert.equal(finishTask(updateTask(), {code: 0, outcome: 'cancelled'}, 100).state, 'cancelled');
-    const done = finishTask(updateTask(), {code: 0}, 100);
-    assert.equal(taskEvent(done, {type: 'snapshot', data: null}, 500), done);
+test('Skill results retain warnings and stop accepting events after completion', () => {
+    const task = createTask(1, 'package-update', 0);
+    assert.equal(finishTask(task, {status: 'updated'}, 100).state, 'completed');
+    assert.equal(finishTask(task, {status: 'partial', warnings: [{code: 'SKILL_CUSTOM_TARGET_PRESERVED'}]}, 100).state, 'partial');
+    assert.equal(finishTask(task, {status: 'latest'}, 100).state, 'unchanged');
+    assert.equal(finishTask(task, {status: 'error', reason: 'offline'}, 100).state, 'failed');
+    assert.equal(finishTask(task, {code: 130}, 100).state, 'cancelled');
+    const done = finishTask(task, {status: 'updated'}, 100);
+    assert.equal(taskEvent(done, {type: 'progress'}, 500), done);
     assert.deepEqual(taskTimes(done, 100), taskTimes(done, 90000));
 });
 

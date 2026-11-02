@@ -13,8 +13,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 
-export const VAULT_COMPONENTS = Object.freeze(['skill', 'deployment']);
-export const BRIDGE_MAJOR = Object.freeze({skill: 1, deployment: 1});
+export const VAULT_COMPONENTS = Object.freeze(['skill']);
+export const BRIDGE_MAJOR = Object.freeze({skill: 1});
 export function slothToolHome(options = {}) {return path.resolve(options.slothToolHome || path.join(options.homeDir || os.homedir(), '.pipker', 'slothtool'));}
 export function componentPaths(module, options = {}) {
     if (!VAULT_COMPONENTS.includes(module)) throw new Error(`Unknown SlothVault component: ${module}`);
@@ -31,7 +31,7 @@ export function getComponentStatus(module, options = {}) {
     let meta;
     try {meta = JSON.parse(fs.readFileSync(path.join(root, 'module.json'), 'utf8'));}
     catch (error) {return {module, path: root, currentVersion: null, state: error.code === 'ENOENT' && !fs.existsSync(root) ? 'missing' : 'invalid'};}
-    const required = module === 'skill' ? ['slothvault-mcp/SKILL.md'] : ['install.py'];
+    const required = ['slothvault-mcp/SKILL.md'];
     let valid = meta.schema === 1 && meta.module === module && /^\d+\.\d+\.\d+$/u.test(meta.version || '') && meta.bridgeApiMajor === BRIDGE_MAJOR[module] && required.every(file => fs.existsSync(path.join(root, file)));
     const receipt = path.join(componentPaths(module, options).root, `.verified-${meta.version}.json`);
     if (valid && fs.existsSync(receipt)) try {
